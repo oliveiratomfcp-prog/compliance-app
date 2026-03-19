@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Compliance App — Eiffel IG</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- MSAL : bibliothèque Microsoft pour la connexion Azure AD -->
+  <script src="https://alcdn.msauth.net/browser/2.38.3/js/msal-browser.min.js"></script>
+  <!-- jsPDF : bibliothèque pour générer des PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ===== ÉCRAN DE CONNEXION ===== -->
+  <div id="screen-login" class="screen active">
+    <div class="login-card">
+      <div class="login-logo">
+        <div class="logo-mark">EIG</div>
+        <div class="logo-text">
+          <span class="logo-main">Eiffel</span>
+          <span class="logo-sub">Investment Group</span>
+        </div>
+      </div>
+      <div class="login-divider"></div>
+      <h1 class="login-title">Compliance Portal</h1>
+      <p class="login-desc">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder à la plateforme.</p>
+      <button id="btn-login" class="btn-microsoft">
+        <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+          <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+          <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+          <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+        </svg>
+        Se connecter avec Microsoft
+      </button>
+      <p class="login-footer">Accès réservé aux collaborateurs Eiffel IG</p>
+    </div>
+  </div>
+
+  <!-- ===== APPLICATION PRINCIPALE ===== -->
+  <div id="screen-app" class="screen">
+
+    <!-- BARRE DE NAVIGATION -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <div class="nav-logo">EIG</div>
+        <span class="nav-title">Compliance Portal</span>
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="restricted">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Restricted List
+        </button>
+        <button class="nav-tab" data-tab="declaration">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          Déclarer
+        </button>
+        <button class="nav-tab" data-tab="history">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Historique
+        </button>
+      </div>
+      <div class="nav-user">
+        <div class="user-avatar" id="user-avatar">--</div>
+        <div class="user-info">
+          <span class="user-name" id="user-name">Chargement...</span>
+          <span class="user-role">Collaborateur</span>
+        </div>
+        <button id="btn-logout" class="btn-logout" title="Se déconnecter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="main-content">
+
+      <!-- ===== ONGLET 1 : RESTRICTED LIST ===== -->
+      <section id="tab-restricted" class="tab-content active">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Restricted List</h2>
+            <p class="section-desc">Liste des titres financiers sous restriction (information privilégiée ou NDA)</p>
+          </div>
+          <button id="btn-generate-restricted-pdf" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Générer l'attestation PDF
+          </button>
+        </div>
+
+        <div id="restricted-loading" class="loading-state">
+          <div class="spinner"></div>
+          <p>Chargement de la liste...</p>
+        </div>
+
+        <div id="restricted-error" class="error-state hidden">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p id="restricted-error-msg">Erreur de chargement</p>
+        </div>
+
+        <div id="restricted-table-container" class="hidden">
+          <div class="table-meta">
+            <span id="restricted-count" class="table-count">0 titres</span>
+            <span class="table-date">Mis à jour en temps réel depuis SharePoint</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table" id="restricted-table">
+              <thead>
+                <tr>
+                  <th>Titre / Émetteur</th>
+                  <th>Type de restriction</th>
+                  <th>Date d'ajout</th>
+                  <th>Statut</th>
+                </tr>
+              </thead>
+              <tbody id="restricted-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ONGLET 2 : DÉCLARATION ===== -->
+      <section id="tab-declaration" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Déclarer une transaction</h2>
+            <p class="section-desc">Enregistrez une transaction personnelle sur un titre financier</p>
+          </div>
+        </div>
+
+        <div class="form-card">
+          <div class="form-grid">
+
+            <div class="form-group full-width">
+              <label class="form-label">Nom du titre financier *</label>
+              <input type="text" id="f-titre" class="form-input" placeholder="Ex: Apple Inc., Total SA..." />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Type d'opération *</label>
+              <select id="f-type" class="form-input">
+                <option value="">-- Sélectionner --</option>
+                <option value="Achat">Achat</option>
+                <option value="Vente">Vente</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Quantité *</label>
+              <input type="number" id="f-quantite" class="form-input" placeholder="Ex: 100" min="1" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Prix unitaire (€)</label>
+              <input type="number" id="f-prix" class="form-input" placeholder="Ex: 145.50" step="0.01" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Date de la transaction *</label>
+              <input type="date" id="f-date" class="form-input" />
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label">Compte utilisé *</label>
+              <input type="text" id="f-compte" class="form-input" placeholder="Ex: Compte-titres BNP, PEA Boursorama..." />
+            </div>
+
+            <div class="form-group full-width">
+              <label class="form-label">Commentaire (optionnel)</label>
+              <textarea id="f-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
+            </div>
+
+          </div>
+
+          <div class="form-actions">
+            <div id="declaration-msg" class="form-message hidden"></div>
+            <button id="btn-submit-declaration" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Enregistrer la déclaration
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ONGLET 3 : HISTORIQUE ===== -->
+      <section id="tab-history" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Mon historique</h2>
+            <p class="section-desc">Vos déclarations de transactions passées</p>
+          </div>
+        </div>
+
+        <div id="history-loading" class="loading-state">
+          <div class="spinner"></div>
+          <p>Chargement de l'historique...</p>
+        </div>
+
+        <div id="history-empty" class="empty-state hidden">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p>Aucune déclaration pour l'instant</p>
+        </div>
+
+        <div id="history-table-container" class="hidden">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Titre</th>
+                  <th>Type</th>
+                  <th>Quantité</th>
+                  <th>Prix</th>
+                  <th>Date transaction</th>
+                  <th>Date déclaration</th>
+                  <th>Attestation</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
