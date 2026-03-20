@@ -60,6 +60,9 @@ let restrictedItems = [];     // Les titres de la restricted list
 // -----------------------------------------------
 async function init() {
   try {
+    // MSAL v3 : initialisation obligatoire avant tout
+    await msalInstance.initialize();
+
     // Gère le retour après connexion Microsoft
     await msalInstance.handleRedirectPromise();
 
