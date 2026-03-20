@@ -588,6 +588,17 @@ function renderHistory(query) {
   });
 }
 
+function toggleTransactionForm() {
+  const container = document.getElementById("transaction-form-container");
+  const isHidden = container.classList.contains("hidden");
+  if (isHidden) {
+    container.classList.remove("hidden");
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else {
+    container.classList.add("hidden");
+  }
+}
+
 function regenPDF(item) { generateDeclarationPDF(item); }
 
 function generateRestrictedPDFFromHistory(item) {

@@ -624,6 +624,17 @@ body {
   color: var(--text-muted);
 }
 
+.declare-card-clickable {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.declare-card-clickable:hover {
+  border-color: var(--navy);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
 .declare-alert {
   display: flex;
   align-items: flex-start;

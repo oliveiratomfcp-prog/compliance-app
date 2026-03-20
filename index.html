@@ -164,19 +164,37 @@
           </div>
 
           <!-- CARTE 3 : TRANSACTION PERSONNELLE -->
-          <div class="declare-card declare-card-form">
+          <div class="declare-card declare-card-clickable" onclick="toggleTransactionForm()">
             <div class="declare-card-icon" style="background:rgba(0,20,59,0.08);color:#00143B">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
             </div>
-            <div class="declare-card-badge badge badge-active">Transaction</div>
+            <span class="declare-card-badge badge badge-active">Transaction</span>
             <h3 class="declare-card-title">Transaction personnelle</h3>
-            <p class="declare-card-desc">Déclarez une transaction sur un titre financier et générez votre attestation PDF.</p>
-            <div class="declare-alert">
+            <p class="declare-card-desc">Déclarez une transaction sur un titre financier et générez votre attestation PDF à envoyer à CPL sous 24h.</p>
+            <p class="declare-card-note">Cliquez pour ouvrir le formulaire</p>
+            <div class="btn-form-open" style="margin-top:auto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Déclarer une transaction
+            </div>
+          </div>
+
+        </div>
+
+        <!-- FORMULAIRE TRANSACTION (caché par défaut) -->
+        <div id="transaction-form-container" class="hidden" style="margin-top:20px">
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <div>
+                <h3 style="font-size:16px;font-weight:700;color:var(--navy)">Transaction personnelle</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px">Remplissez le formulaire et générez votre attestation PDF</p>
+              </div>
+              <button onclick="toggleTransactionForm()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
+            </div>
+            <div class="declare-alert" style="margin-bottom:20px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               Ce formulaire doit être envoyé à CPL dans les <strong>24 heures</strong> suivant la transaction.
             </div>
-
-            <div class="form-grid" style="margin-top:16px">
+            <div class="form-grid">
               <div class="form-group full-width">
                 <label class="form-label">Nom du titre financier *</label>
                 <input type="text" id="f-titre" class="form-input" placeholder="Ex: Apple Inc., Total SA..." />
@@ -210,7 +228,6 @@
                 <textarea id="f-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
               </div>
             </div>
-
             <div class="form-actions">
               <div id="declaration-msg" class="form-message hidden"></div>
               <button id="btn-submit-declaration" class="btn-primary">
@@ -219,8 +236,8 @@
               </button>
             </div>
           </div>
-
         </div>
+
       </section>
 
       <!-- ===== ONGLET 3 : HISTORIQUE ===== -->
