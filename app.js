@@ -555,11 +555,10 @@ async function saveToHistory(data) {
           D_x00e9_clarant: currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "declaration",
-          TypeOperation: data.type,
-          Quantite: data.quantite ? parseFloat(data.quantite) : null,
-          Prix: data.prix ? parseFloat(data.prix) : null,
-          DateTransaction: data.date ? new Date(data.date).toISOString() : null,
-          CompteUtilise: data.compte,
+          TypeOperation: data.type || "",
+          Quantite: data.quantite ? parseFloat(data.quantite) : 0,
+          Prix: data.prix ? parseFloat(data.prix) : 0,
+          CompteUtilise: data.compte || "",
           Commentaire: data.commentaire || "",
           IsFound: false
         }}
