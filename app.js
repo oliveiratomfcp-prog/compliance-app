@@ -551,7 +551,15 @@ async function saveToHistory(data) {
         `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items`,
         "POST",
         { fields: {
-          Title: data.titre
+          Title: data.titre,
+          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
+          DeclarantEmail: currentUser.mail,
+          TypeEntree: "declaration",
+          TypeOperation: data.type || "",
+          Quantite: data.quantite ? parseFloat(data.quantite) : 0,
+          Prix: data.prix ? parseFloat(data.prix) : 0,
+          CompteUtilise: data.compte || "",
+          Commentaire: data.commentaire || ""
         }}
       );
     } catch (err) {
@@ -574,8 +582,7 @@ async function saveConsultationToHistory(searchLabel, isFound, foundItems) {
           D_x00e9_clarant: currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "consultation",
-          IsFound: isFound,
-          Commentaire: isFound ? foundItems.map(i => i.nom).join(", ") : ""
+          Commentaire: isFound ? "Restreint - " + foundItems.map(i => i.nom).join(", ") : "Non restreint"
         }}
       );
     } catch (err) {
@@ -624,7 +631,7 @@ async function renderHistory(query) {
           date: f.DateTransaction,
           compte: f.CompteUtilise,
           commentaire: f.Commentaire,
-          isFound: f.IsFound,
+          isFound: f.Commentaire && f.Commentaire.startsWith("Restreint"),
           dateDeclaration: item.createdDateTime,
           id: item.id
         };
