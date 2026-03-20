@@ -483,7 +483,26 @@ body {
   font-weight: 500;
 }
 
-.badge-restricted { background: #fde8e8; color: #c53030; }
+.data-table thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.data-table thead th.sortable:hover {
+  background: #1a2e5a;
+}
+
+.data-table thead th.sortable span {
+  font-size: 11px;
+  opacity: 0.6;
+  margin-left: 4px;
+}
+
+.data-table thead th.sort-asc span,
+.data-table thead th.sort-desc span {
+  opacity: 1;
+  color: var(--gold-light);
+}
 .badge-nda { background: #fef3c7; color: #92400e; }
 .badge-active { background: var(--success-bg); color: var(--success); }
 

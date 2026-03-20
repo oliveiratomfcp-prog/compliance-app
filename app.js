@@ -130,6 +130,7 @@ async function loadRestrictedList() {
         isin: f.ISIN || f.CodeISIN || "—",
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
+        equipe: "—",
         type: "NDA",
         source: "NDA List"
       };
@@ -142,6 +143,7 @@ async function loadRestrictedList() {
         isin: f.CodeISIN || "—",
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
+        equipe: f.Equipe || "—",
         type: "Information privil\u00e9gi\u00e9e",
         source: "Info Priv"
       };
@@ -177,10 +179,54 @@ function renderRestrictedTable(items) {
         <td><strong>${item.nom}</strong></td>
         <td style="font-family:monospace;font-size:13px">${item.isin}</td>
         <td><span class="badge ${badgeClass}">${item.type}</span></td>
+        <td>${item.equipe !== "—" ? `<span class="badge badge-active">${item.equipe}</span>` : "—"}</td>
         <td>${formatDate(item.dateDebut)}</td>
         <td>${formatDate(item.dateFin)}</td>
       </tr>`;
   });
+}
+
+let currentSort = { col: null, dir: 1 };
+
+function sortTable(col) {
+  if (currentSort.col === col) {
+    currentSort.dir *= -1;
+  } else {
+    currentSort.col = col;
+    currentSort.dir = 1;
+  }
+
+  ["nom", "type", "dateDebut", "dateFin"].forEach(c => {
+    const el = document.getElementById(`sort-${c}`);
+    const th = el ? el.parentElement : null;
+    if (el) el.textContent = "\u2195";
+    if (th) th.classList.remove("sort-asc", "sort-desc");
+  });
+  const activeEl = document.getElementById(`sort-${col}`);
+  if (activeEl) {
+    activeEl.textContent = currentSort.dir === 1 ? "\u2191" : "\u2193";
+    activeEl.parentElement.classList.add(currentSort.dir === 1 ? "sort-asc" : "sort-desc");
+  }
+
+  const query = document.getElementById("search-restricted").value.toLowerCase().trim();
+  let items = query
+    ? allRestrictedItems.filter(item =>
+        item.nom.toLowerCase().includes(query) ||
+        item.isin.toLowerCase().includes(query))
+    : [...allRestrictedItems];
+
+  items.sort((a, b) => {
+    let valA = a[col] || "";
+    let valB = b[col] || "";
+    if (col === "dateDebut" || col === "dateFin") {
+      valA = valA ? new Date(valA).getTime() : 0;
+      valB = valB ? new Date(valB).getTime() : 0;
+      return (valA - valB) * currentSort.dir;
+    }
+    return valA.localeCompare(valB, "fr") * currentSort.dir;
+  });
+
+  renderRestrictedTable(items);
 }
 
 document.getElementById("search-restricted").addEventListener("input", function () {

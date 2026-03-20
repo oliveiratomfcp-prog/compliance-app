@@ -109,11 +109,12 @@
             <table class="data-table" id="restricted-table">
               <thead>
                 <tr>
-                  <th>Société / Titre</th>
+                  <th class="sortable" onclick="sortTable('nom')">Société / Titre <span id="sort-nom">↕</span></th>
                   <th>Code ISIN</th>
-                  <th>Type de restriction</th>
-                  <th>Date de début</th>
-                  <th>Date de fin</th>
+                  <th class="sortable" onclick="sortTable('type')">Type de restriction <span id="sort-type">↕</span></th>
+                  <th>Équipe</th>
+                  <th class="sortable" onclick="sortTable('dateDebut')">Date de début <span id="sort-dateDebut">↕</span></th>
+                  <th class="sortable" onclick="sortTable('dateFin')">Date de fin <span id="sort-dateFin">↕</span></th>
                 </tr>
               </thead>
               <tbody id="restricted-tbody"></tbody>
