@@ -552,7 +552,7 @@ async function saveToHistory(data) {
         "POST",
         { fields: {
           Title: data.titre,
-          "D\u00e9clarant": currentUser.displayName || currentUser.mail,
+          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "declaration",
           TypeOperation: data.type,
@@ -581,7 +581,7 @@ async function saveConsultationToHistory(searchLabel, isFound, foundItems) {
         "POST",
         { fields: {
           Title: searchLabel,
-          "D\u00e9clarant": currentUser.displayName || currentUser.mail,
+          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "consultation",
           IsFound: isFound,
