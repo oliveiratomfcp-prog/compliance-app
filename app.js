@@ -619,7 +619,8 @@ async function renderHistory(query) {
       const email = currentUser.mail;
       const filter = `fields/DeclarantEmail eq '${email}'`;
       const data = await callGraphAPI(
-        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$top=100`
+        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$top=100`,
+        "GET", null, { "Prefer": "HonorNonIndexedQueriesWarningMayFailRandomly" }
       );
 
       let items = (data.value || []).map(item => {
@@ -723,7 +724,7 @@ function generateRestrictedPDFFromHistory(item) {
   allRestrictedItems = savedItems;
 }
 
-async function callGraphAPI(endpoint, method = "GET", body = null) {
+async function callGraphAPI(endpoint, method = "GET", body = null, extraHeaders = {}) {
   let tokenResponse;
   try {
     tokenResponse = await msalInstance.acquireTokenSilent({ ...graphScopes, account: msalInstance.getActiveAccount() });
@@ -733,7 +734,11 @@ async function callGraphAPI(endpoint, method = "GET", body = null) {
   }
   const options = {
     method,
-    headers: { "Authorization": `Bearer ${tokenResponse.accessToken}`, "Content-Type": "application/json" }
+    headers: {
+      "Authorization": `Bearer ${tokenResponse.accessToken}`,
+      "Content-Type": "application/json",
+      ...extraHeaders
+    }
   };
   if (body) options.body = JSON.stringify(body);
   const response = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, options);
