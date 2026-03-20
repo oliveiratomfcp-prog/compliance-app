@@ -56,10 +56,6 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Historique
         </button>
-        <button class="nav-tab" data-tab="forms">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          Saisie Compliance
-        </button>
       </div>
       <div class="nav-user">
         <div class="user-avatar" id="user-avatar">--</div>
@@ -130,62 +126,100 @@
       <section id="tab-declaration" class="tab-content">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Déclarer une transaction</h2>
-            <p class="section-desc">Enregistrez une transaction personnelle sur un titre financier</p>
+            <h2 class="section-title">Déclarer</h2>
+            <p class="section-desc">Saisie Compliance et déclaration de transaction personnelle</p>
           </div>
         </div>
 
-        <div class="form-card">
-          <div class="form-grid">
+        <div class="declare-grid">
 
-            <div class="form-group full-width">
-              <label class="form-label">Nom du titre financier *</label>
-              <input type="text" id="f-titre" class="form-input" placeholder="Ex: Apple Inc., Total SA..." />
+          <!-- CARTE 1 : NDA LIST -->
+          <div class="declare-card">
+            <div class="declare-card-icon" style="background:rgba(209,143,65,0.1);color:#92400e">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
-
-            <div class="form-group">
-              <label class="form-label">Type d'opération *</label>
-              <select id="f-type" class="form-input">
-                <option value="">-- Sélectionner --</option>
-                <option value="Achat">Achat</option>
-                <option value="Vente">Vente</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Quantité *</label>
-              <input type="number" id="f-quantite" class="form-input" placeholder="Ex: 100" min="1" />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Prix unitaire (€)</label>
-              <input type="number" id="f-prix" class="form-input" placeholder="Ex: 145.50" step="0.01" />
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Date de la transaction *</label>
-              <input type="date" id="f-date" class="form-input" />
-            </div>
-
-            <div class="form-group full-width">
-              <label class="form-label">Compte utilisé *</label>
-              <input type="text" id="f-compte" class="form-input" placeholder="Ex: Compte-titres BNP, PEA Boursorama..." />
-            </div>
-
-            <div class="form-group full-width">
-              <label class="form-label">Commentaire (optionnel)</label>
-              <textarea id="f-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
-            </div>
-
+            <div class="declare-card-badge badge badge-nda">NDA</div>
+            <h3 class="declare-card-title">NDA List</h3>
+            <p class="declare-card-desc">Ajouter un nouveau titre sous NDA dans la liste de restriction. Ce formulaire alimentera directement la liste SharePoint NDA List.</p>
+            <p class="declare-card-note">Mise à jour immédiate de la Restricted List</p>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=ODE0OWFlMDUtMTkzNC00Y2FhLWIyZmQtMzI3YzAxZGU2YzA1&nav=ZWEzNTliNjEtYmVjNS00OTY0LTkzOWItMjZkNzk4YmNmYzYx" target="_blank" class="btn-form-open">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Ouvrir le formulaire NDA
+            </a>
           </div>
 
-          <div class="form-actions">
-            <div id="declaration-msg" class="form-message hidden"></div>
-            <button id="btn-submit-declaration" class="btn-primary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              Enregistrer la déclaration
-            </button>
+          <!-- CARTE 2 : INFO PRIVILÉGIÉE -->
+          <div class="declare-card">
+            <div class="declare-card-icon" style="background:rgba(192,57,43,0.08);color:#c0392b">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <div class="declare-card-badge badge badge-restricted">Info privilégiée</div>
+            <h3 class="declare-card-title">Information privilégiée</h3>
+            <p class="declare-card-desc">Ajouter un nouveau titre sous information privilégiée. Ce formulaire alimentera directement la liste SharePoint Information privilégiée.</p>
+            <p class="declare-card-note">Mise à jour immédiate de la Restricted List</p>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=NmVlYWEwMmYtZDhjNS00OThkLWJjMGYtZjM2NGExMmRmNTJm&nav=ZDcwNzU0Y2YtY2VjYi00M2NlLWIxNWItOGQ2NjkwYWM5NTdi" target="_blank" class="btn-form-open">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Ouvrir le formulaire Info privilégiée
+            </a>
           </div>
+
+          <!-- CARTE 3 : TRANSACTION PERSONNELLE -->
+          <div class="declare-card declare-card-form">
+            <div class="declare-card-icon" style="background:rgba(0,20,59,0.08);color:#00143B">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            </div>
+            <div class="declare-card-badge badge badge-active">Transaction</div>
+            <h3 class="declare-card-title">Transaction personnelle</h3>
+            <p class="declare-card-desc">Déclarez une transaction sur un titre financier et générez votre attestation PDF.</p>
+            <div class="declare-alert">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              Ce formulaire doit être envoyé à CPL dans les <strong>24 heures</strong> suivant la transaction.
+            </div>
+
+            <div class="form-grid" style="margin-top:16px">
+              <div class="form-group full-width">
+                <label class="form-label">Nom du titre financier *</label>
+                <input type="text" id="f-titre" class="form-input" placeholder="Ex: Apple Inc., Total SA..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Type d'opération *</label>
+                <select id="f-type" class="form-input">
+                  <option value="">-- Sélectionner --</option>
+                  <option value="Achat">Achat</option>
+                  <option value="Vente">Vente</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Quantité *</label>
+                <input type="number" id="f-quantite" class="form-input" placeholder="Ex: 100" min="1" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Prix unitaire (€)</label>
+                <input type="number" id="f-prix" class="form-input" placeholder="Ex: 145.50" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date de la transaction *</label>
+                <input type="date" id="f-date" class="form-input" />
+              </div>
+              <div class="form-group full-width">
+                <label class="form-label">Compte utilisé *</label>
+                <input type="text" id="f-compte" class="form-input" placeholder="Ex: Compte-titres BNP, PEA Boursorama..." />
+              </div>
+              <div class="form-group full-width">
+                <label class="form-label">Commentaire (optionnel)</label>
+                <textarea id="f-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
+              </div>
+            </div>
+
+            <div class="form-actions">
+              <div id="declaration-msg" class="form-message hidden"></div>
+              <button id="btn-submit-declaration" class="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Générer l'attestation PDF
+              </button>
+            </div>
+          </div>
+
         </div>
       </section>
 

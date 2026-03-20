@@ -571,6 +571,80 @@ body {
 .form-message.error { background: var(--error-bg); color: var(--error); }
 
 /* =============================================
+   ONGLET DÉCLARER — 3 CARTES
+   ============================================= */
+
+.declare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+.declare-card {
+  background: var(--white);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.declare-card-form {
+  grid-column: 1 / -1;
+}
+
+.declare-card-icon {
+  width: 44px; height: 44px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.declare-card-badge { align-self: flex-start; }
+
+.declare-card-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--navy);
+}
+
+.declare-card-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.declare-card-note {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.declare-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 14px;
+  background: rgba(209,143,65,0.08);
+  border: 1px solid rgba(209,143,65,0.25);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.declare-alert svg { flex-shrink: 0; margin-top: 1px; color: var(--gold); }
+
+@media (max-width: 900px) {
+  .declare-grid { grid-template-columns: 1fr; }
+  .declare-card-form { grid-column: 1; }
+}
+
+/* =============================================
    ONGLET SAISIE COMPLIANCE
    ============================================= */
 
