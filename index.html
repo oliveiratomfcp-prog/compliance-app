@@ -56,6 +56,10 @@
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
           Historique
         </button>
+        <button class="nav-tab" data-tab="forms">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          Saisie Compliance
+        </button>
       </div>
       <div class="nav-user">
         <div class="user-avatar" id="user-avatar">--</div>
@@ -226,6 +230,57 @@
               <tbody id="history-tbody"></tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- ===== ONGLET 4 : SAISIE COMPLIANCE ===== -->
+      <section id="tab-forms" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Saisie Compliance</h2>
+            <p class="section-desc">Alimenter les listes NDA et Information privilégiée</p>
+          </div>
+        </div>
+
+        <div class="forms-grid">
+
+          <div class="form-card">
+            <div class="form-card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <h3 class="form-card-title">NDA List</h3>
+            <p class="form-card-desc">Ajouter un nouveau titre sous NDA dans la liste de restriction. Ce formulaire alimentera directement la liste SharePoint NDA List.</p>
+            <div class="form-card-meta">
+              <span class="badge badge-nda">NDA</span>
+              <span class="form-card-info">Mise à jour immédiate de la Restricted List</span>
+            </div>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=ODE0OWFlMDUtMTkzNC00Y2FhLWIyZmQtMzI3YzAxZGU2YzA1&nav=ZWEzNTliNjEtYmVjNS00OTY0LTkzOWItMjZkNzk4YmNmYzYx" target="_blank" class="btn-form-open">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Ouvrir le formulaire NDA
+            </a>
+          </div>
+
+          <div class="form-card">
+            <div class="form-card-icon">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <h3 class="form-card-title">Information privilégiée</h3>
+            <p class="form-card-desc">Ajouter un nouveau titre sous information privilégiée. Ce formulaire alimentera directement la liste SharePoint Information privilégiée.</p>
+            <div class="form-card-meta">
+              <span class="badge badge-restricted">Info privilégiée</span>
+              <span class="form-card-info">Mise à jour immédiate de la Restricted List</span>
+            </div>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=NmVlYWEwMmYtZDhjNS00OThkLWJjMGYtZjM2NGExMmRmNTJm&nav=ZDcwNzU0Y2YtY2VjYi00M2NlLWIxNWItOGQ2NjkwYWM5NTdi" target="_blank" class="btn-form-open">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              Ouvrir le formulaire Info privilégiée
+            </a>
+          </div>
+
+        </div>
+
+        <div class="forms-note">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          Les formulaires s'ouvrent dans un nouvel onglet. Une fois soumis, la Restricted List sera automatiquement mise à jour lors de votre prochaine consultation.
         </div>
       </section>
 
