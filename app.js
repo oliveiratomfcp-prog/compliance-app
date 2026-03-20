@@ -552,13 +552,13 @@ async function saveToHistory(data) {
         "POST",
         { fields: {
           Title: data.titre,
-          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
+          "D\u00e9clarant": currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "declaration",
           TypeOperation: data.type,
           Quantite: data.quantite ? parseFloat(data.quantite) : null,
           Prix: data.prix ? parseFloat(data.prix) : null,
-          DateTransaction: data.date || null,
+          DateTransaction: data.date ? new Date(data.date).toISOString() : null,
           CompteUtilise: data.compte,
           Commentaire: data.commentaire || "",
           IsFound: false
@@ -581,7 +581,7 @@ async function saveConsultationToHistory(searchLabel, isFound, foundItems) {
         "POST",
         { fields: {
           Title: searchLabel,
-          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
+          "D\u00e9clarant": currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "consultation",
           IsFound: isFound,
@@ -619,7 +619,7 @@ async function renderHistory(query) {
       const email = currentUser.mail;
       const filter = `fields/DeclarantEmail eq '${email}'`;
       const data = await callGraphAPI(
-        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=Created desc&$top=100`
+        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$top=100`
       );
 
       let items = (data.value || []).map(item => {
@@ -637,7 +637,7 @@ async function renderHistory(query) {
           dateDeclaration: item.createdDateTime,
           id: item.id
         };
-      });
+      }).sort((a, b) => new Date(b.dateDeclaration) - new Date(a.dateDeclaration));
 
       if (query) items = items.filter(i => i.titre.toLowerCase().includes(query.toLowerCase()));
       hideElement("history-loading");
