@@ -551,16 +551,7 @@ async function saveToHistory(data) {
         `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items`,
         "POST",
         { fields: {
-          Title: data.titre,
-          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
-          DeclarantEmail: currentUser.mail,
-          TypeEntree: "declaration",
-          TypeOperation: data.type || "",
-          Quantite: data.quantite ? parseFloat(data.quantite) : 0,
-          Prix: data.prix ? parseFloat(data.prix) : 0,
-          CompteUtilise: data.compte || "",
-          Commentaire: data.commentaire || "",
-          IsFound: false
+          Title: data.titre
         }}
       );
     } catch (err) {
