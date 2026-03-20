@@ -60,18 +60,23 @@ let restrictedItems = [];     // Les titres de la restricted list
 // -----------------------------------------------
 async function init() {
   try {
-    // Gère le retour après connexion Microsoft
-    await msalInstance.handleRedirectPromise();
+    // Gère le retour après redirection Microsoft
+    const result = await msalInstance.handleRedirectPromise();
+
+    if (result) {
+      // Retour de redirection Microsoft → on est connecté
+      msalInstance.setActiveAccount(result.account);
+      await onLoggedIn();
+      return;
+    }
 
     // Vérifie si un utilisateur est déjà connecté
     const accounts = msalInstance.getAllAccounts();
 
     if (accounts.length > 0) {
-      // Utilisateur déjà connecté → on va sur l'app
       msalInstance.setActiveAccount(accounts[0]);
       await onLoggedIn();
     } else {
-      // Personne connecté → on affiche l'écran de login
       showScreen("login");
     }
   } catch (err) {
@@ -87,10 +92,8 @@ async function init() {
 // Quand l'utilisateur clique "Se connecter avec Microsoft"
 document.getElementById("btn-login").addEventListener("click", async () => {
   try {
-    // Ouvre la fenêtre de connexion Microsoft en popup
-    const result = await msalInstance.loginPopup(graphScopes);
-    msalInstance.setActiveAccount(result.account);
-    await onLoggedIn();
+    // Redirige vers la page de connexion Microsoft (plus fiable que popup)
+    await msalInstance.loginRedirect(graphScopes);
   } catch (err) {
     console.error("Erreur de connexion:", err);
     alert("Erreur de connexion. Vérifiez votre compte et réessayez.");
@@ -99,10 +102,7 @@ document.getElementById("btn-login").addEventListener("click", async () => {
 
 // Quand l'utilisateur clique "Se déconnecter"
 document.getElementById("btn-logout").addEventListener("click", () => {
-  msalInstance.logoutPopup().then(() => {
-    showScreen("login");
-    currentUser = null;
-  });
+  msalInstance.logoutRedirect();
 });
 
 // Après connexion réussie
@@ -632,8 +632,8 @@ async function callGraphAPI(endpoint, method = "GET", body = null) {
       account: msalInstance.getActiveAccount()
     });
   } catch {
-    // Si le token silencieux échoue, on redemande en popup
-    tokenResponse = await msalInstance.acquireTokenPopup(graphScopes);
+    // Si le token silencieux échoue, on redirige vers Microsoft
+    await msalInstance.acquireTokenRedirect(graphScopes);
   }
 
   // Prépare la requête
