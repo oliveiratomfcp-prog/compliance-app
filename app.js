@@ -11,6 +11,10 @@ const CONFIG = {
     sitePath: "/sites/CPL",
     listNDA: "NDA List",
     listInfoPriv: "Information privil\u00e9gi\u00e9e"
+  },
+  sharepointHistory: {
+    sitePath: "/sites/CPLDashboard",
+    listHistory: "Historique Compliance"
   }
 };
 
@@ -24,10 +28,11 @@ const msalConfig = {
 };
 
 const msalInstance = new msal.PublicClientApplication(msalConfig);
-const graphScopes = { scopes: ["User.Read", "Sites.Read.All"] };
+const graphScopes = { scopes: ["User.Read", "Sites.Read.All", "Sites.ReadWrite.All"] };
 
 let currentUser = null;
 let siteId = null;
+let siteIdHistory = null;
 let allRestrictedItems = [];
 
 async function init() {
@@ -74,9 +79,16 @@ async function onLoggedIn() {
     const site = await callGraphAPI(`/sites/${CONFIG.sharepoint.siteHostname}:${CONFIG.sharepoint.sitePath}`);
     siteId = site.id;
   } catch (err) {
-    console.error("Erreur site SharePoint:", err);
+    console.error("Erreur site SharePoint CPL:", err);
     showScreen("app");
     return;
+  }
+
+  try {
+    const site2 = await callGraphAPI(`/sites/${CONFIG.sharepoint.siteHostname}:${CONFIG.sharepointHistory.sitePath}`);
+    siteIdHistory = site2.id;
+  } catch (err) {
+    console.error("Erreur site SharePoint CPLDashboard:", err);
   }
 
   showScreen("app");
@@ -532,24 +544,63 @@ function getHistoryKey() {
   return `eig_declarations_${currentUser.mail}`;
 }
 
-function saveToHistory(data) {
-  const key = getHistoryKey();
-  const existing = JSON.parse(localStorage.getItem(key) || "[]");
-  existing.unshift({ ...data, type_entree: "declaration", dateDeclaration: new Date().toISOString(), id: Date.now() });
-  localStorage.setItem(key, JSON.stringify(existing));
+async function saveToHistory(data) {
+  if (siteIdHistory) {
+    try {
+      await callGraphAPI(
+        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items`,
+        "POST",
+        { fields: {
+          Title: data.titre,
+          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
+          DeclarantEmail: currentUser.mail,
+          TypeEntree: "declaration",
+          TypeOperation: data.type,
+          Quantite: data.quantite ? parseFloat(data.quantite) : null,
+          Prix: data.prix ? parseFloat(data.prix) : null,
+          DateTransaction: data.date || null,
+          CompteUtilise: data.compte,
+          Commentaire: data.commentaire || "",
+          IsFound: false
+        }}
+      );
+    } catch (err) {
+      console.error("Erreur sauvegarde historique SharePoint:", err);
+      saveToLocalStorage(data, "declaration");
+    }
+  } else {
+    saveToLocalStorage(data, "declaration");
+  }
 }
 
-function saveConsultationToHistory(searchLabel, isFound, foundItems) {
+async function saveConsultationToHistory(searchLabel, isFound, foundItems) {
+  if (siteIdHistory) {
+    try {
+      await callGraphAPI(
+        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items`,
+        "POST",
+        { fields: {
+          Title: searchLabel,
+          D_x00e9_clarant: currentUser.displayName || currentUser.mail,
+          DeclarantEmail: currentUser.mail,
+          TypeEntree: "consultation",
+          IsFound: isFound,
+          Commentaire: isFound ? foundItems.map(i => i.nom).join(", ") : ""
+        }}
+      );
+    } catch (err) {
+      console.error("Erreur sauvegarde consultation SharePoint:", err);
+      saveToLocalStorage({ titre: searchLabel, isFound, foundItems }, "consultation");
+    }
+  } else {
+    saveToLocalStorage({ titre: searchLabel, isFound, foundItems }, "consultation");
+  }
+}
+
+function saveToLocalStorage(data, type) {
   const key = getHistoryKey();
   const existing = JSON.parse(localStorage.getItem(key) || "[]");
-  existing.unshift({
-    type_entree: "consultation",
-    titre: searchLabel,
-    isFound,
-    foundItems,
-    dateDeclaration: new Date().toISOString(),
-    id: Date.now()
-  });
+  existing.unshift({ ...data, type_entree: type, dateDeclaration: new Date().toISOString(), id: Date.now() });
   localStorage.setItem(key, JSON.stringify(existing));
 }
 
@@ -558,25 +609,61 @@ function loadHistory() {
   renderHistory("");
 }
 
-function renderHistory(query) {
-  const key = getHistoryKey();
-  let items = JSON.parse(localStorage.getItem(key) || "[]");
-  hideElement("history-loading");
-
-  if (query) items = items.filter(i => i.titre.toLowerCase().includes(query));
-
-  if (items.length === 0) {
-    showElement("history-empty");
-    hideElement("history-table-container");
-    return;
-  }
-
+async function renderHistory(query) {
+  showElement("history-loading");
+  hideElement("history-table-container");
   hideElement("history-empty");
-  showElement("history-table-container");
 
+  if (siteIdHistory) {
+    try {
+      const email = currentUser.mail;
+      const filter = `fields/DeclarantEmail eq '${email}'`;
+      const data = await callGraphAPI(
+        `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listHistory)}/items?expand=fields&$filter=${encodeURIComponent(filter)}&$orderby=Created desc&$top=100`
+      );
+
+      let items = (data.value || []).map(item => {
+        const f = item.fields || {};
+        return {
+          titre: f.Title || "\u2014",
+          type_entree: f.TypeEntree || "declaration",
+          type: f.TypeOperation || "\u2014",
+          quantite: f.Quantite,
+          prix: f.Prix,
+          date: f.DateTransaction,
+          compte: f.CompteUtilise,
+          commentaire: f.Commentaire,
+          isFound: f.IsFound,
+          dateDeclaration: item.createdDateTime,
+          id: item.id
+        };
+      });
+
+      if (query) items = items.filter(i => i.titre.toLowerCase().includes(query.toLowerCase()));
+      hideElement("history-loading");
+      if (items.length === 0) { showElement("history-empty"); return; }
+      showElement("history-table-container");
+      _renderHistoryRows(items);
+
+    } catch (err) {
+      console.error("Erreur chargement historique:", err);
+      hideElement("history-loading");
+      showElement("history-empty");
+    }
+  } else {
+    const key = getHistoryKey();
+    let items = JSON.parse(localStorage.getItem(key) || "[]");
+    if (query) items = items.filter(i => i.titre.toLowerCase().includes(query.toLowerCase()));
+    hideElement("history-loading");
+    if (items.length === 0) { showElement("history-empty"); return; }
+    showElement("history-table-container");
+    _renderHistoryRows(items);
+  }
+}
+
+function _renderHistoryRows(items) {
   const tbody = document.getElementById("history-tbody");
   tbody.innerHTML = "";
-
   items.forEach(item => {
     const dateDecl = new Date(item.dateDeclaration).toLocaleDateString("fr-FR");
     const heureDecl = new Date(item.dateDeclaration).toLocaleTimeString("fr-FR");
@@ -602,7 +689,7 @@ function renderHistory(query) {
         <tr>
           <td><strong>${item.titre}</strong></td>
           <td><span class="badge badge-active">D\u00e9claration</span></td>
-          <td>${item.quantite}</td>
+          <td>${item.quantite || "\u2014"}</td>
           <td>${item.prix ? item.prix + " \u20ac" : "\u2014"}</td>
           <td>${dateTx}</td>
           <td>${dateDecl}</td>
