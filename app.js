@@ -598,8 +598,28 @@ function saveToLocalStorage(data, type) {
   localStorage.setItem(key, JSON.stringify(existing));
 }
 
+let historyCache = null;
+
 function loadHistory() {
   if (!currentUser) return;
+  // Si on a déjà chargé l'historique, on réutilise le cache
+  if (historyCache !== null) {
+    _renderHistoryRows(historyCache);
+    hideElement("history-loading");
+    if (historyCache.length === 0) {
+      showElement("history-empty");
+      hideElement("history-table-container");
+    } else {
+      hideElement("history-empty");
+      showElement("history-table-container");
+    }
+    return;
+  }
+  renderHistory("");
+}
+
+function refreshHistory() {
+  historyCache = null;
   renderHistory("");
 }
 
@@ -635,6 +655,7 @@ async function renderHistory(query) {
       }).sort((a, b) => new Date(b.dateDeclaration) - new Date(a.dateDeclaration));
 
       if (query) items = items.filter(i => i.titre.toLowerCase().includes(query.toLowerCase()));
+      historyCache = items; // Mise en cache
       hideElement("history-loading");
       if (items.length === 0) { showElement("history-empty"); return; }
       showElement("history-table-container");
