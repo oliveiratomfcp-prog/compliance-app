@@ -359,22 +359,49 @@ document.getElementById("btn-submit-declaration").addEventListener("click", () =
 
   if (restricted.length > 0) {
     showFormMessage(
-      `\u26a0 "${titre}" figure sur la Restricted List — cette transaction ne peut pas être déclarée. Contactez le service Compliance.`,
+      `\u26a0 "${titre}" figure sur la Restricted List \u2014 cette transaction ne peut pas \u00eatre demand\u00e9e. Contactez le service Compliance.`,
       "error"
     );
     return;
   }
 
   const data = { titre, type, quantite, prix, date, compte, commentaire };
+
+  // Génère le PDF
   generateDeclarationPDF(data);
+
+  // Sauvegarde dans l'historique local
   saveToHistory(data);
-  showFormMessage("\u2713 Attestation PDF g\u00e9n\u00e9r\u00e9e ! N'oubliez pas de l'envoyer au service Compliance dans les 48h.", "success");
+
+  // Ouvre Outlook avec mail pré-rempli vers CPL
+  const userName = currentUser.displayName || currentUser.mail;
+  const dateFr = date ? new Date(date).toLocaleDateString("fr-FR") : "\u2014";
+  const subject = encodeURIComponent(`Demande de transaction personnelle \u2014 ${titre} \u2014 ${userName}`);
+  const body = encodeURIComponent(
+    `Bonjour,\n\nVeuillez trouver ci-joint mon attestation de demande de transaction personnelle.\n\n` +
+    `D\u00e9clarant : ${userName}\n` +
+    `Titre : ${titre}\n` +
+    `Type d'op\u00e9ration : ${type}\n` +
+    `Quantit\u00e9 : ${quantite}\n` +
+    `Prix unitaire : ${prix ? prix + " \u20ac" : "Non renseign\u00e9"}\n` +
+    `Date souhait\u00e9e : ${dateFr}\n` +
+    `Compte : ${compte}\n` +
+    `${commentaire ? "Commentaire : " + commentaire + "\n" : ""}` +
+    `\nCordialement,\n${userName}`
+  );
+
+  setTimeout(() => {
+    window.location.href = `mailto:cpl@eiffel-ig.com?subject=${subject}&body=${body}`;
+  }, 1000);
+
+  showFormMessage("\u2713 PDF g\u00e9n\u00e9r\u00e9 ! Votre client mail va s'ouvrir pour envoyer l'attestation \u00e0 CPL.", "success");
 
   setTimeout(() => {
     ["f-titre","f-type","f-quantite","f-prix","f-date","f-compte","f-commentaire"].forEach(id => {
       document.getElementById(id).value = "";
     });
     hideElement("declaration-msg");
+    document.getElementById("transaction-form-container").classList.add("hidden");
     loadHistory();
   }, 5000);
 });
@@ -401,11 +428,11 @@ function generateDeclarationPDF(data) {
   doc.setTextColor(0, 20, 59);
   doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
-  doc.text("ATTESTATION DE D\u00c9CLARATION", 105, 55, { align: "center" });
+  doc.text("DEMANDE DE TRANSACTION PERSONNELLE", 105, 55, { align: "center" });
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80, 80, 80);
-  doc.text("Transaction sur titre financier", 105, 63, { align: "center" });
+  doc.text("Titre financier \u2014 \u00e0 transmettre \u00e0 CPL sous 24h", 105, 63, { align: "center" });
 
   doc.setDrawColor(209, 143, 65);
   doc.setLineWidth(0.8);
@@ -449,7 +476,7 @@ function generateDeclarationPDF(data) {
   addRow("Type d'op\u00e9ration :", data.type);
   addRow("Quantit\u00e9 :", data.quantite);
   addRow("Prix unitaire :", data.prix ? `${data.prix} \u20ac` : "Non renseign\u00e9");
-  addRow("Date de transaction :", data.date ? new Date(data.date).toLocaleDateString("fr-FR") : "\u2014");
+  addRow("Date souhait\u00e9e :", data.date ? new Date(data.date).toLocaleDateString("fr-FR") : "\u2014");
   addRow("Compte utilis\u00e9 :", data.compte);
   if (data.commentaire) addRow("Commentaire :", data.commentaire);
 
@@ -482,7 +509,7 @@ function generateDeclarationPDF(data) {
   doc.setTextColor(133, 79, 11);
   doc.text("RAPPEL IMPORTANT", 28, y + 7);
   doc.setFont("helvetica", "normal");
-  doc.text("Cette attestation doit \u00eatre transmise au service Compliance dans les 48 heures.", 28, y + 15);
+  doc.text("Cette demande doit \u00eatre transmise au service Compliance (CPL) dans les 24 heures.", 28, y + 15);
 
   y += 30;
   doc.setDrawColor(0, 20, 59);
