@@ -187,10 +187,11 @@ document.getElementById("search-history").addEventListener("input", function () 
 
 document.getElementById("btn-generate-restricted-pdf").addEventListener("click", () => {
   if (!currentUser) return;
-  generateRestrictedPDF();
+  const query = document.getElementById("search-restricted").value.trim();
+  generateRestrictedPDF(query);
 });
 
-function generateRestrictedPDF() {
+function generateRestrictedPDF(query) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const now = new Date();
@@ -198,6 +199,17 @@ function generateRestrictedPDF() {
   const timeStr = now.toLocaleTimeString("fr-FR");
   const userName = currentUser.displayName || currentUser.mail;
 
+  // Cherche si le titre est dans la restricted list
+  const found = query
+    ? allRestrictedItems.filter(item =>
+        item.nom.toLowerCase().includes(query.toLowerCase()) ||
+        item.isin.toLowerCase().includes(query.toLowerCase()))
+    : [];
+
+  const isFound = found.length > 0;
+  const searchLabel = query || "Consultation générale";
+
+  // En-tête
   doc.setFillColor(0, 20, 59);
   doc.rect(0, 0, 210, 40, "F");
   doc.setTextColor(209, 143, 65);
@@ -209,6 +221,7 @@ function generateRestrictedPDF() {
   doc.setFont("helvetica", "normal");
   doc.text("Compliance Portal", 20, 26);
 
+  // Titre
   doc.setTextColor(0, 20, 59);
   doc.setFontSize(15);
   doc.setFont("helvetica", "bold");
@@ -216,7 +229,7 @@ function generateRestrictedPDF() {
   doc.setFontSize(11);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(80, 80, 80);
-  doc.text("Restricted List \u2014 Titres sous restriction", 105, 63, { align: "center" });
+  doc.text("Restricted List \u2014 V\u00e9rification de titre", 105, 63, { align: "center" });
 
   doc.setDrawColor(209, 143, 65);
   doc.setLineWidth(0.8);
@@ -230,36 +243,82 @@ function generateRestrictedPDF() {
     doc.text(label, 20, y);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(50, 50, 50);
-    doc.text(value, 75, y);
+    doc.text(value, 80, y);
     y += 9;
   };
 
   addLine("Collaborateur :", userName);
-  addLine("Email :", currentUser.mail || "—");
+  addLine("Email :", currentUser.mail || "\u2014");
   addLine("Date de consultation :", dateStr);
   addLine("Heure :", timeStr);
-  addLine("Titres consult\u00e9s :", `${allRestrictedItems.length} titre(s)`);
+  addLine("Terme recherch\u00e9 :", searchLabel);
+  addLine("R\u00e9sultat :", isFound ? `${found.length} titre(s) trouv\u00e9(s)` : "Aucun r\u00e9sultat");
+
+  y += 4;
+
+  // Bloc résultat coloré
+  if (isFound) {
+    doc.setFillColor(253, 232, 232);
+    doc.rect(20, y - 4, 170, 22, "F");
+    doc.setDrawColor(197, 48, 48);
+    doc.setLineWidth(0.8);
+    doc.rect(20, y - 4, 170, 22);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(197, 48, 48);
+    doc.text("\u26a0 TITRE SOUS RESTRICTION", 28, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Le titre "${searchLabel}" figure sur la Restricted List d'Eiffel Investment Group.`, 28, y + 14);
+    y += 30;
+
+    // Détail des titres trouvés
+    doc.setFontSize(10.5);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 20, 59);
+    doc.text("D\u00e9tail des titres trouv\u00e9s :", 20, y);
+    y += 8;
+
+    found.forEach(item => {
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(50, 50, 50);
+      doc.setFontSize(10);
+      doc.text(`\u2022 ${item.nom}${item.isin !== "\u2014" ? ` (ISIN: ${item.isin})` : ""} \u2014 ${item.type}`, 24, y);
+      doc.text(`  Date de fin : ${formatDate(item.dateFin)}`, 24, y + 6);
+      y += 14;
+    });
+  } else {
+    doc.setFillColor(232, 244, 244);
+    doc.rect(20, y - 4, 170, 22, "F");
+    doc.setDrawColor(0, 102, 96);
+    doc.setLineWidth(0.8);
+    doc.rect(20, y - 4, 170, 22);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 102, 96);
+    doc.text("\u2713 TITRE NON RESTREINT", 28, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(`Le titre "${searchLabel}" n'appara\u00eet pas sur la Restricted List \u00e0 cette date.`, 28, y + 14);
+    y += 30;
+  }
 
   y += 6;
   doc.setFillColor(248, 249, 250);
-  doc.rect(20, y - 4, 170, 50, "F");
+  doc.rect(20, y - 4, 170, 30, "F");
   doc.setDrawColor(220, 220, 220);
-  doc.rect(20, y - 4, 170, 50);
+  doc.rect(20, y - 4, 170, 30);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
   doc.setTextColor(50, 50, 50);
-  [`Je soussign\u00e9(e), ${userName}, collaborateur(trice) d'Eiffel Investment Group,`,
-   `atteste avoir consult\u00e9 la Restricted List en date du ${dateStr}`,
-   `\u00e0 ${timeStr}.`,
-   "",
-   "Cette consultation a \u00e9t\u00e9 effectu\u00e9e dans le cadre de mes obligations de",
-   "conformit\u00e9 et de pr\u00e9vention des op\u00e9rations d'initi\u00e9s.",
-   "",
-   "Je reconnais avoir pris connaissance des restrictions en vigueur."
-  ].forEach(line => { doc.text(line, 28, y + 6); y += 7; });
+  [`Je soussign\u00e9(e), ${userName}, atteste avoir effectu\u00e9 cette v\u00e9rification`,
+   `sur la Restricted List d'Eiffel Investment Group le ${dateStr} \u00e0 ${timeStr}.`,
+   "Ce document constitue une preuve de consultation \u00e0 la date et l'heure indiqu\u00e9es."
+  ].forEach(line => { doc.text(line, 28, y + 6); y += 8; });
 
   y += 14;
   doc.setDrawColor(0, 20, 59);
+  doc.setLineWidth(0.3);
   doc.line(20, y + 20, 90, y + 20);
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
@@ -271,7 +330,11 @@ function generateRestrictedPDF() {
   doc.setTextColor(150, 150, 150);
   doc.text("Document g\u00e9n\u00e9r\u00e9 automatiquement \u2014 Eiffel Investment Group Compliance Portal", 105, 291, { align: "center" });
 
-  doc.save(`Attestation_RestrictedList_${now.toISOString().slice(0, 10)}.pdf`);
+  const filename = `Attestation_${query ? query.replace(/\s/g,"_") : "RestrictedList"}_${now.toISOString().slice(0,10)}.pdf`;
+  doc.save(filename);
+
+  // Sauvegarde dans l'historique
+  saveConsultationToHistory(searchLabel, isFound, found);
 }
 
 document.getElementById("btn-submit-declaration").addEventListener("click", () => {
@@ -288,10 +351,24 @@ document.getElementById("btn-submit-declaration").addEventListener("click", () =
     return;
   }
 
+  // Vérifie si le titre est dans la restricted list
+  const restricted = allRestrictedItems.filter(item =>
+    item.nom.toLowerCase().includes(titre.toLowerCase()) ||
+    item.isin.toLowerCase().includes(titre.toLowerCase())
+  );
+
+  if (restricted.length > 0) {
+    showFormMessage(
+      `\u26a0 "${titre}" figure sur la Restricted List — cette transaction ne peut pas être déclarée. Contactez le service Compliance.`,
+      "error"
+    );
+    return;
+  }
+
   const data = { titre, type, quantite, prix, date, compte, commentaire };
   generateDeclarationPDF(data);
   saveToHistory(data);
-  showFormMessage("\u2713 Attestation PDF g\u00e9n\u00e9r\u00e9e ! N'oubliez pas de l'envoyer au service Compliance.", "success");
+  showFormMessage("\u2713 Attestation PDF g\u00e9n\u00e9r\u00e9e ! N'oubliez pas de l'envoyer au service Compliance dans les 48h.", "success");
 
   setTimeout(() => {
     ["f-titre","f-type","f-quantite","f-prix","f-date","f-compte","f-commentaire"].forEach(id => {
@@ -299,7 +376,7 @@ document.getElementById("btn-submit-declaration").addEventListener("click", () =
     });
     hideElement("declaration-msg");
     loadHistory();
-  }, 4000);
+  }, 5000);
 });
 
 function generateDeclarationPDF(data) {
@@ -431,7 +508,21 @@ function getHistoryKey() {
 function saveToHistory(data) {
   const key = getHistoryKey();
   const existing = JSON.parse(localStorage.getItem(key) || "[]");
-  existing.unshift({ ...data, dateDeclaration: new Date().toISOString(), id: Date.now() });
+  existing.unshift({ ...data, type_entree: "declaration", dateDeclaration: new Date().toISOString(), id: Date.now() });
+  localStorage.setItem(key, JSON.stringify(existing));
+}
+
+function saveConsultationToHistory(searchLabel, isFound, foundItems) {
+  const key = getHistoryKey();
+  const existing = JSON.parse(localStorage.getItem(key) || "[]");
+  existing.unshift({
+    type_entree: "consultation",
+    titre: searchLabel,
+    isFound,
+    foundItems,
+    dateDeclaration: new Date().toISOString(),
+    id: Date.now()
+  });
   localStorage.setItem(key, JSON.stringify(existing));
 }
 
@@ -458,26 +549,54 @@ function renderHistory(query) {
 
   const tbody = document.getElementById("history-tbody");
   tbody.innerHTML = "";
+
   items.forEach(item => {
     const dateDecl = new Date(item.dateDeclaration).toLocaleDateString("fr-FR");
-    const dateTx = item.date ? new Date(item.date).toLocaleDateString("fr-FR") : "\u2014";
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${item.titre}</strong></td>
-        <td>${item.type}</td>
-        <td>${item.quantite}</td>
-        <td>${item.prix ? item.prix + " \u20ac" : "\u2014"}</td>
-        <td>${dateTx}</td>
-        <td>${dateDecl}</td>
-        <td><button class="btn-pdf" onclick='regenPDF(${JSON.stringify(item).replace(/'/g,"&#39;")})'>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-          PDF
-        </button></td>
-      </tr>`;
+    const heureDecl = new Date(item.dateDeclaration).toLocaleTimeString("fr-FR");
+
+    if (item.type_entree === "consultation") {
+      const statusBadge = item.isFound
+        ? `<span class="badge badge-restricted">Restreint</span>`
+        : `<span class="badge badge-active">Non restreint</span>`;
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${item.titre}</strong></td>
+          <td><span class="badge badge-nda">Consultation</span></td>
+          <td colspan="3">${statusBadge}</td>
+          <td>${dateDecl} ${heureDecl}</td>
+          <td><button class="btn-pdf" onclick='generateRestrictedPDFFromHistory(${JSON.stringify(item).replace(/'/g,"&#39;")})'>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            PDF
+          </button></td>
+        </tr>`;
+    } else {
+      const dateTx = item.date ? new Date(item.date).toLocaleDateString("fr-FR") : "\u2014";
+      tbody.innerHTML += `
+        <tr>
+          <td><strong>${item.titre}</strong></td>
+          <td><span class="badge badge-active">D\u00e9claration</span></td>
+          <td>${item.quantite}</td>
+          <td>${item.prix ? item.prix + " \u20ac" : "\u2014"}</td>
+          <td>${dateTx}</td>
+          <td>${dateDecl}</td>
+          <td><button class="btn-pdf" onclick='regenPDF(${JSON.stringify(item).replace(/'/g,"&#39;")})'>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            PDF
+          </button></td>
+        </tr>`;
+    }
   });
 }
 
 function regenPDF(item) { generateDeclarationPDF(item); }
+
+function generateRestrictedPDFFromHistory(item) {
+  // Restaure temporairement les données pour regénérer le PDF
+  const savedItems = allRestrictedItems;
+  if (item.foundItems) allRestrictedItems = item.foundItems;
+  generateRestrictedPDF(item.titre);
+  allRestrictedItems = savedItems;
+}
 
 async function callGraphAPI(endpoint, method = "GET", body = null) {
   let tokenResponse;
