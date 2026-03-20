@@ -374,6 +374,42 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* --- BARRE DE RECHERCHE --- */
+.search-bar-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 14px;
+  margin-bottom: 16px;
+  transition: border-color 0.2s;
+}
+
+.search-bar-container:focus-within {
+  border-color: var(--navy);
+}
+
+.search-bar-container svg {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.search-input {
+  border: none;
+  outline: none;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: var(--text-primary);
+  background: transparent;
+  width: 100%;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
 /* --- TABLEAU --- */
 .table-meta {
   display: flex;

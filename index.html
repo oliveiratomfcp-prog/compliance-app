@@ -85,6 +85,11 @@
           </button>
         </div>
 
+        <div class="search-bar-container">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-restricted" class="search-input" placeholder="Rechercher par nom ou code ISIN..." />
+        </div>
+
         <div id="restricted-loading" class="loading-state">
           <div class="spinner"></div>
           <p>Chargement de la liste...</p>
@@ -104,10 +109,11 @@
             <table class="data-table" id="restricted-table">
               <thead>
                 <tr>
-                  <th>Titre / Émetteur</th>
+                  <th>Société / Titre</th>
+                  <th>Code ISIN</th>
                   <th>Type de restriction</th>
-                  <th>Date d'ajout</th>
-                  <th>Statut</th>
+                  <th>Date de début</th>
+                  <th>Date de fin</th>
                 </tr>
               </thead>
               <tbody id="restricted-tbody"></tbody>
@@ -186,6 +192,11 @@
             <h2 class="section-title">Mon historique</h2>
             <p class="section-desc">Vos déclarations de transactions passées</p>
           </div>
+        </div>
+
+        <div class="search-bar-container">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-history" class="search-input" placeholder="Rechercher par nom de titre..." />
         </div>
 
         <div id="history-loading" class="loading-state">
