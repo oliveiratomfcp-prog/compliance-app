@@ -94,6 +94,12 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
   });
 });
 
+// Retourne true si la date de fin est dans le passé
+function isExpired(dateFin) {
+  if (!dateFin || dateFin === "—") return false;
+  return new Date(dateFin) < new Date();
+}
+
 async function loadRestrictedList() {
   showElement("restricted-loading");
   hideElement("restricted-table-container");
@@ -108,26 +114,26 @@ async function loadRestrictedList() {
     const ndaItems = (ndaData.value || []).map(item => {
       const f = item.fields || {};
       return {
-        nom: f.Title || f.Soci_x00e9_t_x00e9_ || f.Societe || "—",
+        nom: f.Title || "—",
         isin: f.ISIN || f.CodeISIN || "—",
-        dateDebut: f.Date_x0020_de_x0020_d_x00e9_but || f.Datedebut || f.DateDebut || "—",
-        dateFin: f.Date_x0020_de_x0020_fin || f.Datefin || f.DateFin || "—",
+        dateDebut: f.Dateded_x00e9_but || "—",
+        dateFin: f.Datedefin || "—",
         type: "NDA",
         source: "NDA List"
       };
-    });
+    }).filter(item => !isExpired(item.dateFin));
 
     const infoPrivItems = (infoPrivData.value || []).map(item => {
       const f = item.fields || {};
       return {
-        nom: f.Title || f.Titre || "—",
-        isin: f.CodeISIN || f.Code_x0020_ISIN || f.ISIN || "—",
-        dateDebut: f.Datedebut || f.DateDebut || f.Date_x0020_de_x0020_d_x00e9_but || "—",
-        dateFin: f.Datefin || f.DateFin || f.Date_x0020_de_x0020_fin || "—",
+        nom: f.Title || "—",
+        isin: f.CodeISIN || "—",
+        dateDebut: f.Dateded_x00e9_but || "—",
+        dateFin: f.Datedefin || "—",
         type: "Information privil\u00e9gi\u00e9e",
         source: "Info Priv"
       };
-    });
+    }).filter(item => !isExpired(item.dateFin));
 
     allRestrictedItems = [...ndaItems, ...infoPrivItems];
     hideElement("restricted-loading");
