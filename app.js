@@ -558,6 +558,7 @@ async function saveToHistory(data) {
           TypeOperation: data.type || "",
           Quantite: data.quantite ? parseFloat(data.quantite) : 0,
           Prix: data.prix ? parseFloat(data.prix) : 0,
+          DateTransaction: data.date ? new Date(data.date + "T00:00:00").toISOString() : null,
           CompteUtilise: data.compte || "",
           Commentaire: data.commentaire || ""
         }}
