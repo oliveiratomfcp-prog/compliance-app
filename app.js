@@ -37,7 +37,7 @@ const msalConfig = {
 };
 
 // On crée l'instance MSAL
-const msalInstance = new msal.PublicClientApplication(msalConfig);
+const msalInstance = new msalBrowser.PublicClientApplication(msalConfig);
 
 // Les permissions qu'on demande à Microsoft Graph
 const graphScopes = {
