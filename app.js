@@ -408,14 +408,10 @@ document.getElementById("btn-submit-declaration").addEventListener("click", () =
 
   showFormMessage("\u2713 PDF g\u00e9n\u00e9r\u00e9 ! Votre client mail va s'ouvrir pour envoyer l'attestation \u00e0 CPL.", "success");
 
+  // On remet juste le message à zéro après 6 secondes mais on garde le formulaire ouvert
   setTimeout(() => {
-    ["f-titre","f-type","f-quantite","f-prix","f-date","f-compte","f-commentaire"].forEach(id => {
-      document.getElementById(id).value = "";
-    });
     hideElement("declaration-msg");
-    document.getElementById("transaction-form-container").classList.add("hidden");
-    loadHistory();
-  }, 5000);
+  }, 6000);
 });
 
 function generateDeclarationPDF(data) {
