@@ -106,6 +106,20 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
   });
 });
 
+// Charge tous les items d'une liste avec pagination
+async function getAllListItems(siteId, listName) {
+  let items = [];
+  let url = `/sites/${siteId}/lists/${encodeURIComponent(listName)}/items?expand=fields&$top=500`;
+  while (url) {
+    const data = await callGraphAPI(url);
+    items = items.concat(data.value || []);
+    url = data["@odata.nextLink"]
+      ? data["@odata.nextLink"].replace("https://graph.microsoft.com/v1.0", "")
+      : null;
+  }
+  return items;
+}
+
 // Retourne true si la date de fin est dans le passé
 function isExpired(dateFin) {
   if (!dateFin || dateFin === "—") return false;
@@ -118,12 +132,12 @@ async function loadRestrictedList() {
   hideElement("restricted-error");
 
   try {
-    const [ndaData, infoPrivData] = await Promise.all([
-      callGraphAPI(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.sharepoint.listNDA)}/items?expand=fields&$top=500`),
-      callGraphAPI(`/sites/${siteId}/lists/${encodeURIComponent(CONFIG.sharepoint.listInfoPriv)}/items?expand=fields&$top=500`)
+    const [ndaRaw, infoPrivRaw] = await Promise.all([
+      getAllListItems(siteId, CONFIG.sharepoint.listNDA),
+      getAllListItems(siteId, CONFIG.sharepoint.listInfoPriv)
     ]);
 
-    const ndaItems = (ndaData.value || []).map(item => {
+    const ndaItems = (ndaRaw || []).map(item => {
       const f = item.fields || {};
       return {
         nom: f.Title || "—",
@@ -136,7 +150,7 @@ async function loadRestrictedList() {
       };
     }).filter(item => !isExpired(item.dateFin));
 
-    const infoPrivItems = (infoPrivData.value || []).map(item => {
+    const infoPrivItems = (infoPrivRaw || []).map(item => {
       const f = item.fields || {};
       return {
         nom: f.Title || "—",
