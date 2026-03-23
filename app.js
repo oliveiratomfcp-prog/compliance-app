@@ -269,6 +269,174 @@ document.getElementById("search-history").addEventListener("input", function () 
   renderHistory(this.value.toLowerCase().trim());
 });
 
+// -----------------------------------------------
+// EXPORT EXCEL
+// -----------------------------------------------
+document.getElementById("btn-export-excel").addEventListener("click", () => {
+  const query = document.getElementById("search-restricted").value.toLowerCase().trim();
+  const items = query
+    ? allRestrictedItems.filter(i => i.nom.toLowerCase().includes(query) || i.isin.toLowerCase().includes(query))
+    : allRestrictedItems;
+
+  const bom = "\uFEFF";
+  const headers = ["Soci\u00e9t\u00e9 / Titre", "Code ISIN", "Type de restriction", "\u00c9quipe", "Date de d\u00e9but", "Date de fin"];
+  const rows = items.map(item => [
+    `"${item.nom}"`, `"${item.isin}"`, `"${item.type}"`,
+    `"${item.equipe || ""}"`, `"${formatDate(item.dateDebut)}"`, `"${formatDate(item.dateFin)}"`
+  ].join(";"));
+
+  const csv = bom + headers.join(";") + "\n" + rows.join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `RestrictedList_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+// -----------------------------------------------
+// VÉRIFICATION EN MASSE
+// -----------------------------------------------
+document.getElementById("btn-bulk-check").addEventListener("click", () => {
+  const container = document.getElementById("bulk-check-container");
+  container.classList.toggle("hidden");
+  if (!container.classList.contains("hidden")) {
+    document.getElementById("bulk-input").focus();
+  }
+});
+
+document.getElementById("btn-bulk-run").addEventListener("click", () => {
+  const raw = document.getElementById("bulk-input").value.trim();
+  if (!raw) return;
+
+  const entries = raw.split(/[\n,;]+/).map(e => e.trim()).filter(e => e.length > 0);
+  if (entries.length === 0) return;
+
+  const resultsEl = document.getElementById("bulk-results");
+  resultsEl.innerHTML = "";
+  resultsEl.classList.remove("hidden");
+
+  let restricted = 0;
+  let clean = 0;
+  const resultData = [];
+
+  entries.forEach(entry => {
+    const matches = allRestrictedItems.filter(item =>
+      item.nom.toLowerCase().includes(entry.toLowerCase()) ||
+      item.isin.toLowerCase() === entry.toLowerCase()
+    );
+    const isRestricted = matches.length > 0;
+    if (isRestricted) restricted++; else clean++;
+    resultData.push({ entry, isRestricted, matches });
+
+    const div = document.createElement("div");
+    div.className = `bulk-result-item ${isRestricted ? "restricted" : "clean"}`;
+    div.innerHTML = `
+      <span class="bulk-result-icon">${isRestricted ? "\uD83D\uDEAB" : "\u2705"}</span>
+      <div style="flex:1">
+        <strong>${entry}</strong>
+        ${isRestricted
+          ? `<span style="margin-left:8px;font-size:12px;color:#c53030">Restreint \u2014 ${matches.map(m => m.type).join(", ")}</span>`
+          : `<span style="margin-left:8px;font-size:12px;color:var(--success)">Non restreint</span>`}
+      </div>`;
+    resultsEl.appendChild(div);
+  });
+
+  const summary = document.createElement("div");
+  summary.style.cssText = "display:flex;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border);justify-content:space-between;align-items:center";
+  summary.innerHTML = `
+    <span style="font-size:13px;color:var(--text-secondary)">
+      <strong>${entries.length}</strong> titre(s) \u2014
+      <span style="color:#c53030"><strong>${restricted}</strong> restreint(s)</span>,
+      <span style="color:var(--success)"><strong>${clean}</strong> autoris\u00e9(s)</span>
+    </span>
+    <button onclick="generateBulkPDF(${JSON.stringify(resultData).replace(/'/g,'&#39;').replace(/"/g,'&quot;')})" class="btn-primary" style="font-size:12px;padding:8px 14px">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Rapport PDF
+    </button>`;
+  resultsEl.appendChild(summary);
+});
+
+function generateBulkPDF(resultData) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const timeStr = now.toLocaleTimeString("fr-FR");
+  const userName = currentUser.displayName || currentUser.mail;
+
+  doc.setFillColor(0, 20, 59);
+  doc.rect(0, 0, 210, 40, "F");
+  doc.setTextColor(209, 143, 65);
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("EIFFEL INVESTMENT GROUP", 20, 16);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Compliance Portal", 20, 26);
+
+  doc.setTextColor(0, 20, 59);
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.text("RAPPORT DE V\u00c9RIFICATION EN MASSE", 105, 55, { align: "center" });
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text("Restricted List \u2014 V\u00e9rification multiple", 105, 63, { align: "center" });
+
+  doc.setDrawColor(209, 143, 65);
+  doc.setLineWidth(0.8);
+  doc.line(20, 68, 190, 68);
+
+  let y = 80;
+  doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59); doc.setFontSize(10.5);
+  doc.text("Collaborateur :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50); doc.text(userName, 80, y); y += 9;
+  doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
+  doc.text("Date :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50); doc.text(dateStr, 80, y); y += 9;
+  doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
+  doc.text("Heure :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50); doc.text(timeStr, 80, y); y += 9;
+  const restr = resultData.filter(r => r.isRestricted).length;
+  doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
+  doc.text("R\u00e9sum\u00e9 :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50);
+  doc.text(`${resultData.length} titre(s) \u2014 ${restr} restreint(s), ${resultData.length - restr} autoris\u00e9(s)`, 80, y); y += 14;
+
+  doc.setDrawColor(200,200,200); doc.line(20, y, 190, y); y += 10;
+  doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
+  doc.text("D\u00c9TAIL", 20, y); y += 10;
+
+  resultData.forEach(r => {
+    if (y > 265) { doc.addPage(); y = 20; }
+    if (r.isRestricted) {
+      doc.setFillColor(253, 232, 232); doc.rect(20, y-4, 170, 16, "F");
+      doc.setDrawColor(245,198,198); doc.rect(20, y-4, 170, 16);
+      doc.setFont("helvetica", "bold"); doc.setTextColor(197,48,48); doc.setFontSize(10);
+      doc.text(`\u26a0 ${r.entry}`, 25, y+4);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      doc.text(`Restreint \u2014 ${r.matches.map(m => m.type).join(", ")}`, 25, y+11);
+      y += 20;
+    } else {
+      doc.setFillColor(232,244,244); doc.rect(20, y-4, 170, 12, "F");
+      doc.setFont("helvetica", "normal"); doc.setTextColor(0,102,96); doc.setFontSize(10);
+      doc.text(`\u2713 ${r.entry} \u2014 Non restreint`, 25, y+4);
+      y += 16;
+    }
+  });
+
+  doc.setFillColor(0,20,59); doc.rect(0,282,210,15,"F");
+  doc.setFontSize(8); doc.setTextColor(150,150,150);
+  doc.text("Document g\u00e9n\u00e9r\u00e9 automatiquement \u2014 Eiffel Investment Group Compliance Portal", 105, 291, { align: "center" });
+
+  saveConsultationToHistory(
+    `V\u00e9rification masse (${resultData.length} titres)`,
+    restr > 0,
+    resultData.filter(r => r.isRestricted).flatMap(r => r.matches)
+  );
+
+  doc.save(`Rapport_Verification_${now.toISOString().slice(0,10)}.pdf`);
+}
+
 document.getElementById("btn-generate-restricted-pdf").addEventListener("click", () => {
   if (!currentUser) return;
   const query = document.getElementById("search-restricted").value.trim();

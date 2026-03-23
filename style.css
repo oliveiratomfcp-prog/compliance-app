@@ -345,8 +345,47 @@ body {
   letter-spacing: 0.2px;
 }
 
-.btn-primary:hover { background: var(--navy-light); transform: translateY(-1px); box-shadow: var(--shadow-md); }
-.btn-primary:active { transform: translateY(0); }
+.btn-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: var(--white);
+  color: var(--navy);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.btn-secondary:hover { border-color: var(--navy); background: #f0f4f8; }
+
+.bulk-result-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  font-size: 13.5px;
+}
+
+.bulk-result-item.restricted {
+  background: #fde8e8;
+  border: 1px solid #f5c6c6;
+}
+
+.bulk-result-item.clean {
+  background: var(--success-bg);
+  border: 1px solid #b2d8d8;
+}
+
+.bulk-result-icon { font-size: 16px; flex-shrink: 0; }
 
 /* --- ÉTATS DE CHARGEMENT / VIDE / ERREUR --- */
 .loading-state, .empty-state, .error-state {
