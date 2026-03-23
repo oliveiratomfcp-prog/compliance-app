@@ -682,7 +682,60 @@ body {
   color: var(--text-muted);
 }
 
-.declare-card-clickable {
+/* --- TOOLTIP RÈGLES --- */
+.tooltip-container { position: relative; }
+
+.tooltip-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  background: rgba(0,20,59,0.06);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--navy);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.tooltip-btn:hover { background: rgba(0,20,59,0.1); border-color: var(--navy); }
+
+.tooltip-box {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 380px;
+  background: var(--white);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  box-shadow: var(--shadow-lg);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tooltip-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--navy);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+
+.tooltip-box p {
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tooltip-box p strong { color: var(--text-primary); }
   cursor: pointer;
   transition: all 0.2s ease;
 }

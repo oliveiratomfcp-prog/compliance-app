@@ -958,6 +958,22 @@ function _renderHistoryRows(items) {
   });
 }
 
+function toggleTooltip() {
+  const tooltip = document.getElementById("rules-tooltip");
+  tooltip.classList.toggle("hidden");
+  // Ferme si on clique ailleurs
+  if (!tooltip.classList.contains("hidden")) {
+    setTimeout(() => {
+      document.addEventListener("click", function closeTooltip(e) {
+        if (!document.querySelector(".tooltip-container").contains(e.target)) {
+          tooltip.classList.add("hidden");
+          document.removeEventListener("click", closeTooltip);
+        }
+      });
+    }, 10);
+  }
+}
+
 function toggleTransactionForm() {
   const container = document.getElementById("transaction-form-container");
   const isHidden = container.classList.contains("hidden");
