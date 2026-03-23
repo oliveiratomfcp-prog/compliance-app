@@ -182,22 +182,24 @@ function renderRestrictedTable(items) {
   tbody.innerHTML = "";
 
   if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
     return;
   }
 
+  const fragment = document.createDocumentFragment();
   items.forEach(item => {
     const badgeClass = item.source === "NDA List" ? "badge-nda" : "badge-restricted";
-    tbody.innerHTML += `
-      <tr>
-        <td><strong>${item.nom}</strong></td>
-        <td style="font-family:monospace;font-size:13px">${item.isin}</td>
-        <td><span class="badge ${badgeClass}">${item.type}</span></td>
-        <td>${item.equipe !== "—" ? `<span class="badge badge-active">${item.equipe}</span>` : "—"}</td>
-        <td>${formatDate(item.dateDebut)}</td>
-        <td>${formatDate(item.dateFin)}</td>
-      </tr>`;
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td><strong>${item.nom}</strong></td>
+      <td style="font-family:monospace;font-size:13px">${item.isin}</td>
+      <td><span class="badge ${badgeClass}">${item.type}</span></td>
+      <td>${item.equipe && item.equipe !== "\u2014" ? `<span class="badge badge-active">${item.equipe}</span>` : "\u2014"}</td>
+      <td>${formatDate(item.dateDebut)}</td>
+      <td>${formatDate(item.dateFin)}</td>`;
+    fragment.appendChild(tr);
   });
+  tbody.appendChild(fragment);
 }
 
 let currentSort = { col: null, dir: 1 };
@@ -243,14 +245,24 @@ function sortTable(col) {
   renderRestrictedTable(items);
 }
 
+let searchTimeout = null;
+
 document.getElementById("search-restricted").addEventListener("input", function () {
+  clearTimeout(searchTimeout);
   const query = this.value.toLowerCase().trim();
-  const filtered = query
-    ? allRestrictedItems.filter(item =>
-        item.nom.toLowerCase().includes(query) ||
-        item.isin.toLowerCase().includes(query))
-    : allRestrictedItems;
-  renderRestrictedTable(filtered);
+  searchTimeout = setTimeout(() => {
+    currentSort = { col: null, dir: 1 };
+    ["nom", "type", "dateDebut", "dateFin"].forEach(c => {
+      const el = document.getElementById(`sort-${c}`);
+      if (el) { el.textContent = "\u2195"; el.parentElement.classList.remove("sort-asc", "sort-desc"); }
+    });
+    const filtered = query
+      ? allRestrictedItems.filter(item =>
+          item.nom.toLowerCase().includes(query) ||
+          item.isin.toLowerCase().includes(query))
+      : allRestrictedItems;
+    renderRestrictedTable(filtered);
+  }, 200);
 });
 
 document.getElementById("search-history").addEventListener("input", function () {
