@@ -5,11 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Compliance App — Eiffel IG</title>
   <link rel="stylesheet" href="style.css" />
-
-  <!-- MSAL : bibliothèque Microsoft pour la connexion Azure AD -->
   <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
-  <!-- jsPDF : bibliothèque pour générer des PDF -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="translations.js"></script>
 </head>
 <body>
 
@@ -20,25 +18,20 @@
         <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="72" />
       </div>
       <div class="login-divider"></div>
-      <h1 class="login-title">Compliance Portal</h1>
-      <p class="login-desc">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder à la plateforme.</p>
+      <h1 class="login-title" id="login-title-el">Compliance Portal</h1>
+      <p class="login-desc" id="login-desc-el">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder à la plateforme.</p>
       <button id="btn-login" class="btn-microsoft">
-        <svg width="20" height="20" viewBox="0 0 21 21" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
-          <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
-          <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
-          <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
-        </svg>
-        Se connecter avec Microsoft
+        <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+        <span id="login-btn-el">Se connecter avec Microsoft</span>
       </button>
-      <p class="login-footer">Accès réservé aux collaborateurs Eiffel IG</p>
+      <p class="login-footer" id="login-footer-el">Accès réservé aux collaborateurs Eiffel IG</p>
     </div>
   </div>
 
   <!-- ===== APPLICATION PRINCIPALE ===== -->
   <div id="screen-app" class="screen">
 
-    <!-- BARRE DE NAVIGATION -->
+    <!-- NAVBAR -->
     <nav class="navbar">
       <div class="nav-brand">
         <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="36" />
@@ -46,22 +39,23 @@
       <div class="nav-tabs">
         <button class="nav-tab active" data-tab="restricted">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Restricted List
+          <span id="nav-restricted-el">Restricted List</span>
         </button>
         <button class="nav-tab" data-tab="declaration">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-          Déclarer
+          <span id="nav-declare-el">Déclarer</span>
         </button>
         <button class="nav-tab" data-tab="history">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          Historique
+          <span id="nav-history-el">Historique</span>
         </button>
       </div>
       <div class="nav-user">
+        <button id="lang-toggle-btn" class="btn-lang" onclick="setLang(currentLang === 'fr' ? 'en' : 'fr')">EN</button>
         <div class="user-avatar" id="user-avatar">--</div>
         <div class="user-info">
           <span class="user-name" id="user-name">Chargement...</span>
-          <span class="user-role">Collaborateur</span>
+          <span class="user-role" id="nav-role-el">Collaborateur</span>
         </div>
         <button id="btn-logout" class="btn-logout" title="Se déconnecter">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -69,47 +63,46 @@
       </div>
     </nav>
 
-    <!-- CONTENU PRINCIPAL -->
     <main class="main-content">
 
       <!-- ===== ONGLET 1 : RESTRICTED LIST ===== -->
       <section id="tab-restricted" class="tab-content active">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Restricted List</h2>
-            <p class="section-desc">Liste des titres financiers sous restriction (information privilégiée ou NDA)</p>
+            <h2 class="section-title" id="restricted-title-el">Restricted List</h2>
+            <p class="section-desc" id="restricted-desc-el">Liste des titres financiers sous restriction</p>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap">
             <button id="btn-bulk-check" class="btn-secondary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-              Vérification en masse
+              <span id="restricted-bulk-btn-el">Vérification en masse</span>
             </button>
             <button id="btn-export-excel" class="btn-secondary">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-              Exporter Excel
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span id="restricted-excel-btn-el">Exporter Excel</span>
             </button>
             <button id="btn-generate-restricted-pdf" class="btn-primary">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Générer l'attestation PDF
+              <span id="restricted-pdf-btn-el">Générer l'attestation PDF</span>
             </button>
           </div>
         </div>
 
-        <!-- PANNEAU VÉRIFICATION EN MASSE -->
+        <!-- BULK CHECK -->
         <div id="bulk-check-container" class="hidden" style="margin-bottom:20px">
           <div class="form-card">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
               <div>
-                <h3 style="font-size:15px;font-weight:700;color:var(--navy)">Vérification en masse</h3>
-                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px">Collez vos codes ISIN ou noms de titres — un par ligne ou séparés par des virgules</p>
+                <h3 style="font-size:15px;font-weight:700;color:var(--navy)" id="bulk-title-el">Vérification en masse</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px" id="bulk-desc-el">Collez vos codes ISIN ou noms — un par ligne ou séparés par des virgules</p>
               </div>
               <button onclick="document.getElementById('bulk-check-container').classList.add('hidden')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px">✕</button>
             </div>
-            <textarea id="bulk-input" class="form-input form-textarea" style="min-height:120px;font-family:monospace;font-size:13px" placeholder="FR0000131104&#10;FR0000120271&#10;Apple&#10;TotalEnergies&#10;..."></textarea>
+            <textarea id="bulk-input" class="form-input form-textarea" style="min-height:120px;font-family:monospace;font-size:13px" placeholder="FR0000131104&#10;Apple&#10;..."></textarea>
             <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end">
               <button id="btn-bulk-run" class="btn-primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Lancer la vérification
+                <span id="bulk-run-btn-el">Lancer la vérification</span>
               </button>
             </div>
             <div id="bulk-results" class="hidden" style="margin-top:16px"></div>
@@ -123,7 +116,7 @@
 
         <div id="restricted-loading" class="loading-state">
           <div class="spinner"></div>
-          <p>Chargement de la liste...</p>
+          <p id="restricted-loading-el">Chargement de la liste...</p>
         </div>
 
         <div id="restricted-error" class="error-state hidden">
@@ -134,18 +127,18 @@
         <div id="restricted-table-container" class="hidden">
           <div class="table-meta">
             <span id="restricted-count" class="table-count">0 titres</span>
-            <span class="table-date">Mis à jour en temps réel depuis SharePoint</span>
+            <span class="table-date" id="restricted-realtime-el">Mis à jour en temps réel depuis SharePoint</span>
           </div>
           <div class="table-wrapper">
             <table class="data-table" id="restricted-table">
               <thead>
                 <tr>
-                  <th class="sortable" onclick="sortTable('nom')">Société / Titre <span id="sort-nom">↕</span></th>
-                  <th>Code ISIN</th>
-                  <th class="sortable" onclick="sortTable('type')">Type de restriction <span id="sort-type">↕</span></th>
-                  <th>Équipe</th>
-                  <th class="sortable" onclick="sortTable('dateDebut')">Date de début <span id="sort-dateDebut">↕</span></th>
-                  <th class="sortable" onclick="sortTable('dateFin')">Date de fin <span id="sort-dateFin">↕</span></th>
+                  <th class="sortable" onclick="sortTable('nom')"><span id="col-company-el">Société / Titre</span> <span id="sort-nom">↕</span></th>
+                  <th><span id="col-isin-el">Code ISIN</span></th>
+                  <th class="sortable" onclick="sortTable('type')"><span id="col-type-el">Type de restriction</span> <span id="sort-type">↕</span></th>
+                  <th><span id="col-team-el">Équipe</span></th>
+                  <th class="sortable" onclick="sortTable('dateDebut')"><span id="col-start-el">Date de début</span> <span id="sort-dateDebut">↕</span></th>
+                  <th class="sortable" onclick="sortTable('dateFin')"><span id="col-end-el">Date de fin</span> <span id="sort-dateFin">↕</span></th>
                 </tr>
               </thead>
               <tbody id="restricted-tbody"></tbody>
@@ -158,81 +151,83 @@
       <section id="tab-declaration" class="tab-content">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Déclarer</h2>
-            <p class="section-desc">Saisie Compliance et déclaration de transaction personnelle</p>
+            <h2 class="section-title" id="declare-title-el">Déclarer</h2>
+            <p class="section-desc" id="declare-desc-el">Saisie Compliance et déclaration de transaction personnelle</p>
           </div>
         </div>
 
         <div class="declare-grid">
 
-          <!-- CARTE 1 : NDA LIST -->
+          <!-- CARTE 1 : NDA -->
           <div class="declare-card">
             <div class="declare-card-icon" style="background:rgba(209,143,65,0.1);color:#92400e">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
             </div>
-            <div class="declare-card-badge badge badge-nda">NDA</div>
-            <h3 class="declare-card-title">NDA List</h3>
-            <p class="declare-card-desc">Ajouter un nouveau titre sous NDA dans la liste de restriction. Ce formulaire alimentera directement la liste SharePoint NDA List.</p>
-            <p class="declare-card-note">Mise à jour immédiate de la Restricted List</p>
-            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=NmVlYWEwMmYtZDhjNS00OThkLWJjMGYtZjM2NGExMmRmNTJm&nav=ZDcwNzU0Y2YtY2VjYi00M2NlLWIxNWItOGQ2NjkwYWM5NTdi" target="_blank" class="btn-form-open">
+            <span class="declare-card-badge badge badge-nda">NDA</span>
+            <h3 class="declare-card-title" id="nda-title-el">NDA List</h3>
+            <p class="declare-card-desc" id="nda-desc-el">Ajouter un nouveau titre sous NDA dans la liste de restriction.</p>
+            <p class="declare-card-note" id="nda-note-el">Mise à jour immédiate de la Restricted List</p>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=NmVlYWEwMmYtZDhjNS00OThkLWJjMGYtZjM2NGExMmRmNTJm&nav=ZDcwNzU0Y2YtY2VjYi00M2NlLWIxNWItOGQ2NjkwYWM5NTdi" target="_blank" class="btn-form-open" style="margin-top:auto">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Ouvrir le formulaire NDA
+              <span id="nda-btn-el">Ouvrir le formulaire NDA</span>
             </a>
           </div>
 
-          <!-- CARTE 2 : INFO PRIVILÉGIÉE -->
+          <!-- CARTE 2 : INFO PRIV -->
           <div class="declare-card">
             <div class="declare-card-icon" style="background:rgba(192,57,43,0.08);color:#c0392b">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
             </div>
-            <div class="declare-card-badge badge badge-restricted">Info privilégiée</div>
-            <h3 class="declare-card-title">Information privilégiée</h3>
-            <p class="declare-card-desc">Ajouter un nouveau titre sous information privilégiée. Ce formulaire alimentera directement la liste SharePoint Information privilégiée.</p>
-            <p class="declare-card-note">Mise à jour immédiate de la Restricted List</p>
-            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=ODE0OWFlMDUtMTkzNC00Y2FhLWIyZmQtMzI3YzAxZGU2YzA1&nav=ZWEzNTliNjEtYmVjNS00OTY0LTkzOWItMjZkNzk4YmNmYzYx" target="_blank" class="btn-form-open">
+            <span class="declare-card-badge badge badge-restricted">Info privilégiée</span>
+            <h3 class="declare-card-title" id="infoprev-title-el">Information privilégiée</h3>
+            <p class="declare-card-desc" id="infoprev-desc-el">Ajouter un nouveau titre sous information privilégiée.</p>
+            <p class="declare-card-note" id="infoprev-note-el">Mise à jour immédiate de la Restricted List</p>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=ODE0OWFlMDUtMTkzNC00Y2FhLWIyZmQtMzI3YzAxZGU2YzA1&nav=ZWEzNTliNjEtYmVjNS00OTY0LTkzOWItMjZkNzk4YmNmYzYx" target="_blank" class="btn-form-open" style="margin-top:auto">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Ouvrir le formulaire Info privilégiée
+              <span id="infoprev-btn-el">Ouvrir le formulaire Info privilégiée</span>
             </a>
           </div>
 
-          <!-- CARTE 3 : TRANSACTION PERSONNELLE -->
+          <!-- CARTE 3 : TRANSACTION -->
           <div class="declare-card declare-card-clickable" onclick="toggleTransactionForm()">
             <div class="declare-card-icon" style="background:rgba(0,20,59,0.08);color:#00143B">
               <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
             </div>
             <span class="declare-card-badge badge badge-active">Transaction</span>
-            <h3 class="declare-card-title">Demande de transaction personnelle</h3>
-            <p class="declare-card-desc">Soumettez une demande de transaction sur un titre financier et générez votre attestation PDF à envoyer à CPL sous 24h.</p>
-            <p class="declare-card-note">Cliquez pour ouvrir le formulaire</p>
+            <h3 class="declare-card-title" id="transaction-card-title-el">Demande de transaction personnelle</h3>
+            <p class="declare-card-desc" id="transaction-card-desc-el">Soumettez une demande de transaction et générez votre attestation PDF à envoyer à CPL sous 24h.</p>
+            <p class="declare-card-note" id="transaction-card-note-el">Cliquez pour ouvrir le formulaire</p>
             <div class="btn-form-open" style="margin-top:auto">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-              Déclarer une transaction
+              <span id="transaction-card-btn-el">Déclarer une transaction</span>
             </div>
           </div>
 
         </div>
 
-        <!-- FORMULAIRE TRANSACTION (caché par défaut) -->
+        <!-- FORMULAIRE TRANSACTION -->
         <div id="transaction-form-container" class="hidden" style="margin-top:20px">
           <div class="form-card">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
               <div>
-                <h3 style="font-size:16px;font-weight:700;color:var(--navy)">Demande de transaction personnelle</h3>
-                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px">Remplissez le formulaire et générez votre attestation PDF</p>
+                <h3 style="font-size:16px;font-weight:700;color:var(--navy)" id="form-title-el">Demande de transaction personnelle</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px" id="form-subtitle-el">Remplissez le formulaire et générez votre attestation PDF</p>
               </div>
               <div style="display:flex;align-items:center;gap:10px">
                 <div class="tooltip-container">
                   <button class="tooltip-btn" onclick="toggleTooltip()">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    Règles applicables
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span id="rules-btn-el">Règles applicables</span>
                   </button>
                   <div class="tooltip-box hidden" id="rules-tooltip">
-                    <p class="tooltip-title">Règles — Transactions personnelles</p>
-                    <p>🚫 <strong>Interdit depuis le 1er avril 2026 :</strong> toute transaction personnelle sur titres vifs cotés.</p>
-                    <p>⚠️ <strong>Cession de titres déjà en portefeuille :</strong> accord préalable du RCCI obligatoire via "demande de transaction personnelle".</p>
-                    <p>✅ <strong>Autorisé :</strong> fonds gérés par Eiffel IG, fonds non gérés, trackers, puts, calls, warrants sur indices cotés.</p>
-                    <p>📋 <strong>Déclaration obligatoire :</strong> transactions sur fonds Eiffel IG ou vente de titre déjà en PTF + envoi de l'avis d'opéré sous 48h.</p>
-                    <p>📅 <strong>Annuellement :</strong> remise au RCCI du relevé complet des opérations sur instruments financiers.</p>
+                    <p class="tooltip-title" id="rules-title-el">Règles — Transactions personnelles</p>
+                    <div id="rules-list-el">
+                      <p>🚫 <strong>Interdit depuis le 1er avril 2026 :</strong> toute transaction personnelle sur titres vifs cotés.</p>
+                      <p>⚠️ <strong>Cession de titres déjà en portefeuille :</strong> accord préalable du RCCI obligatoire via "demande de transaction personnelle".</p>
+                      <p>✅ <strong>Autorisé :</strong> fonds gérés par Eiffel IG, fonds non gérés, trackers, puts, calls, warrants sur indices cotés.</p>
+                      <p>📋 <strong>Déclaration obligatoire :</strong> transactions sur fonds Eiffel IG ou vente de titre déjà en PTF + envoi de l'avis d'opéré sous 48h.</p>
+                      <p>📅 <strong>Annuellement :</strong> remise au RCCI du relevé complet des opérations sur instruments financiers.</p>
+                    </div>
                   </div>
                 </div>
                 <button onclick="toggleTransactionForm()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
@@ -240,15 +235,15 @@
             </div>
             <div class="declare-alert" style="margin-bottom:20px">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              La demande doit être faite <strong>avant tout passage d'ordre</strong> et à joindre au mail généré automatiquement.
+              <span id="form-alert-el">La demande doit être faite <strong>avant tout passage d'ordre</strong> et à joindre au mail généré automatiquement.</span>
             </div>
             <div class="form-grid">
               <div class="form-group full-width">
-                <label class="form-label">Nom du titre financier *</label>
+                <label class="form-label" id="form-label-titre">Nom du titre financier *</label>
                 <input type="text" id="f-titre" class="form-input" placeholder="Ex: Apple Inc., Total SA..." />
               </div>
               <div class="form-group">
-                <label class="form-label">Type d'opération *</label>
+                <label class="form-label" id="form-label-type">Type d'opération *</label>
                 <select id="f-type" class="form-input">
                   <option value="">-- Sélectionner --</option>
                   <option value="Achat">Achat</option>
@@ -256,23 +251,23 @@
                 </select>
               </div>
               <div class="form-group">
-                <label class="form-label">Quantité *</label>
+                <label class="form-label" id="form-label-qty">Quantité *</label>
                 <input type="number" id="f-quantite" class="form-input" placeholder="Ex: 100" min="1" />
               </div>
               <div class="form-group">
-                <label class="form-label">Prix unitaire (€)</label>
+                <label class="form-label" id="form-label-price">Prix unitaire (€)</label>
                 <input type="number" id="f-prix" class="form-input" placeholder="Ex: 145.50" step="0.01" />
               </div>
               <div class="form-group">
-                <label class="form-label">Date de transaction *</label>
+                <label class="form-label" id="form-label-date">Date de transaction *</label>
                 <input type="date" id="f-date" class="form-input" />
               </div>
               <div class="form-group full-width">
-                <label class="form-label">Compte utilisé *</label>
+                <label class="form-label" id="form-label-account">Compte utilisé *</label>
                 <input type="text" id="f-compte" class="form-input" placeholder="Ex: Compte-titres BNP, PEA Boursorama..." />
               </div>
               <div class="form-group full-width">
-                <label class="form-label">Commentaire (optionnel)</label>
+                <label class="form-label" id="form-label-comment">Commentaire (optionnel)</label>
                 <textarea id="f-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
               </div>
             </div>
@@ -280,24 +275,23 @@
               <div id="declaration-msg" class="form-message hidden"></div>
               <button id="btn-submit-declaration" class="btn-primary">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                Générer attestation et mail
+                <span id="form-submit-btn-el">Générer attestation et mail</span>
               </button>
             </div>
           </div>
         </div>
-
       </section>
 
       <!-- ===== ONGLET 3 : HISTORIQUE ===== -->
       <section id="tab-history" class="tab-content">
         <div class="section-header">
           <div>
-            <h2 class="section-title">Mon historique</h2>
-            <p class="section-desc">Vos déclarations et consultations passées</p>
+            <h2 class="section-title" id="history-title-el">Mon historique</h2>
+            <p class="section-desc" id="history-desc-el">Vos déclarations et consultations passées</p>
           </div>
           <button class="btn-primary" onclick="refreshHistory()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            Rafraîchir
+            <span id="history-refresh-el">Rafraîchir</span>
           </button>
         </div>
 
@@ -308,12 +302,12 @@
 
         <div id="history-loading" class="loading-state">
           <div class="spinner"></div>
-          <p>Chargement de l'historique...</p>
+          <p id="history-loading-el">Chargement de l'historique...</p>
         </div>
 
         <div id="history-empty" class="empty-state hidden">
           <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-          <p>Aucune déclaration pour l'instant</p>
+          <p id="history-empty-el">Aucune déclaration pour l'instant</p>
         </div>
 
         <div id="history-table-container" class="hidden">
@@ -321,69 +315,18 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>Titre</th>
-                  <th>Type</th>
-                  <th>Quantité / Statut</th>
-                  <th>Prix</th>
-                  <th>Date transaction</th>
-                  <th>Date</th>
-                  <th>Attestation</th>
+                  <th id="col-h-titre-el">Titre</th>
+                  <th id="col-h-type-el">Type</th>
+                  <th id="col-h-qty-el">Quantité / Statut</th>
+                  <th id="col-h-price-el">Prix</th>
+                  <th id="col-h-date-tx-el">Date transaction</th>
+                  <th id="col-h-date-decl-el">Date</th>
+                  <th id="col-h-pdf-el">Attestation</th>
                 </tr>
               </thead>
               <tbody id="history-tbody"></tbody>
             </table>
           </div>
-        </div>
-      </section>
-
-      <!-- ===== ONGLET 4 : SAISIE COMPLIANCE ===== -->
-      <section id="tab-forms" class="tab-content">
-        <div class="section-header">
-          <div>
-            <h2 class="section-title">Saisie Compliance</h2>
-            <p class="section-desc">Alimenter les listes NDA et Information privilégiée</p>
-          </div>
-        </div>
-
-        <div class="forms-grid">
-
-          <div class="form-card">
-            <div class="form-card-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-            </div>
-            <h3 class="form-card-title">NDA List</h3>
-            <p class="form-card-desc">Ajouter un nouveau titre sous NDA dans la liste de restriction. Ce formulaire alimentera directement la liste SharePoint NDA List.</p>
-            <div class="form-card-meta">
-              <span class="badge badge-nda">NDA</span>
-              <span class="form-card-info">Mise à jour immédiate de la Restricted List</span>
-            </div>
-            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=ODE0OWFlMDUtMTkzNC00Y2FhLWIyZmQtMzI3YzAxZGU2YzA1&nav=ZWEzNTliNjEtYmVjNS00OTY0LTkzOWItMjZkNzk4YmNmYzYx" target="_blank" class="btn-form-open">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Ouvrir le formulaire NDA
-            </a>
-          </div>
-
-          <div class="form-card">
-            <div class="form-card-icon">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            </div>
-            <h3 class="form-card-title">Information privilégiée</h3>
-            <p class="form-card-desc">Ajouter un nouveau titre sous information privilégiée. Ce formulaire alimentera directement la liste SharePoint Information privilégiée.</p>
-            <div class="form-card-meta">
-              <span class="badge badge-restricted">Info privilégiée</span>
-              <span class="form-card-info">Mise à jour immédiate de la Restricted List</span>
-            </div>
-            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=NmVlYWEwMmYtZDhjNS00OThkLWJjMGYtZjM2NGExMmRmNTJm&nav=ZDcwNzU0Y2YtY2VjYi00M2NlLWIxNWItOGQ2NjkwYWM5NTdi" target="_blank" class="btn-form-open">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              Ouvrir le formulaire Info privilégiée
-            </a>
-          </div>
-
-        </div>
-
-        <div class="forms-note">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          Les formulaires s'ouvrent dans un nouvel onglet. Une fois soumis, la Restricted List sera automatiquement mise à jour lors de votre prochaine consultation.
         </div>
       </section>
 
