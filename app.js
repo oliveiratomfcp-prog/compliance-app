@@ -14,7 +14,8 @@ const CONFIG = {
   },
   sharepointHistory: {
     sitePath: "/sites/CPLDashboard",
-    listHistory: "Historique Compliance"
+    listHistory: "Historique Compliance",
+    listGifts: "Registre cadeaux"
   }
 };
 
@@ -973,6 +974,72 @@ function toggleTooltip() {
         }
       });
     }, 10);
+  }
+}
+
+// -----------------------------------------------
+// FORMULAIRE CADEAU
+// -----------------------------------------------
+document.getElementById("btn-submit-gift").addEventListener("click", async () => {
+  const description = document.getElementById("g-description").value.trim();
+  const emetteur = document.getElementById("g-emetteur").value.trim();
+  const destinataire = document.getElementById("g-destinataire").value.trim();
+  const date = document.getElementById("g-date").value;
+  const valeur = document.getElementById("g-valeur").value;
+
+  if (!description || !emetteur || !destinataire || !date) {
+    showGiftMessage("Veuillez remplir tous les champs obligatoires (*)", "error");
+    return;
+  }
+
+  const btn = document.getElementById("btn-submit-gift");
+  btn.disabled = true;
+
+  try {
+    await callGraphAPI(
+      `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listGifts)}/items`,
+      "POST",
+      { fields: {
+        Title: description,
+        Emetteur: emetteur,
+        Destinataire: destinataire,
+        Date: date ? new Date(date + "T00:00:00").toISOString() : null,
+        Valeur: valeur ? parseFloat(valeur) : null
+      }}
+    );
+
+    showGiftMessage("✓ Déclaration enregistrée dans le Registre cadeaux !", "success");
+    setTimeout(() => {
+      ["g-description","g-emetteur","g-destinataire","g-date","g-valeur"].forEach(id => {
+        document.getElementById(id).value = "";
+      });
+      hideElement("gift-msg");
+      document.getElementById("gift-form-container").classList.add("hidden");
+    }, 4000);
+
+  } catch (err) {
+    console.error("Erreur enregistrement cadeau:", err);
+    showGiftMessage("Erreur lors de l'enregistrement. Vérifiez vos permissions.", "error");
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+function showGiftMessage(text, type) {
+  const el = document.getElementById("gift-msg");
+  el.textContent = text;
+  el.className = `form-message ${type}`;
+  showElement("gift-msg");
+}
+
+function toggleGiftForm() {
+  const container = document.getElementById("gift-form-container");
+  const isHidden = container.classList.contains("hidden");
+  if (isHidden) {
+    container.classList.remove("hidden");
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else {
+    container.classList.add("hidden");
   }
 }
 

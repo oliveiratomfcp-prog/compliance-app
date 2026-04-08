@@ -203,6 +203,67 @@
             </div>
           </div>
 
+          <!-- CARTE 4 : REGISTRE CADEAUX -->
+          <div class="declare-card declare-card-clickable" onclick="toggleGiftForm()">
+            <div class="declare-card-icon" style="background:rgba(0,102,96,0.08);color:#006660">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+            </div>
+            <span class="declare-card-badge badge" style="background:#e8f4f4;color:#006660">Cadeau</span>
+            <h3 class="declare-card-title">Registre cadeaux</h3>
+            <p class="declare-card-desc">Déclarez un cadeau reçu ou offert dans le cadre de vos fonctions. La déclaration est enregistrée dans le registre SharePoint.</p>
+            <p class="declare-card-note">Cliquez pour ouvrir le formulaire</p>
+            <div class="btn-form-open" style="margin-top:auto;background:#006660">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Déclarer un cadeau
+            </div>
+          </div>
+
+        </div>
+
+        <!-- FORMULAIRE CADEAU -->
+        <div id="gift-form-container" class="hidden" style="margin-top:20px">
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <div>
+                <h3 style="font-size:16px;font-weight:700;color:var(--navy)">Registre cadeaux</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px">Enregistrement d'un cadeau reçu ou offert</p>
+              </div>
+              <button onclick="toggleGiftForm()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
+            </div>
+            <div class="declare-alert" style="margin-bottom:20px;border-color:rgba(0,102,96,0.25);background:rgba(0,102,96,0.06)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#006660" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span style="color:#006660">Tout cadeau reçu ou offert dans le cadre professionnel doit être déclaré au RCCI.</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-group full-width">
+                <label class="form-label">Description du cadeau *</label>
+                <input type="text" id="g-description" class="form-input" placeholder="Ex: Bouteille de vin, place de concert, repas d'affaires..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Émetteur (qui offre) *</label>
+                <input type="text" id="g-emetteur" class="form-input" placeholder="Ex: Société XYZ, M. Dupont..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Destinataire (qui reçoit) *</label>
+                <input type="text" id="g-destinataire" class="form-input" placeholder="Ex: Thomas Oliveira, Client ABC..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date *</label>
+                <input type="date" id="g-date" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Valeur estimée (€)</label>
+                <input type="number" id="g-valeur" class="form-input" placeholder="Ex: 50" step="0.01" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <div id="gift-msg" class="form-message hidden"></div>
+              <button id="btn-submit-gift" class="btn-primary" style="background:#006660">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Enregistrer la déclaration
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- FORMULAIRE TRANSACTION -->
