@@ -1008,14 +1008,36 @@ document.getElementById("btn-submit-gift").addEventListener("click", async () =>
       }}
     );
 
-    showGiftMessage("✓ Déclaration enregistrée dans le Registre cadeaux !", "success");
+    showGiftMessage("✓ Déclaration enregistrée ! Génération de l'attestation et ouverture du mail...", "success");
+
+    // Génère le PDF
+    generateGiftPDF({ description, emetteur, destinataire, date, valeur });
+
+    // Ouvre Outlook vers CPL
+    const userName = currentUser.displayName || currentUser.mail;
+    const dateFr = date ? new Date(date).toLocaleDateString("fr-FR") : "—";
+    const subject = encodeURIComponent(`Déclaration cadeau — ${description} — ${userName}`);
+    const body = encodeURIComponent(
+      `Bonjour,\n\nVeuillez trouver ci-joint mon attestation de déclaration de cadeau.\n\n` +
+      `Déclarant : ${userName}\n` +
+      `Description : ${description}\n` +
+      `Émetteur : ${emetteur}\n` +
+      `Destinataire : ${destinataire}\n` +
+      `Date : ${dateFr}\n` +
+      `Valeur estimée : ${valeur ? valeur + " €" : "Non renseignée"}\n\n` +
+      `Cordialement,\n${userName}`
+    );
+    setTimeout(() => {
+      window.location.href = `mailto:cpl@eiffel-ig.com?subject=${subject}&body=${body}`;
+    }, 1000);
+
     setTimeout(() => {
       ["g-description","g-emetteur","g-destinataire","g-date","g-valeur"].forEach(id => {
         document.getElementById(id).value = "";
       });
       hideElement("gift-msg");
       document.getElementById("gift-form-container").classList.add("hidden");
-    }, 4000);
+    }, 5000);
 
   } catch (err) {
     console.error("Erreur enregistrement cadeau:", err);
@@ -1024,6 +1046,108 @@ document.getElementById("btn-submit-gift").addEventListener("click", async () =>
     btn.disabled = false;
   }
 });
+
+function generateGiftPDF(data) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  const now = new Date();
+  const dateStr = now.toLocaleDateString("fr-FR", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
+  const timeStr = now.toLocaleTimeString("fr-FR");
+  const userName = currentUser.displayName || currentUser.mail;
+  const dateFr = data.date ? new Date(data.date).toLocaleDateString("fr-FR") : "—";
+
+  // En-tête
+  doc.setFillColor(0, 20, 59);
+  doc.rect(0, 0, 210, 40, "F");
+  doc.setTextColor(209, 143, 65);
+  doc.setFontSize(18);
+  doc.setFont("helvetica", "bold");
+  doc.text("EIFFEL INVESTMENT GROUP", 20, 16);
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.text("Compliance Portal", 20, 26);
+
+  // Titre
+  doc.setTextColor(0, 20, 59);
+  doc.setFontSize(15);
+  doc.setFont("helvetica", "bold");
+  doc.text("ATTESTATION DE DÉCLARATION DE CADEAU", 105, 55, { align: "center" });
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text("Registre cadeaux — Eiffel Investment Group", 105, 63, { align: "center" });
+
+  doc.setDrawColor(0, 102, 96);
+  doc.setLineWidth(0.8);
+  doc.line(20, 68, 190, 68);
+
+  let y = 82;
+  const addRow = (label, value) => {
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10.5);
+    doc.setTextColor(0, 20, 59);
+    doc.text(label, 20, y);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(50, 50, 50);
+    doc.text(String(value || "—"), 80, y);
+    y += 9;
+  };
+
+  addRow("Déclarant :", userName);
+  addRow("Email :", currentUser.mail || "—");
+  addRow("Date de déclaration :", dateStr);
+  addRow("Heure :", timeStr);
+
+  y += 4;
+  doc.setDrawColor(200, 200, 200);
+  doc.line(20, y, 190, y);
+  y += 10;
+
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(0, 20, 59);
+  doc.text("DÉTAILS DU CADEAU", 20, y);
+  y += 10;
+
+  addRow("Description :", data.description);
+  addRow("Émetteur :", data.emetteur);
+  addRow("Destinataire :", data.destinataire);
+  addRow("Date :", dateFr);
+  addRow("Valeur estimée :", data.valeur ? `${data.valeur} €` : "Non renseignée");
+
+  y += 6;
+  doc.setFillColor(232, 244, 244);
+  doc.rect(20, y - 4, 170, 32, "F");
+  doc.setDrawColor(0, 102, 96);
+  doc.setLineWidth(0.5);
+  doc.rect(20, y - 4, 170, 32);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(50, 50, 50);
+  [
+    `Je soussigné(e), ${userName}, atteste avoir déclaré le cadeau`,
+    `ci-dessus dans le cadre de mes obligations de conformité.`,
+    `Cette déclaration a été enregistrée le ${dateStr} à ${timeStr}`,
+    `dans le Registre cadeaux d'Eiffel Investment Group.`
+  ].forEach(line => { doc.text(line, 28, y + 5); y += 8; });
+
+  y += 14;
+  doc.setDrawColor(0, 20, 59);
+  doc.setLineWidth(0.3);
+  doc.line(20, y + 20, 90, y + 20);
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  doc.text("Signature du collaborateur", 20, y + 27);
+
+  doc.setFillColor(0, 20, 59);
+  doc.rect(0, 282, 210, 15, "F");
+  doc.setFontSize(8);
+  doc.setTextColor(150, 150, 150);
+  doc.text("Document généré automatiquement — Eiffel Investment Group Compliance Portal", 105, 291, { align: "center" });
+
+  doc.save(`Attestation_Cadeau_${now.toISOString().slice(0,10)}.pdf`);
+}
 
 function showGiftMessage(text, type) {
   const el = document.getElementById("gift-msg");

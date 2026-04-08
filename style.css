@@ -750,8 +750,15 @@ body {
 }
 
 .tooltip-box p strong { color: var(--text-primary); }
+
+.declare-card-clickable {
   cursor: pointer;
   transition: all 0.2s ease;
+}
+
+.declare-card-clickable,
+.declare-card-clickable * {
+  cursor: pointer;
 }
 
 .declare-card-clickable:hover {
