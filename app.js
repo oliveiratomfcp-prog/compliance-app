@@ -228,7 +228,7 @@ function sortTable(col) {
   let items = query
     ? allRestrictedItems.filter(item =>
         item.nom.toLowerCase().includes(query) ||
-        item.isin.toLowerCase().includes(query))
+        item.isin.trim().toLowerCase().includes(query))
     : [...allRestrictedItems];
 
   items.sort((a, b) => {
@@ -259,7 +259,7 @@ document.getElementById("search-restricted").addEventListener("input", function 
     const filtered = query
       ? allRestrictedItems.filter(item =>
           item.nom.toLowerCase().includes(query) ||
-          item.isin.toLowerCase().includes(query))
+          item.isin.trim().toLowerCase().includes(query))
       : allRestrictedItems;
     renderRestrictedTable(filtered);
   }, 200);
@@ -275,7 +275,7 @@ document.getElementById("search-history").addEventListener("input", function () 
 document.getElementById("btn-export-excel").addEventListener("click", () => {
   const query = document.getElementById("search-restricted").value.toLowerCase().trim();
   const items = query
-    ? allRestrictedItems.filter(i => i.nom.toLowerCase().includes(query) || i.isin.toLowerCase().includes(query))
+    ? allRestrictedItems.filter(i => i.nom.toLowerCase().includes(query) || i.isin.trim().toLowerCase().includes(query))
     : allRestrictedItems;
 
   const bom = "\uFEFF";
@@ -322,9 +322,11 @@ document.getElementById("btn-bulk-run").addEventListener("click", () => {
   const resultData = [];
 
   entries.forEach(entry => {
+    const entryClean = entry.trim().toLowerCase();
     const matches = allRestrictedItems.filter(item =>
-      item.nom.toLowerCase().includes(entry.toLowerCase()) ||
-      item.isin.toLowerCase() === entry.toLowerCase()
+      item.nom.toLowerCase().includes(entryClean) ||
+      item.isin.trim().toLowerCase().includes(entryClean) ||
+      entryClean.includes(item.isin.trim().toLowerCase())
     );
     const isRestricted = matches.length > 0;
     if (isRestricted) restricted++; else clean++;
@@ -455,7 +457,7 @@ function generateRestrictedPDF(query) {
   const found = query
     ? allRestrictedItems.filter(item =>
         item.nom.toLowerCase().includes(query.toLowerCase()) ||
-        item.isin.toLowerCase().includes(query.toLowerCase()))
+        item.isin.trim().toLowerCase().includes(query.toLowerCase()))
     : [];
 
   const isFound = found.length > 0;
@@ -606,7 +608,7 @@ document.getElementById("btn-submit-declaration").addEventListener("click", () =
   // Vérifie si le titre est dans la restricted list
   const restricted = allRestrictedItems.filter(item =>
     item.nom.toLowerCase().includes(titre.toLowerCase()) ||
-    item.isin.toLowerCase().includes(titre.toLowerCase())
+    item.isin.trim().toLowerCase().includes(titre.toLowerCase())
   );
 
   if (restricted.length > 0) {
