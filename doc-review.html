@@ -9,7 +9,6 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="translations.js"></script>
-  <script src="config.js"></script>
   <style>
     .dr-content { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
     .dr-card { background: white; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 20px; }
@@ -325,7 +324,9 @@
     auth: {
       clientId: '56c83db2-7fc6-4826-8073-82077e91ae27',
       authority: 'https://login.microsoftonline.com/eb5288b6-5ccb-4f5d-88fb-346db1317a4f',
-redirectUri: window.location.origin + window.location.pathname,    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+      redirectUri: window.location.origin + window.location.pathname,
+    },
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
   };
   const msalInstance = new msal.PublicClientApplication(msalConfig);
   let currentUser = null;
@@ -692,7 +693,7 @@ JSON brut uniquement — uniquement les points non déjà couverts :
       alert('Veuillez fournir un document ou du texte à analyser.\n\nUtilisez "Charger un exemple" pour tester.');
       return;
     }
-const apiKey = ***REMOVED***;    if (!apiKey || apiKey.startsWith('sk-VOTRE')) {
+const apiKey = '***REMOVED***';    if (!apiKey || apiKey.startsWith('sk-VOTRE')) {
       alert('Clé API OpenAI non configurée.\nOuvrez config.js et remplacez sk-VOTRE_CLE_ICI par votre vraie clé.');
       return;
     }
