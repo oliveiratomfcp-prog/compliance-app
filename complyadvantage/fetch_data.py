@@ -48,10 +48,13 @@ def api_get(url):
                 raise
 
 
+MAX_SEARCHES = 40000  # Limite de securite (37404 screenings connus)
+
 def fetch_all_searches():
     results = []
     offset  = 0
     total   = None
+    page    = 1
 
     print("  Recuperation de tous les screenings (sans filtre de date)...")
 
@@ -62,22 +65,38 @@ def fetch_all_searches():
 
         if total is None:
             total = content.get("total_count", 0)
-            print(f"  Total a recuperer : {total:,}\n")
+            if total and total > 0:
+                print(f"  Total annonce par l\'API : {total:,}")
+            else:
+                print(f"  Total non fourni par l\'API, pagination jusqu\'a epuisement...")
 
         batch = content.get("data", [])
+        if not batch:
+            print(f"  Batch vide, fin de pagination.")
+            break
+
         results.extend(batch)
+        print(f"  Page {page:4d} | {len(results):,} screenings recuperes", end="\r")
+        page += 1
 
-        pct = int(len(results) / total * 100) if total else 100
-        print(f"  [{pct:3d}%] {len(results):,} / {total:,} screenings", end="\r")
+        # Arret si batch incomplet (derniere page)
+        if len(batch) < PAGE_SIZE:
+            break
 
-        if len(batch) < PAGE_SIZE or len(results) >= total:
+        # Arret si total connu atteint
+        if total and total > 0 and len(results) >= total:
+            break
+
+        # Limite de securite
+        if len(results) >= MAX_SEARCHES:
+            print(f"\n  Limite de securite atteinte ({MAX_SEARCHES:,}), arret.")
             break
 
         offset += PAGE_SIZE
 
-        # Petite pause tous les 500 appels pour le rate limit
+        # Pause tous les 5000 pour le rate limit
         if offset % 5000 == 0:
-            time.sleep(0.5)
+            time.sleep(1)
 
     print(f"\n  OK {len(results):,} screenings recuperes")
     return results
