@@ -1,7 +1,6 @@
 {
-  "generated_at": "2026-05-20T10:09:01.589033Z",
-  "days": 30,
-  "total": 85,
+  "generated_at": "2026-05-20T11:40:18.422320+00:00",
+  "total": 100,
   "users": {
     "10114": {
       "id": 10114,
@@ -76,9 +75,15 @@
       "created_at": "2026-05-19 09:26:14",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "low",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "PEIN:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -87,8 +92,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2954594949,
@@ -97,9 +101,16 @@
       "created_at": "2026-05-18 16:53:15",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "AL:",
+        "Gaz Vert:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -108,8 +119,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2954594943,
@@ -118,9 +128,16 @@
       "created_at": "2026-05-18 16:53:15",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "AL:",
+        "Gaz Vert:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -129,8 +146,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2953555452,
@@ -139,9 +155,15 @@
       "created_at": "2026-05-18 08:16:56",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -150,8 +172,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2953552185,
@@ -160,9 +181,15 @@
       "created_at": "2026-05-18 08:14:28",
       "status": null,
       "match_status": "potential_match",
+      "risk_level": "medium",
       "total_hits": 1,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -171,8 +198,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950093609,
@@ -181,9 +207,16 @@
       "created_at": "2026-05-15 09:49:10",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -192,8 +225,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950092032,
@@ -202,9 +234,16 @@
       "created_at": "2026-05-15 09:48:34",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -213,8 +252,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950089592,
@@ -223,9 +261,16 @@
       "created_at": "2026-05-15 09:47:09",
       "status": null,
       "match_status": "potential_match",
+      "risk_level": "medium",
       "total_hits": 2,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "A TRAITER:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -234,8 +279,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950088803,
@@ -244,9 +288,16 @@
       "created_at": "2026-05-15 09:46:31",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -255,8 +306,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950087319,
@@ -265,9 +315,16 @@
       "created_at": "2026-05-15 09:45:21",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -276,8 +333,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950086612,
@@ -286,9 +342,16 @@
       "created_at": "2026-05-15 09:44:44",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -297,8 +360,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950085704,
@@ -307,9 +369,16 @@
       "created_at": "2026-05-15 09:44:06",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -318,8 +387,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950084592,
@@ -328,9 +396,16 @@
       "created_at": "2026-05-15 09:43:12",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -339,8 +414,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950083728,
@@ -349,9 +423,16 @@
       "created_at": "2026-05-15 09:42:28",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -360,8 +441,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950082604,
@@ -370,9 +450,16 @@
       "created_at": "2026-05-15 09:41:44",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -381,8 +468,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950081500,
@@ -391,9 +477,16 @@
       "created_at": "2026-05-15 09:40:56",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -402,8 +495,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950080582,
@@ -412,9 +504,16 @@
       "created_at": "2026-05-15 09:40:18",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -423,8 +522,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950079491,
@@ -433,9 +531,16 @@
       "created_at": "2026-05-15 09:39:40",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -444,8 +549,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950078477,
@@ -454,9 +558,16 @@
       "created_at": "2026-05-15 09:39:01",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -465,8 +576,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950077264,
@@ -475,9 +585,16 @@
       "created_at": "2026-05-15 09:38:19",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -486,8 +603,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950076039,
@@ -496,9 +612,16 @@
       "created_at": "2026-05-15 09:37:28",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -507,8 +630,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950075070,
@@ -517,9 +639,16 @@
       "created_at": "2026-05-15 09:36:54",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -528,8 +657,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950065101,
@@ -538,9 +666,16 @@
       "created_at": "2026-05-15 09:31:34",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -549,8 +684,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2950062712,
@@ -559,9 +693,16 @@
       "created_at": "2026-05-15 09:30:11",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -570,8 +711,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2948803972,
@@ -580,9 +720,13 @@
       "created_at": "2026-05-14 13:54:13",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -591,8 +735,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2946814431,
@@ -601,9 +744,13 @@
       "created_at": "2026-05-13 09:29:32",
       "status": null,
       "match_status": "unknown",
+      "risk_level": "high",
       "total_hits": 2,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -612,8 +759,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2945648460,
@@ -622,9 +768,13 @@
       "created_at": "2026-05-12 14:28:24",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -633,8 +783,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2945647864,
@@ -643,9 +792,13 @@
       "created_at": "2026-05-12 14:28:10",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -654,8 +807,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2945646992,
@@ -664,9 +816,13 @@
       "created_at": "2026-05-12 14:27:45",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -675,8 +831,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2945643334,
@@ -685,9 +840,13 @@
       "created_at": "2026-05-12 14:26:23",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -696,19 +855,22 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2944271152,
       "search_term": "Azrieli Foundation",
-      "client_ref": null,
+      "client_ref": "",
       "created_at": "2026-05-11 17:11:19",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -717,19 +879,22 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2944262527,
       "search_term": "David Azrieli",
-      "client_ref": null,
+      "client_ref": "",
       "created_at": "2026-05-11 17:04:53",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -738,19 +903,22 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2944261166,
       "search_term": "Azrieli Group Limited",
-      "client_ref": null,
+      "client_ref": "",
       "created_at": "2026-05-11 17:03:55",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -759,19 +927,22 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2944256156,
       "search_term": "Green Mountain",
-      "client_ref": null,
+      "client_ref": "",
       "created_at": "2026-05-11 17:00:27",
       "status": null,
       "match_status": "potential_match",
+      "risk_level": "unknown",
       "total_hits": 1,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -780,19 +951,22 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2944254075,
       "search_term": "Azrieli Group",
-      "client_ref": null,
+      "client_ref": "",
       "created_at": "2026-05-11 16:59:37",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -801,8 +975,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943801692,
@@ -811,9 +984,15 @@
       "created_at": "2026-05-11 12:56:16",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -822,8 +1001,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943800481,
@@ -832,9 +1010,15 @@
       "created_at": "2026-05-11 12:55:25",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -843,8 +1027,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943794518,
@@ -853,9 +1036,13 @@
       "created_at": "2026-05-11 12:50:59",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -864,8 +1051,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943793125,
@@ -874,9 +1060,13 @@
       "created_at": "2026-05-11 12:50:06",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -885,8 +1075,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943791456,
@@ -895,9 +1084,13 @@
       "created_at": "2026-05-11 12:48:42",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -906,8 +1099,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943788332,
@@ -916,9 +1108,13 @@
       "created_at": "2026-05-11 12:46:41",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -927,8 +1123,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2943315950,
@@ -937,9 +1132,16 @@
       "created_at": "2026-05-11 08:13:53",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "AL:",
+        "FCPR INFRA:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -948,8 +1150,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934759473,
@@ -958,9 +1159,13 @@
       "created_at": "2026-05-05 12:41:36",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "low",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -969,8 +1174,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934758885,
@@ -979,9 +1183,13 @@
       "created_at": "2026-05-05 12:41:11",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "low",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -990,8 +1198,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934741775,
@@ -1000,9 +1207,13 @@
       "created_at": "2026-05-05 12:28:46",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1011,8 +1222,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934741370,
@@ -1021,9 +1231,13 @@
       "created_at": "2026-05-05 12:28:28",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1032,8 +1246,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934739101,
@@ -1042,9 +1255,13 @@
       "created_at": "2026-05-05 12:27:03",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "low",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1053,8 +1270,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934734584,
@@ -1063,9 +1279,13 @@
       "created_at": "2026-05-05 12:24:05",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1074,8 +1294,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934239999,
@@ -1084,9 +1303,15 @@
       "created_at": "2026-05-05 07:44:12",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1095,8 +1320,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934238866,
@@ -1105,9 +1329,15 @@
       "created_at": "2026-05-05 07:43:33",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1116,8 +1346,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934237990,
@@ -1126,9 +1355,15 @@
       "created_at": "2026-05-05 07:42:46",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1137,8 +1372,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934236545,
@@ -1147,9 +1381,15 @@
       "created_at": "2026-05-05 07:41:33",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 89,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1158,8 +1398,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934235494,
@@ -1168,9 +1407,15 @@
       "created_at": "2026-05-05 07:40:33",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1179,8 +1424,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934234558,
@@ -1189,9 +1433,15 @@
       "created_at": "2026-05-05 07:39:36",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1200,8 +1450,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934233877,
@@ -1210,9 +1459,15 @@
       "created_at": "2026-05-05 07:38:59",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1221,8 +1476,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934232883,
@@ -1231,9 +1485,15 @@
       "created_at": "2026-05-05 07:38:07",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1242,8 +1502,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934231232,
@@ -1252,9 +1511,15 @@
       "created_at": "2026-05-05 07:36:43",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1263,8 +1528,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934227764,
@@ -1273,9 +1537,15 @@
       "created_at": "2026-05-05 07:33:55",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1284,8 +1554,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934225555,
@@ -1294,9 +1563,15 @@
       "created_at": "2026-05-05 07:32:09",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1305,8 +1580,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934223148,
@@ -1315,9 +1589,15 @@
       "created_at": "2026-05-05 07:29:59",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 12,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1326,8 +1606,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934222718,
@@ -1336,9 +1615,13 @@
       "created_at": "2026-05-05 07:29:34",
       "status": null,
       "match_status": "potential_match",
+      "risk_level": "unknown",
       "total_hits": 73,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1347,8 +1630,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934221786,
@@ -1357,9 +1639,13 @@
       "created_at": "2026-05-05 07:28:47",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1368,8 +1654,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934221348,
@@ -1378,9 +1663,13 @@
       "created_at": "2026-05-05 07:28:20",
       "status": null,
       "match_status": "potential_match",
+      "risk_level": "unknown",
       "total_hits": 73,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1389,8 +1678,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934219859,
@@ -1399,9 +1687,15 @@
       "created_at": "2026-05-05 07:27:00",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1410,8 +1704,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2934218310,
@@ -1420,9 +1713,15 @@
       "created_at": "2026-05-05 07:25:26",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "ESSENTIEL:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1431,8 +1730,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2933078977,
@@ -1441,9 +1739,13 @@
       "created_at": "2026-05-04 14:57:04",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1452,8 +1754,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2933078974,
@@ -1462,9 +1763,13 @@
       "created_at": "2026-05-04 14:57:04",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1473,8 +1778,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2932906744,
@@ -1483,9 +1787,13 @@
       "created_at": "2026-05-04 13:52:49",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1494,8 +1802,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2932906735,
@@ -1504,9 +1811,13 @@
       "created_at": "2026-05-04 13:52:49",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "unknown",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1515,8 +1826,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2932906733,
@@ -1525,9 +1835,16 @@
       "created_at": "2026-05-04 13:52:49",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 5,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "AL:",
+        "Gaz Vert:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1536,8 +1853,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2932479310,
@@ -1546,9 +1862,15 @@
       "created_at": "2026-05-04 09:51:38",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1557,8 +1879,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2932472585,
@@ -1567,9 +1888,15 @@
       "created_at": "2026-05-04 09:50:08",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 22,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1578,19 +1905,22 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2927579681,
       "search_term": "october",
-      "client_ref": null,
+      "client_ref": "",
       "created_at": "2026-04-30 15:08:10",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 14,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1599,8 +1929,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2924310968,
@@ -1609,9 +1938,15 @@
       "created_at": "2026-04-28 18:18:53",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "PEIN:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1620,8 +1955,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2924306154,
@@ -1630,9 +1964,15 @@
       "created_at": "2026-04-28 18:14:33",
       "status": null,
       "match_status": "potential_match",
+      "risk_level": "medium",
       "total_hits": 3,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "PEIN:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1641,8 +1981,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2923325562,
@@ -1651,9 +1990,17 @@
       "created_at": "2026-04-28 07:10:34",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "EET:",
+        "FCPR INFRA:",
+        "GR:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1662,8 +2009,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2921676638,
@@ -1672,9 +2018,15 @@
       "created_at": "2026-04-27 09:26:11",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1683,8 +2035,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2918862009,
@@ -1693,9 +2044,15 @@
       "created_at": "2026-04-24 15:59:47",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "BCD:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1704,8 +2061,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2915035097,
@@ -1714,9 +2070,15 @@
       "created_at": "2026-04-22 09:22:50",
       "status": null,
       "match_status": "false_positive",
+      "risk_level": "medium",
       "total_hits": 1,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "BCD:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1725,8 +2087,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2915032870,
@@ -1735,9 +2096,15 @@
       "created_at": "2026-04-22 09:20:46",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "BCD:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1746,8 +2113,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2912681810,
@@ -1756,9 +2122,15 @@
       "created_at": "2026-04-20 16:55:10",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "low",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Equity:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1767,8 +2139,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2912551598,
@@ -1777,9 +2148,13 @@
       "created_at": "2026-04-20 15:25:38",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "low",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1788,8 +2163,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2912189670,
@@ -1798,9 +2172,15 @@
       "created_at": "2026-04-20 11:46:10",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1809,8 +2189,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2912188551,
@@ -1819,9 +2198,15 @@
       "created_at": "2026-04-20 11:45:21",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1830,8 +2215,7 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
     },
     {
       "id": 2912187541,
@@ -1840,9 +2224,15 @@
       "created_at": "2026-04-20 11:44:24",
       "status": null,
       "match_status": "no_match",
+      "risk_level": "medium",
       "total_hits": 0,
       "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
       "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
       "filters": {
         "types": [
           "pep-class-1",
@@ -1851,8 +2241,376 @@
           "pep-class-4",
           "sanction"
         ]
-      },
-      "hits": {}
+      }
+    },
+    {
+      "id": 2905518781,
+      "search_term": "Pablo Pellegrini",
+      "client_ref": "CORD-SBI-20",
+      "created_at": "2026-04-15 08:27:21",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2905517117,
+      "search_term": "Massimo Missaglia",
+      "client_ref": "CORD-SBI-19",
+      "created_at": "2026-04-15 08:25:53",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2905516047,
+      "search_term": "Iovane Pietro Scott",
+      "client_ref": "CORD-SBI-18",
+      "created_at": "2026-04-15 08:24:55",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2905514609,
+      "search_term": "Pietro Lanza",
+      "client_ref": "CORD-SBI-17",
+      "created_at": "2026-04-15 08:23:42",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2905512726,
+      "search_term": "Daniele Meneguzzi",
+      "client_ref": "CORD-SBI-16",
+      "created_at": "2026-04-15 08:22:10",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2904727305,
+      "search_term": "Devyser Diagnostics AB",
+      "client_ref": "DVYSR",
+      "created_at": "2026-04-14 17:06:27",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "low",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2902235352,
+      "search_term": "EURAZEO SE",
+      "client_ref": "RFFP",
+      "created_at": "2026-04-13 07:49:20",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2902233914,
+      "search_term": "AROUNDTOWN SA",
+      "client_ref": "ARNDTN",
+      "created_at": "2026-04-13 07:47:51",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2902232767,
+      "search_term": "SWORD PURCHASER LLC",
+      "client_ref": "SEE",
+      "created_at": "2026-04-13 07:46:42",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "medium",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [
+        "Traded Credit:"
+      ],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2896869307,
+      "search_term": "Alexandre Pourrat-Raizfeld",
+      "client_ref": "Les fermes debout",
+      "created_at": "2026-04-09 07:35:41",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "unknown",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2896868638,
+      "search_term": "Thibaut Millet-Taunay",
+      "client_ref": "Les fermes debout",
+      "created_at": "2026-04-09 07:35:01",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "unknown",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2896866799,
+      "search_term": "Les fermes debout",
+      "client_ref": "Les fermes debout",
+      "created_at": "2026-04-09 07:33:14",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "unknown",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2896866243,
+      "search_term": "SYLVABOT",
+      "client_ref": "Les fermes debout",
+      "created_at": "2026-04-09 07:32:41",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "unknown",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2896863178,
+      "search_term": "neofarm",
+      "client_ref": "Les fermes debout",
+      "created_at": "2026-04-09 07:29:51",
+      "status": null,
+      "match_status": "false_positive",
+      "risk_level": "low",
+      "total_hits": 2,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
+    },
+    {
+      "id": 2893175447,
+      "search_term": "DS SMITH PLC",
+      "client_ref": "SMDSLN",
+      "created_at": "2026-04-07 07:52:18",
+      "status": null,
+      "match_status": "no_match",
+      "risk_level": "low",
+      "total_hits": 0,
+      "is_monitored": false,
+      "has_ongoing_monitoring_results": false,
+      "assigned_to": "",
+      "assigned_user_id": null,
+      "tags": [
+        "Migrated To Mesh:019d6dac-2e7f-77c3-92b3-d93169741d95",
+        "Traded Credit:"
+      ],
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      }
     }
   ]
 }
