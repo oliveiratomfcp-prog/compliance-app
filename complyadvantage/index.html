@@ -554,7 +554,7 @@ function renderTable() {
     const rlColor = rl==='high'?'color:var(--red)':rl==='medium'?'color:var(--amber)':rl==='low'?'color:var(--green)':'color:var(--muted)';
     return `<tr>
       <td class="td-name" title="${s.search_term}">${s.search_term||'—'}</td>
-      <td class="td-ref">${s.client_ref||<span style="color:#D97706">—</span>}</td>
+      <td class="td-ref">${s.client_ref||'—'}</td>
       <td class="td-date">${s.created_at?new Date(s.created_at).toLocaleDateString('fr-FR'):'—'}</td>
       <td style="font-size:12px;color:var(--text)">${s.assigned_to||'—'}</td>
       <td><span class="badge b-${ms}"><span class="bdot"></span>${msLbl[ms]||ms}</span></td>
