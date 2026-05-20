@@ -1,0 +1,1858 @@
+{
+  "generated_at": "2026-05-20T10:09:01.589033Z",
+  "days": 30,
+  "total": 85,
+  "users": {
+    "10114": {
+      "id": 10114,
+      "email": "KYC.Compliance@eiffel-ig.com",
+      "name": "Compliance",
+      "phone": "",
+      "created_at": "2020-07-01T11:15:21Z",
+      "updated_at": "2026-03-06T13:22:41Z"
+    },
+    "10148": {
+      "id": 10148,
+      "email": "jb@eiffel-ig.com",
+      "name": "Julie Boileau",
+      "phone": null,
+      "created_at": "2020-07-06T09:22:15Z",
+      "updated_at": "2024-10-17T14:55:15Z"
+    },
+    "10350": {
+      "id": 10350,
+      "email": "KYC.Client@eiffel-ig.com",
+      "name": "KYC Client",
+      "phone": null,
+      "created_at": "2020-07-22T14:46:53Z",
+      "updated_at": "2025-09-23T09:17:46Z"
+    },
+    "11552": {
+      "id": 11552,
+      "email": "KYC.Transition@eiffel-ig.com",
+      "name": "KYC Transition",
+      "phone": "0000",
+      "created_at": "2020-10-29T07:23:00Z",
+      "updated_at": "2024-10-21T15:08:46Z"
+    },
+    "11553": {
+      "id": 11553,
+      "email": "KYC.Equity@eiffel-ig.com",
+      "name": "KYC Equity",
+      "phone": "0000",
+      "created_at": "2020-10-29T07:23:17Z",
+      "updated_at": "2024-10-21T15:07:15Z"
+    },
+    "12010": {
+      "id": 12010,
+      "email": "KYC.Dette@eiffel-ig.com",
+      "name": "KYC Dette",
+      "phone": null,
+      "created_at": "2020-12-02T14:44:37Z",
+      "updated_at": "2023-04-14T13:07:45Z"
+    },
+    "39650": {
+      "id": 39650,
+      "email": "ag@tagluae.com",
+      "name": "Anthony Goldstone",
+      "phone": null,
+      "created_at": "2024-10-21T18:37:49Z",
+      "updated_at": "2025-10-07T14:37:36Z"
+    },
+    "48516": {
+      "id": 48516,
+      "email": "ioana.georgescu@history.group",
+      "name": "Ioana Georgescu",
+      "phone": null,
+      "created_at": "2025-10-07T15:41:04Z",
+      "updated_at": "2025-10-07T15:41:04Z"
+    }
+  },
+  "searches": [
+    {
+      "id": 2955582036,
+      "search_term": "Bytetravel S.A.",
+      "client_ref": "SCBYT SM Equity",
+      "created_at": "2026-05-19 09:26:14",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2954594949,
+      "search_term": "Sophie de Fontenay",
+      "client_ref": "HysetCo Coinvest - France 2i (Raise) - UBO",
+      "created_at": "2026-05-18 16:53:15",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2954594943,
+      "search_term": "Blanc Mathieu",
+      "client_ref": "HysetCo Coinvest - France 2i (Raise) - UBO",
+      "created_at": "2026-05-18 16:53:15",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2953555452,
+      "search_term": "TMD Friction Group",
+      "client_ref": "TMDFGG",
+      "created_at": "2026-05-18 08:16:56",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2953552185,
+      "search_term": "AtoS",
+      "client_ref": "ATOFP",
+      "created_at": "2026-05-18 08:14:28",
+      "status": null,
+      "match_status": "potential_match",
+      "total_hits": 1,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950093609,
+      "search_term": "André Kremer",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:49:10",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950092032,
+      "search_term": "Martin Tauschke",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:48:34",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950089592,
+      "search_term": "Sharad Jain",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:47:09",
+      "status": null,
+      "match_status": "potential_match",
+      "total_hits": 2,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950088803,
+      "search_term": "Raghuveer Kurada",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:46:31",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950087319,
+      "search_term": "ST Vierte Vermögensverwaltungs GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:45:21",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950086612,
+      "search_term": "ST Zweite Solarbeteiligungs GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:44:44",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950085704,
+      "search_term": "ST Erste Solarbeteiligungs GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:44:06",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950084592,
+      "search_term": "SUNfarming Polska Asset 7 sp. zo.o.",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:43:12",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950083728,
+      "search_term": "ST Solarinvest Poland 3 GmbH  & Co. KG",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:42:28",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950082604,
+      "search_term": "ST Solarinvest Group GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:41:44",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950081500,
+      "search_term": "CGESF Erste GmbH & Co. KG",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:40:56",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950080582,
+      "search_term": "SF Energy Invest Umspannwerk Steinhöfel GmbH & Co. KG",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:40:18",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950079491,
+      "search_term": "Sunfarming GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:39:40",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950078477,
+      "search_term": "Sunfarming Projekt GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:39:01",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950077264,
+      "search_term": "Cube Green Energy  Sunfarming HoldCo GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:38:19",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950076039,
+      "search_term": "Cube Green Energy  Deutschland GmbH",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:37:28",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950075070,
+      "search_term": "Cube Green Energy Ltd",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:36:54",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950065101,
+      "search_term": "Cube Green Energy Holdings Ltd",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:31:34",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2950062712,
+      "search_term": "Hexa CGE Europe Holdings Ltd",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-05-15 09:30:11",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2948803972,
+      "search_term": "Enviromena Limited",
+      "client_ref": "Enviromena",
+      "created_at": "2026-05-14 13:54:13",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2946814431,
+      "search_term": "BAE Systems PLC",
+      "client_ref": "Enviromena",
+      "created_at": "2026-05-13 09:29:32",
+      "status": null,
+      "match_status": "unknown",
+      "total_hits": 2,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2945648460,
+      "search_term": "CVC DIF",
+      "client_ref": "Fusion",
+      "created_at": "2026-05-12 14:28:24",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2945647864,
+      "search_term": "Aura Power",
+      "client_ref": "Fusion",
+      "created_at": "2026-05-12 14:28:10",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2945646992,
+      "search_term": "Verdant Energy",
+      "client_ref": "Fusion",
+      "created_at": "2026-05-12 14:27:45",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2945643334,
+      "search_term": "CVC DIF VII",
+      "client_ref": "Fusion",
+      "created_at": "2026-05-12 14:26:23",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2944271152,
+      "search_term": "Azrieli Foundation",
+      "client_ref": null,
+      "created_at": "2026-05-11 17:11:19",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2944262527,
+      "search_term": "David Azrieli",
+      "client_ref": null,
+      "created_at": "2026-05-11 17:04:53",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2944261166,
+      "search_term": "Azrieli Group Limited",
+      "client_ref": null,
+      "created_at": "2026-05-11 17:03:55",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2944256156,
+      "search_term": "Green Mountain",
+      "client_ref": null,
+      "created_at": "2026-05-11 17:00:27",
+      "status": null,
+      "match_status": "potential_match",
+      "total_hits": 1,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2944254075,
+      "search_term": "Azrieli Group",
+      "client_ref": null,
+      "created_at": "2026-05-11 16:59:37",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943801692,
+      "search_term": "Bond US Bidco",
+      "client_ref": "BSCOAT",
+      "created_at": "2026-05-11 12:56:16",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943800481,
+      "search_term": "HomVi SASU",
+      "client_ref": "DMVIFR",
+      "created_at": "2026-05-11 12:55:25",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943794518,
+      "search_term": "Katia Sigaud",
+      "client_ref": "Infra - Arkolia",
+      "created_at": "2026-05-11 12:50:59",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943793125,
+      "search_term": "Jean-Sébastien Bessière",
+      "client_ref": "Infra - Arkolia",
+      "created_at": "2026-05-11 12:50:06",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943791456,
+      "search_term": "Arkolia Holdco 9 Alpha",
+      "client_ref": "Infra - Arkolia",
+      "created_at": "2026-05-11 12:48:42",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943788332,
+      "search_term": "Arkolia Energies",
+      "client_ref": "Infra - Arkolia",
+      "created_at": "2026-05-11 12:46:41",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2943315950,
+      "search_term": "Lawrence Buckley",
+      "client_ref": "Alta Capital - UBO",
+      "created_at": "2026-05-11 08:13:53",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934759473,
+      "search_term": "Katapult",
+      "client_ref": "Bioesol",
+      "created_at": "2026-05-05 12:41:36",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934758885,
+      "search_term": "Third Derivative",
+      "client_ref": "Bioesol",
+      "created_at": "2026-05-05 12:41:11",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934741775,
+      "search_term": "Gabriel Bracamontes Hinojosa",
+      "client_ref": "Bioesol",
+      "created_at": "2026-05-05 12:28:46",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934741370,
+      "search_term": "Samuel Arriola Rodriguez",
+      "client_ref": "Bioesol",
+      "created_at": "2026-05-05 12:28:28",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934739101,
+      "search_term": "CIRI Ventures",
+      "client_ref": "Bioesol",
+      "created_at": "2026-05-05 12:27:03",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934734584,
+      "search_term": "Felipe de Jesús Arriola Rodríguez",
+      "client_ref": "Bioesol",
+      "created_at": "2026-05-05 12:24:05",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934239999,
+      "search_term": "DagaConcept Energie",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:44:12",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934238866,
+      "search_term": "Haut Bugey Energie",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:43:33",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934237990,
+      "search_term": "CH4NGE",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:42:46",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934236545,
+      "search_term": "STI",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:41:33",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 89,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934235494,
+      "search_term": "ESSAM",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:40:33",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934234558,
+      "search_term": "Enertion",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:39:36",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934233877,
+      "search_term": "Jean-Christophe Mrakic",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:38:59",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934232883,
+      "search_term": "Thomas Dolabdjian",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:38:07",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934231232,
+      "search_term": "Christian Mortier",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:36:43",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934227764,
+      "search_term": "Pierre Porterie",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:33:55",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934225555,
+      "search_term": "DagaConcept Energie",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:32:09",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934223148,
+      "search_term": "ESSAM",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:29:59",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 12,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934222718,
+      "search_term": "ESSAM",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:29:34",
+      "status": null,
+      "match_status": "potential_match",
+      "total_hits": 73,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934221786,
+      "search_term": "Pierre Porterie",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:28:47",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934221348,
+      "search_term": "ESSAM",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:28:20",
+      "status": null,
+      "match_status": "potential_match",
+      "total_hits": 73,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934219859,
+      "search_term": "Thomas Dolabdjian",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:27:00",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2934218310,
+      "search_term": "Christian Mortier",
+      "client_ref": "EE-EV-05",
+      "created_at": "2026-05-05 07:25:26",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2933078977,
+      "search_term": "LOUIS-DREYFUS MONIQUE MARGUERITE EMMY",
+      "client_ref": "CELESTE ESO",
+      "created_at": "2026-05-04 14:57:04",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2933078974,
+      "search_term": "CELESTE MANAGEMENT",
+      "client_ref": "CELESTE ESO",
+      "created_at": "2026-05-04 14:57:04",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2932906744,
+      "search_term": "Gonzague Le Barbier de Blignières",
+      "client_ref": "HysetCo - Coinvest OC 2024",
+      "created_at": "2026-05-04 13:52:49",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2932906735,
+      "search_term": "Clara Gaymard",
+      "client_ref": "HysetCo - Coinvest OC 2024",
+      "created_at": "2026-05-04 13:52:49",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2932906733,
+      "search_term": "Raise",
+      "client_ref": "HysetCo - Coinvest OC 2024",
+      "created_at": "2026-05-04 13:52:49",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 5,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2932479310,
+      "search_term": "CESARS",
+      "client_ref": "CESAR SPA",
+      "created_at": "2026-05-04 09:51:38",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2932472585,
+      "search_term": "EGIS SA",
+      "client_ref": "EGISSA",
+      "created_at": "2026-05-04 09:50:08",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 22,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2927579681,
+      "search_term": "october",
+      "client_ref": null,
+      "created_at": "2026-04-30 15:08:10",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 14,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2924310968,
+      "search_term": "Jordan Jover",
+      "client_ref": "Innovorder",
+      "created_at": "2026-04-28 18:18:53",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2924306154,
+      "search_term": "Nova Holding",
+      "client_ref": "Innovorder",
+      "created_at": "2026-04-28 18:14:33",
+      "status": null,
+      "match_status": "potential_match",
+      "total_hits": 3,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2923325562,
+      "search_term": "Cube Green Energy Holdings Limited",
+      "client_ref": "INFRA - SUNfarming",
+      "created_at": "2026-04-28 07:10:34",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2921676638,
+      "search_term": "WABTEC TRANSPORTATION",
+      "client_ref": "WAB",
+      "created_at": "2026-04-27 09:26:11",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2918862009,
+      "search_term": "Jane Chahinian",
+      "client_ref": "Spirica",
+      "created_at": "2026-04-24 15:59:47",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2915035097,
+      "search_term": "Sandra Stohler",
+      "client_ref": "Elisir Capital",
+      "created_at": "2026-04-22 09:22:50",
+      "status": null,
+      "match_status": "false_positive",
+      "total_hits": 1,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2915032870,
+      "search_term": "Elisir Capital",
+      "client_ref": "Elisir Capital",
+      "created_at": "2026-04-22 09:20:46",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2912681810,
+      "search_term": "Trigano",
+      "client_ref": "TRI FP Equity",
+      "created_at": "2026-04-20 16:55:10",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2912551598,
+      "search_term": "Nexstim Oyj",
+      "client_ref": "NXTMH FH Equity",
+      "created_at": "2026-04-20 15:25:38",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2912189670,
+      "search_term": "CANPACK GROUP INC/SA",
+      "client_ref": "CANPCK",
+      "created_at": "2026-04-20 11:46:10",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2912188551,
+      "search_term": "HYPO NOE LB NOE WIEN AG",
+      "client_ref": "HYNOE",
+      "created_at": "2026-04-20 11:45:21",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    },
+    {
+      "id": 2912187541,
+      "search_term": "HEIMSTADEN AB",
+      "client_ref": "HEIMST",
+      "created_at": "2026-04-20 11:44:24",
+      "status": null,
+      "match_status": "no_match",
+      "total_hits": 0,
+      "is_monitored": false,
+      "assigned_user_id": null,
+      "filters": {
+        "types": [
+          "pep-class-1",
+          "pep-class-2",
+          "pep-class-3",
+          "pep-class-4",
+          "sanction"
+        ]
+      },
+      "hits": {}
+    }
+  ]
+}

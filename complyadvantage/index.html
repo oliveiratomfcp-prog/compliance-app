@@ -29,57 +29,44 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: var(--font); background: var(--bg); color: var(--text); font-size: 14px; }
 
-    /* ── LOGIN ── */
+    /* LOGIN */
     #login-screen {
       display: flex; align-items: center; justify-content: center;
       min-height: 100vh;
       background: linear-gradient(135deg, var(--navy) 0%, #002060 100%);
     }
     .login-card {
-      background: var(--surface);
-      border-radius: 12px;
-      padding: 48px 40px;
-      width: 380px;
-      box-shadow: 0 20px 60px rgba(0,0,0,.3);
-      text-align: center;
+      background: var(--surface); border-radius: 12px;
+      padding: 48px 40px; width: 380px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.3); text-align: center;
     }
     .login-logo { height: 40px; margin-bottom: 32px; }
-    .login-divider {
-      width: 40px; height: 3px;
-      background: var(--ochre);
-      margin: 0 auto 24px;
-      border-radius: 2px;
-    }
+    .login-divider { width: 40px; height: 3px; background: var(--ochre); margin: 0 auto 24px; border-radius: 2px; }
     .login-card h1 { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 6px; }
     .login-card p  { font-size: 13px; color: var(--muted); margin-bottom: 32px; }
     .btn-ms {
       display: inline-flex; align-items: center; gap: 10px; justify-content: center;
-      width: 100%;
-      background: var(--navy); color: #fff;
+      width: 100%; background: var(--navy); color: #fff;
       font-family: var(--font); font-size: 14px; font-weight: 600;
       border: none; border-radius: var(--radius);
-      padding: 13px 24px; cursor: pointer;
-      transition: background .2s, transform .1s;
+      padding: 13px 24px; cursor: pointer; transition: background .2s;
     }
-    .btn-ms:hover { background: #002060; transform: translateY(-1px); }
+    .btn-ms:hover { background: #002060; }
     .btn-ms svg { width: 18px; height: 18px; }
 
-    /* ── HEADER ── */
+    /* APP */
     #app { display: none; min-height: 100vh; }
     header {
-      background: var(--navy);
-      height: 56px;
+      background: var(--navy); height: 56px;
       display: flex; align-items: center; justify-content: space-between;
-      padding: 0 24px;
-      position: sticky; top: 0; z-index: 200;
+      padding: 0 24px; position: sticky; top: 0; z-index: 200;
       box-shadow: 0 2px 8px rgba(0,0,0,.2);
     }
     .header-left { display: flex; align-items: center; gap: 16px; }
     .header-logo { height: 28px; }
     .header-sep  { width: 1px; height: 20px; background: rgba(255,255,255,.2); }
-    .header-title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.75); letter-spacing: .01em; }
+    .header-title { font-size: 13px; font-weight: 500; color: rgba(255,255,255,.75); }
     .header-right { display: flex; align-items: center; gap: 12px; }
-    .user-info { display: flex; align-items: center; gap: 8px; }
     .user-avatar {
       width: 30px; height: 30px; border-radius: 50%;
       background: var(--ochre);
@@ -91,65 +78,40 @@
       font-size: 12px; color: rgba(255,255,255,.5);
       background: none; border: 1px solid rgba(255,255,255,.15);
       border-radius: 6px; padding: 5px 12px;
-      cursor: pointer; font-family: var(--font);
-      transition: all .2s;
+      cursor: pointer; font-family: var(--font); transition: all .2s;
     }
     .btn-logout:hover { color: #fff; border-color: rgba(255,255,255,.4); }
 
-    /* ── SOUS-HEADER ── */
+    /* SUBHEADER */
     .subheader {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
-      padding: 12px 24px;
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      padding: 12px 24px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
     }
-    .subheader-title { font-size: 13px; font-weight: 600; color: var(--navy); margin-right: 8px; }
+    .subheader-label { font-size: 13px; font-weight: 600; color: var(--navy); }
     .period-group { display: flex; gap: 4px; }
     .period-btn {
       font-size: 12px; font-weight: 500; font-family: var(--font);
       padding: 6px 14px; border-radius: 6px;
       border: 1px solid var(--border);
-      background: none; color: var(--muted); cursor: pointer;
-      transition: all .15s;
+      background: none; color: var(--muted); cursor: pointer; transition: all .15s;
     }
     .period-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); }
     .period-btn:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
     .subheader-right { margin-left: auto; display: flex; align-items: center; gap: 12px; }
-    .last-update { font-size: 12px; color: var(--muted); }
-    .btn-refresh {
-      display: flex; align-items: center; gap: 6px;
-      font-size: 13px; font-weight: 600; font-family: var(--font);
-      padding: 7px 16px; border-radius: var(--radius);
-      background: var(--teal); color: #fff; border: none;
-      cursor: pointer; transition: background .2s;
-    }
-    .btn-refresh:hover { background: #005550; }
-    .btn-refresh:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
-    .btn-refresh svg { width: 14px; height: 14px; }
-    .btn-refresh.spinning svg { animation: spin .7s linear infinite; }
+    .data-info { font-size: 12px; color: var(--muted); text-align: right; line-height: 1.4; }
+    .data-info strong { color: var(--navy); display: block; }
 
-    /* ── PROGRESS ── */
-    #progress-wrap {
-      display: none;
-      background: var(--navy);
-      padding: 10px 24px;
-      font-size: 12px; color: rgba(255,255,255,.7);
-    }
-    .progress-bar-bg { height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; margin-top: 6px; }
+    /* PROGRESS */
+    #progress-wrap { display: none; background: var(--navy); padding: 10px 24px; font-size: 12px; color: rgba(255,255,255,.7); }
+    .progress-bar-bg   { height: 3px; background: rgba(255,255,255,.15); border-radius: 2px; margin-top: 6px; }
     .progress-bar-fill { height: 100%; background: var(--ochre); border-radius: 2px; width: 0%; transition: width .3s; }
 
-    /* ── ERROR ── */
-    #error-wrap {
-      display: none;
-      background: #FEF2F2; border-bottom: 1px solid #FECACA;
-      padding: 10px 24px; font-size: 13px; color: var(--red);
-      display: none; align-items: center; gap: 8px;
-    }
+    /* ERROR */
+    #error-wrap { display: none; background: #FEF2F2; border-bottom: 1px solid #FECACA; padding: 10px 24px; font-size: 13px; color: var(--red); }
 
-    /* ── MAIN ── */
+    /* MAIN */
     main { padding: 24px; max-width: 1440px; margin: 0 auto; }
 
-    /* ── SECTION ── */
     .section-label {
       font-size: 11px; font-weight: 600; letter-spacing: .08em;
       text-transform: uppercase; color: var(--muted);
@@ -159,78 +121,44 @@
     .section-label:first-child { margin-top: 0; }
     .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
 
-    /* ── KPI CARDS ── */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 16px;
-      margin-bottom: 4px;
-    }
+    /* KPI */
+    .kpi-row { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 16px; }
     .kpi-card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px;
-      box-shadow: var(--shadow);
-      transition: box-shadow .2s;
-      position: relative;
-      overflow: hidden;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px;
+      box-shadow: var(--shadow); transition: box-shadow .2s;
+      position: relative; overflow: hidden;
     }
     .kpi-card:hover { box-shadow: var(--shadow-md); }
-    .kpi-accent {
-      position: absolute; top: 0; left: 0; right: 0; height: 3px;
-    }
-    .kpi-icon {
-      width: 36px; height: 36px; border-radius: 8px;
-      display: flex; align-items: center; justify-content: center;
-      margin-bottom: 12px; font-size: 16px;
-    }
+    .kpi-accent { position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+    .kpi-icon { width: 36px; height: 36px; border-radius: 8px; display: flex; align-items: center; justify-content: center; margin-bottom: 12px; font-size: 16px; }
     .kpi-label { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
     .kpi-value { font-size: 28px; font-weight: 700; color: var(--navy); letter-spacing: -.02em; line-height: 1; }
     .kpi-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
 
-    /* ── CHARTS ── */
-    .charts-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
-    }
+    /* CHARTS */
+    .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     @media(max-width:800px){ .charts-grid { grid-template-columns: 1fr; } }
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .card-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-    }
-    .card-title { font-size: 13px; font-weight: 600; color: var(--navy); }
-    .card-body  { padding: 20px; }
-
-    /* Bar chart */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+    .card-header { padding: 16px 20px; border-bottom: 1px solid var(--border); }
+    .card-title  { font-size: 13px; font-weight: 600; color: var(--navy); }
+    .card-body   { padding: 20px; }
     .bar-list { display: flex; flex-direction: column; gap: 10px; }
-    .bar-item  { display: flex; align-items: center; gap: 10px; }
-    .bar-key   { font-size: 12px; color: var(--text); min-width: 120px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bar-item { display: flex; align-items: center; gap: 10px; }
+    .bar-key  { font-size: 12px; color: var(--text); min-width: 120px; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .bar-track { flex: 1; height: 20px; background: var(--bg); border-radius: 4px; overflow: hidden; }
     .bar-fill  { height: 100%; border-radius: 4px; transition: width .6s cubic-bezier(.16,1,.3,1); }
     .bar-val   { font-size: 12px; color: var(--muted); min-width: 40px; }
 
-    /* ── TABLE ── */
+    /* TABLE */
     .table-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
-    .table-header {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-    }
+    .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .filter-pills { display: flex; gap: 6px; flex-wrap: wrap; flex: 1; }
     .pill {
       font-size: 12px; font-weight: 500; font-family: var(--font);
       padding: 4px 12px; border-radius: 20px;
       border: 1px solid var(--border);
-      background: none; color: var(--muted); cursor: pointer;
-      transition: all .15s;
+      background: none; color: var(--muted); cursor: pointer; transition: all .15s;
     }
     .pill.active { background: var(--navy); color: #fff; border-color: var(--navy); }
     .pill:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
@@ -247,8 +175,7 @@
       font-size: 11px; font-weight: 600; letter-spacing: .05em;
       text-transform: uppercase; color: var(--muted);
       text-align: left; padding: 10px 16px;
-      background: #F8F9FB; border-bottom: 1px solid var(--border);
-      white-space: nowrap;
+      background: #F8F9FB; border-bottom: 1px solid var(--border); white-space: nowrap;
     }
     .tbl tbody tr { border-bottom: 1px solid var(--border); transition: background .1s; }
     .tbl tbody tr:last-child { border-bottom: none; }
@@ -260,70 +187,33 @@
     .td-hits { font-weight: 600; color: var(--navy); text-align: center; }
     .td-link a { font-size: 12px; color: var(--teal); text-decoration: none; font-weight: 500; }
     .td-link a:hover { text-decoration: underline; }
-
-    /* badges */
-    .badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      font-size: 11px; font-weight: 600; padding: 3px 9px;
-      border-radius: 20px; white-space: nowrap;
-    }
+    .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
     .badge-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-    .b-pending        { background:#FEF3C7; color:#92400E; }
-    .b-pending        .badge-dot { background: var(--amber); }
-    .b-in_progress    { background:#DBEAFE; color:#1E40AF; }
-    .b-in_progress    .badge-dot { background: var(--blue); }
-    .b-cleared        { background:#DCFCE7; color:#166534; }
-    .b-cleared        .badge-dot { background: var(--green); }
-    .b-rejected       { background:#FEE2E2; color:#991B1B; }
-    .b-rejected       .badge-dot { background: var(--red); }
-    .b-true_positive  { background:#EDE9FE; color:#5B21B6; }
-    .b-true_positive  .badge-dot { background: var(--purple); }
-    .b-potential_match{ background:#FEF3C7; color:#92400E; }
-    .b-potential_match.badge-dot { background: var(--amber); }
-    .b-false_positive { background:#F3F4F6; color:#6B7280; }
-    .b-false_positive .badge-dot { background:#9CA3AF; }
-    .b-unknown_match_status { background:#F3F4F6; color:#6B7280; }
-    .b-unknown_match_status .badge-dot { background:#9CA3AF; }
-
-    /* type tags */
+    .b-pending         { background:#FEF3C7; color:#92400E; } .b-pending .badge-dot         { background:var(--amber); }
+    .b-in_progress     { background:#DBEAFE; color:#1E40AF; } .b-in_progress .badge-dot     { background:var(--blue); }
+    .b-cleared         { background:#DCFCE7; color:#166534; } .b-cleared .badge-dot         { background:var(--green); }
+    .b-rejected        { background:#FEE2E2; color:#991B1B; } .b-rejected .badge-dot        { background:var(--red); }
+    .b-true_positive   { background:#EDE9FE; color:#5B21B6; } .b-true_positive .badge-dot   { background:var(--purple); }
+    .b-potential_match { background:#FEF3C7; color:#92400E; } .b-potential_match .badge-dot { background:var(--amber); }
+    .b-false_positive  { background:#F3F4F6; color:#6B7280; } .b-false_positive .badge-dot  { background:#9CA3AF; }
+    .b-unknown_match_status { background:#F3F4F6; color:#6B7280; } .b-unknown_match_status .badge-dot { background:#9CA3AF; }
     .type-tags { display: flex; gap: 4px; flex-wrap: wrap; }
-    .ttag {
-      font-size: 10px; font-weight: 600; padding: 2px 6px;
-      border-radius: 4px; text-transform: uppercase; letter-spacing: .04em;
-    }
+    .ttag { font-size: 10px; font-weight: 600; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: .04em; }
     .ttag-sanction { background:#FEE2E2; color:#991B1B; }
     .ttag-pep      { background:#EDE9FE; color:#5B21B6; }
     .ttag-warning  { background:#FEF3C7; color:#92400E; }
     .ttag-adverse  { background:#F3F4F6; color:#374151; }
     .ttag-fitness  { background:#DBEAFE; color:#1E40AF; }
-
-    /* pagination */
-    .table-footer {
-      padding: 12px 20px;
-      border-top: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: space-between;
-      font-size: 12px; color: var(--muted);
-    }
+    .table-footer { padding: 12px 20px; border-top: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
     .page-btns { display: flex; gap: 4px; }
-    .page-btn {
-      font-size: 12px; font-family: var(--font);
-      padding: 4px 10px; border: 1px solid var(--border);
-      background: none; border-radius: 6px; cursor: pointer;
-      transition: all .15s;
-    }
+    .page-btn { font-size: 12px; font-family: var(--font); padding: 4px 10px; border: 1px solid var(--border); background: none; border-radius: 6px; cursor: pointer; transition: all .15s; }
     .page-btn:hover:not(:disabled):not(.active) { border-color: var(--navy); color: var(--navy); }
     .page-btn:disabled { opacity: .4; cursor: not-allowed; }
     .page-btn.active   { background: var(--navy); color: #fff; border-color: var(--navy); }
 
-    /* ── ASSIGNEES ── */
+    /* ASSIGNEES */
     .assignee-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px,1fr)); gap: 16px; }
-    .acard {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 18px 20px;
-      box-shadow: var(--shadow);
-    }
+    .acard { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px 20px; box-shadow: var(--shadow); }
     .acard-name  { font-size: 14px; font-weight: 600; color: var(--navy); margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .acard-email { font-size: 11px; color: var(--muted); margin-bottom: 14px; }
     .acard-stats { display: flex; gap: 16px; margin-bottom: 12px; }
@@ -334,21 +224,27 @@
     .abar-fill   { height: 100%; background: var(--teal); border-radius: 2px; transition: width .6s cubic-bezier(.16,1,.3,1); }
     .abar-pct    { font-size: 11px; color: var(--muted); min-width: 32px; text-align: right; }
 
-    /* empty */
     .empty { text-align: center; padding: 48px 20px; font-size: 13px; color: var(--muted); }
 
-    /* ── CORS WARNING ── */
-    .cors-banner {
-      background: #FFF7ED; border: 1px solid #FED7AA;
-      border-radius: var(--radius); padding: 16px 20px;
-      margin-bottom: 20px;
-      display: flex; gap: 12px; align-items: flex-start;
+    /* ACCES REFUSE */
+    #access-denied {
+      display: none; align-items: center; justify-content: center;
+      min-height: 100vh;
+      background: linear-height(135deg, var(--navy) 0%, #002060 100%);
+      background: var(--bg);
     }
-    .cors-icon { font-size: 20px; flex-shrink: 0; }
-    .cors-title { font-size: 13px; font-weight: 600; color: #92400E; margin-bottom: 4px; }
-    .cors-body  { font-size: 12px; color: #92400E; line-height: 1.5; }
+    .denied-card {
+      background: var(--surface); border-radius: 12px;
+      padding: 48px 40px; width: 420px; text-align: center;
+      box-shadow: var(--shadow-md);
+    }
+    .denied-icon { font-size: 48px; margin-bottom: 16px; }
+    .denied-card h2 { font-size: 20px; font-weight: 700; color: var(--navy); margin-bottom: 8px; }
+    .denied-card p  { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.6; }
+    .denied-email   { font-size: 13px; font-weight: 600; color: var(--red); background: #FEF2F2; padding: 8px 16px; border-radius: 6px; margin-bottom: 24px; }
+    .btn-back { font-family: var(--font); font-size: 13px; font-weight: 600; padding: 10px 24px; border-radius: var(--radius); background: var(--navy); color: #fff; border: none; cursor: pointer; }
+    .btn-back:hover { background: #002060; }
 
-    @keyframes spin { to { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
     .fade-in { animation: fadeIn .35s ease both; }
   </style>
@@ -358,17 +254,26 @@
 <!-- LOGIN -->
 <div id="login-screen">
   <div class="login-card">
-    <img src="../images/LOGO_EIFFEL_DIGI_BLANC.png" class="login-logo" alt="Eiffel IG"
-         onerror="this.style.display='none'"/>
+    <img src="../images/LOGO_EIFFEL_DIGI_BLANC.png" class="login-logo" alt="Eiffel IG" onerror="this.style.display='none'"/>
     <div class="login-divider"></div>
     <h1>ComplyAdvantage</h1>
     <p>Dashboard de reporting — Eiffel Investment Group</p>
     <button class="btn-ms" onclick="signIn()">
-      <svg viewBox="0 0 21 21" fill="currentColor">
-        <path d="M10 0H0v10h10V0zM21 0H11v10h10V0zM10 11H0v10h10V11zM21 11H11v10h10V11z"/>
-      </svg>
+      <svg viewBox="0 0 21 21" fill="currentColor"><path d="M10 0H0v10h10V0zM21 0H11v10h10V0zM10 11H0v10h10V11zM21 11H11v10h10V11z"/></svg>
       Se connecter avec Microsoft
     </button>
+  </div>
+</div>
+
+<!-- ACCES REFUSE -->
+<div id="access-denied">
+  <div class="denied-card">
+    <div class="denied-icon">🔒</div>
+    <h2>Accès non autorisé</h2>
+    <p>Votre compte n'est pas autorisé à accéder à ce dashboard.</p>
+    <div class="denied-email" id="denied-email"></div>
+    <p style="font-size:12px;color:var(--muted)">Contactez l'équipe compliance pour demander un accès.</p>
+    <button class="btn-back" onclick="signOut()">Se déconnecter</button>
   </div>
 </div>
 
@@ -376,13 +281,12 @@
 <div id="app">
   <header>
     <div class="header-left">
-      <img src="../images/LOGO_EIFFEL_DIGI_BLANC.png" class="header-logo" alt="Eiffel IG"
-           onerror="this.style.display='none'"/>
+      <img src="../images/LOGO_EIFFEL_DIGI_BLANC.png" class="header-logo" alt="Eiffel IG" onerror="this.style.display='none'"/>
       <div class="header-sep"></div>
       <span class="header-title">ComplyAdvantage · Dashboard</span>
     </div>
     <div class="header-right">
-      <div class="user-info">
+      <div style="display:flex;align-items:center;gap:8px">
         <div class="user-avatar" id="user-avatar">?</div>
         <span class="user-name" id="user-name">—</span>
       </div>
@@ -391,7 +295,7 @@
   </header>
 
   <div class="subheader">
-    <span class="subheader-title">Période :</span>
+    <span class="subheader-label">Période :</span>
     <div class="period-group" id="period-btns">
       <button class="period-btn" data-days="7">7 jours</button>
       <button class="period-btn active" data-days="30">30 jours</button>
@@ -400,14 +304,7 @@
       <button class="period-btn" data-days="365">1 an</button>
     </div>
     <div class="subheader-right">
-      <span class="last-update" id="last-update"></span>
-      <button class="btn-refresh" id="btn-refresh" onclick="loadData()">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-          <polyline points="23 4 23 10 17 10"/>
-          <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
-        </svg>
-        Actualiser
-      </button>
+      <div class="data-info" id="data-info"></div>
     </div>
   </div>
 
@@ -418,20 +315,6 @@
   <div id="error-wrap"></div>
 
   <main>
-    <div id="cors-warning" style="display:none">
-      <div class="cors-banner">
-        <div class="cors-icon">⚠️</div>
-        <div>
-          <div class="cors-title">Problème de connexion à l'API ComplyAdvantage</div>
-          <div class="cors-body">
-            L'API ComplyAdvantage bloque les appels directs depuis le navigateur (restriction CORS).<br>
-            Une Azure Function proxy est nécessaire pour contourner cette limitation.<br>
-            <strong>En attendant, un jeu de données de démonstration est affiché ci-dessous.</strong>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <div class="section-label">Vue d'ensemble</div>
     <div class="kpi-row" id="kpi-row"></div>
 
@@ -486,13 +369,22 @@
 
 <script>
 // ════════════════════════════════════
-// CONFIG
+// LISTE BLANCHE — emails autorisés
 // ════════════════════════════════════
-const CA_KEY  = 'JvqJdfYkae0ocShFbtU7Zv4ZXJY7JuzJ';
-const CA_BASE = 'https://api.complyadvantage.com';
-const PG_SIZE = 100;  // par appel API
-const TBL_PG  = 25;   // lignes par page table
+const ALLOWED_EMAILS = [
+  "thomas.oliveira@eiffel-ig.com",
+  "cassandre.memet@eiffel-ig.com",
+  "jessica.manukyan@eiffel-ig.com",
+  "manalle.ourrami@eiffel-ig.com",
+  "julie.boileau@eiffel-ig.com",
+  "fabrice.dumonteil@eiffel-ig.com",
+  "olivier.villedey@eiffel-ig.com",
+  "didier.baneat@eiffel-ig.com",
+];
 
+// ════════════════════════════════════
+// CONFIG MSAL
+// ════════════════════════════════════
 const msalCfg = {
   auth: {
     clientId: '56c83db2-7fc6-4826-8073-82077e91ae27',
@@ -513,14 +405,31 @@ async function initAuth() {
     if (r) me = r.account;
     else { const a = msalApp.getAllAccounts(); if (a.length) me = a[0]; }
   } catch(e) { console.error(e); }
-  me ? showApp() : showLogin();
+
+  if (!me) { showLogin(); return; }
+
+  const email = (me.username || '').toLowerCase();
+  const allowed = ALLOWED_EMAILS.length === 0 || ALLOWED_EMAILS.map(e=>e.toLowerCase()).includes(email);
+
+  if (!allowed) {
+    document.getElementById('denied-email').textContent = me.username;
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('access-denied').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+    return;
+  }
+
+  showApp();
 }
+
 function showLogin() {
   document.getElementById('login-screen').style.display = 'flex';
   document.getElementById('app').style.display = 'none';
+  document.getElementById('access-denied').style.display = 'none';
 }
 function showApp() {
   document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('access-denied').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   const name = me.name || me.username;
   document.getElementById('user-name').textContent = name;
@@ -535,105 +444,39 @@ function signOut() { msalApp.logoutRedirect(); }
 // ════════════════════════════════════
 let allData = [], filtered = [], users = {};
 let tblPage = 1, activeFilter = 'all', activeDays = 30;
-let corsError = false;
+let dataJson = null; // cache du fichier JSON
 
 // ════════════════════════════════════
-// API
-// ════════════════════════════════════
-async function caGet(path) {
-  const r = await fetch(CA_BASE + path, {
-    headers: { 'Authorization': 'Token ' + CA_KEY }
-  });
-  if (!r.ok) throw new Error(`HTTP ${r.status}`);
-  return r.json();
-}
-
-async function loadUsers() {
-  try {
-    const d = await caGet('/users');
-    (d.content?.data || []).forEach(u => { users[u.id] = u; });
-  } catch(e) { /* silencieux */ }
-}
-
-async function loadSearches(days) {
-  const since = new Date();
-  since.setDate(since.getDate() - days);
-  const from = since.toISOString().slice(0,10);
-
-  let results = [], offset = 0, total = null;
-  while (true) {
-    setProgress(total ? Math.min(92, results.length/total*100) : 15);
-    setMsg(`Chargement… ${results.length}${total ? '/'+total : ''} screenings`);
-    const d = await caGet(`/searches?limit=${PG_SIZE}&offset=${offset}&created_at_from=${from}&ordering=-created_at`);
-    const c = d.content;
-    if (total === null) total = c.total_count || 0;
-    const batch = c.data || [];
-    results = results.concat(batch);
-    if (batch.length < PG_SIZE || results.length >= total) break;
-    offset += PG_SIZE;
-    if (offset % (PG_SIZE*5) === 0) await sleep(200);
-  }
-  return results;
-}
-
-// ════════════════════════════════════
-// DEMO DATA (fallback CORS)
-// ════════════════════════════════════
-function generateDemo(days) {
-  const statuses = ['pending','in_progress','cleared','rejected'];
-  const matchSt  = ['unknown_match_status','potential_match','true_positive','false_positive'];
-  const types    = [['sanction'],['pep'],['warning'],['adverse-media'],['pep','warning'],['sanction','pep']];
-  const names    = ['Mohammed Al-Rashid','Zhang Wei','Ivan Petrov','Carlos Mendez','Fatima Ouali',
-                    'Nicolas Dupont','Yuki Tanaka','Amara Diallo','Boris Volkov','Layla Hassan',
-                    'Jean-Pierre Martin','Ana González','Viktor Schneider','Priya Sharma','Omar Benali'];
-  const n = Math.floor(Math.random()*50)+80;
-  return Array.from({length:n},(_,i)=>{
-    const d = new Date(); d.setDate(d.getDate()-Math.floor(Math.random()*days));
-    const hits = Math.random()<.3 ? Math.floor(Math.random()*5)+1 : 0;
-    const uid  = ['usr1','usr2','usr3','usr4'][i%4];
-    return {
-      id: 'DEMO'+i, search_term: names[i%names.length],
-      client_ref: 'CLT'+String(1000+i).padStart(4,'0'),
-      created_at: d.toISOString(), status: statuses[i%4],
-      match_status: hits>0 ? matchSt[i%4] : 'unknown_match_status',
-      total_hits: hits, is_monitored: i%5===0,
-      assigned_user_id: uid,
-      filters: { types: types[i%types.length] }
-    };
-  });
-}
-const DEMO_USERS = {
-  usr1:{id:'usr1',name:'Sophie Lambert',email:'s.lambert@eiffel-ig.com'},
-  usr2:{id:'usr2',name:'Marc Dubois',email:'m.dubois@eiffel-ig.com'},
-  usr3:{id:'usr3',name:'Claire Bernard',email:'c.bernard@eiffel-ig.com'},
-  usr4:{id:'usr4',name:'Thomas Oliveira',email:'t.oliveira@eiffel-ig.com'},
-};
-
-// ════════════════════════════════════
-// LOAD
+// CHARGEMENT DATA.JSON
 // ════════════════════════════════════
 async function loadData() {
-  const btn = document.getElementById('btn-refresh');
-  btn.disabled = true; btn.classList.add('spinning');
-  showError(''); showProgress(true); setProgress(0); corsError = false;
-  document.getElementById('cors-warning').style.display = 'none';
+  showProgress(true); setProgress(10); setMsg('Chargement des données…');
+  showError('');
 
   try {
-    await loadUsers();
-    allData = await loadSearches(activeDays);
+    // Cache-busting pour éviter les données périmées
+    const resp = await fetch('./data.json?t=' + Date.now());
+    if (!resp.ok) throw new Error(`data.json introuvable (${resp.status})`);
+    dataJson = await resp.json();
     setProgress(100);
+    applyPeriod();
+    const gen = new Date(dataJson.generated_at);
+    document.getElementById('data-info').innerHTML =
+      `<strong>Données ComplyAdvantage</strong>Générées le ${gen.toLocaleDateString('fr-FR')} à ${gen.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}`;
   } catch(e) {
-    corsError = true;
-    console.warn('API indisponible, mode démo :', e.message);
-    document.getElementById('cors-warning').style.display = 'block';
-    allData = generateDemo(activeDays);
-    users   = {...DEMO_USERS};
+    showError('Impossible de charger data.json — avez-vous lancé le script fetch_data.py ? (' + e.message + ')');
+  } finally {
+    showProgress(false);
   }
-  showProgress(false);
+}
+
+function applyPeriod() {
+  if (!dataJson) return;
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - activeDays);
+  allData = dataJson.searches.filter(s => new Date(s.created_at) >= cutoff);
+  users   = dataJson.users || {};
   renderAll();
-  document.getElementById('last-update').textContent =
-    'Actualisé à ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  btn.disabled = false; btn.classList.remove('spinning');
 }
 
 // ════════════════════════════════════
@@ -644,7 +487,7 @@ function renderAll() { renderKPIs(); renderCharts(); applyFilter(); renderAssign
 function renderKPIs() {
   const s = allData, n = s.length;
   const hits    = s.filter(x=>(x.total_hits||0)>0).length;
-  const rate    = n ? (hits/n*100).toFixed(1) : 0;
+  const rate    = n ? (hits/n*100).toFixed(1) : '0.0';
   const mon     = s.filter(x=>x.is_monitored).length;
   const pending = s.filter(x=>x.status==='pending').length;
   const inprog  = s.filter(x=>x.status==='in_progress').length;
@@ -652,14 +495,14 @@ function renderKPIs() {
   const rejected= s.filter(x=>x.status==='rejected').length;
 
   const kpis = [
-    {label:'Total screenings', val:fmt(n),         sub:`${activeDays} derniers jours`, color:var_navy,  icon:'🔍', bg:'#EEF2FF'},
-    {label:'Avec hits',        val:fmt(hits),       sub:`taux ${rate}%`,               color:'#7C3AED', icon:'🎯', bg:'#EDE9FE'},
-    {label:'Sous monitoring',  val:fmt(mon),        sub:'actif',                       color:var_teal,  icon:'📡', bg:'#ECFDF5'},
-    {label:'En attente',       val:fmt(pending),    sub:'pending',                     color:'#D97706', icon:'⏳', bg:'#FFFBEB'},
-    {label:'En cours',         val:fmt(inprog),     sub:'in_progress',                 color:'#2563EB', icon:'⚙️', bg:'#EFF6FF'},
-    {label:'Validés',          val:fmt(cleared),    sub:'cleared',                     color:'#16A34A', icon:'✅', bg:'#DCFCE7'},
-    {label:'Rejetés',          val:fmt(rejected),   sub:'rejected',                    color:'#DC2626', icon:'❌', bg:'#FEF2F2'},
-    {label:'Taux de hit',      val:rate+'%',        sub:'hits / total',                color:var_ochre, icon:'📊', bg:'#FFF7ED'},
+    {label:'Total screenings', val:fmt(n),        sub:`${activeDays} derniers jours`, color:'#00143B', icon:'🔍', bg:'#EEF2FF'},
+    {label:'Avec hits',        val:fmt(hits),      sub:`taux ${rate}%`,               color:'#7C3AED', icon:'🎯', bg:'#EDE9FE'},
+    {label:'Sous monitoring',  val:fmt(mon),       sub:'actif',                       color:'#006660', icon:'📡', bg:'#ECFDF5'},
+    {label:'En attente',       val:fmt(pending),   sub:'pending',                     color:'#D97706', icon:'⏳', bg:'#FFFBEB'},
+    {label:'En cours',         val:fmt(inprog),    sub:'in_progress',                 color:'#2563EB', icon:'⚙️', bg:'#EFF6FF'},
+    {label:'Validés',          val:fmt(cleared),   sub:'cleared',                     color:'#16A34A', icon:'✅', bg:'#DCFCE7'},
+    {label:'Rejetés',          val:fmt(rejected),  sub:'rejected',                    color:'#DC2626', icon:'❌', bg:'#FEF2F2'},
+    {label:'Taux de hit',      val:rate+'%',       sub:'hits / total',                color:'#D18F41', icon:'📊', bg:'#FFF7ED'},
   ];
   const row = document.getElementById('kpi-row');
   row.innerHTML = '';
@@ -677,173 +520,135 @@ function renderKPIs() {
   });
 }
 
-const var_navy  = '#00143B';
-const var_teal  = '#006660';
-const var_ochre = '#D18F41';
 function fmt(n) { return Number(n).toLocaleString('fr-FR'); }
 
 function renderCharts() {
-  // Statuts
-  const stMap = {};
-  allData.forEach(s=>{ const st=s.status||'unknown'; stMap[st]=(stMap[st]||0)+1; });
-  const stColors = {pending:'#D97706',in_progress:'#2563EB',cleared:'#16A34A',rejected:'#DC2626',unknown:'#9CA3AF'};
-  const stLabels = {pending:'Pending',in_progress:'En cours',cleared:'Validés',rejected:'Rejetés',unknown:'Inconnu'};
-  renderBarList('chart-status', stMap, stColors, stLabels);
-
-  // Types
-  const tpMap = {};
+  const stMap={}, tpMap={};
   allData.forEach(s=>{
-    const types = s.filters?.types || [];
-    types.forEach(t=>{ tpMap[t]=(tpMap[t]||0)+1; });
-    if (s.hits) Object.keys(s.hits).filter(k=>s.hits[k]>0).forEach(t=>{ tpMap[t]=(tpMap[t]||0)+1; });
+    const st=s.status||'unknown'; stMap[st]=(stMap[st]||0)+1;
+    (s.filters?.types||[]).forEach(t=>{ tpMap[t]=(tpMap[t]||0)+1; });
+    if(s.hits) Object.keys(s.hits).filter(k=>s.hits[k]>0).forEach(t=>{ tpMap[t]=(tpMap[t]||0)+1; });
   });
-  const tpColors = {sanction:'#DC2626',pep:'#7C3AED',warning:'#D97706','adverse-media':'#6B7280','fitness-probity':'#2563EB'};
-  const tpLabels = {sanction:'Sanction',pep:'PEP',warning:'Warning','adverse-media':'Adverse media','fitness-probity':'Fitness & Probity'};
-  renderBarList('chart-type', tpMap, tpColors, tpLabels);
+  renderBarList('chart-status', stMap,
+    {pending:'#D97706',in_progress:'#2563EB',cleared:'#16A34A',rejected:'#DC2626',unknown:'#9CA3AF'},
+    {pending:'Pending',in_progress:'En cours',cleared:'Validés',rejected:'Rejetés',unknown:'Inconnu'});
+  renderBarList('chart-type', tpMap,
+    {sanction:'#DC2626',pep:'#7C3AED',warning:'#D97706','adverse-media':'#6B7280','fitness-probity':'#2563EB'},
+    {sanction:'Sanction',pep:'PEP',warning:'Warning','adverse-media':'Adverse media','fitness-probity':'Fitness & Probity'});
 }
 
 function renderBarList(id, map, colors, labels) {
   const el = document.getElementById(id);
-  el.innerHTML = '';
   const entries = Object.entries(map).sort((a,b)=>b[1]-a[1]);
   if (!entries.length) { el.innerHTML='<div class="empty">Aucune donnée</div>'; return; }
   const max = entries[0][1];
-  entries.forEach(([k,v])=>{
-    const pct = max ? v/max*100 : 0;
-    const color = colors[k] || '#9CA3AF';
-    const label = labels[k] || k.replace(/-/g,' ');
-    el.innerHTML += `
-      <div class="bar-item">
-        <div class="bar-key" title="${label}">${label}</div>
-        <div class="bar-track"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>
-        <div class="bar-val">${fmt(v)}</div>
-      </div>`;
-  });
+  el.innerHTML = entries.map(([k,v])=>`
+    <div class="bar-item">
+      <div class="bar-key" title="${labels[k]||k}">${labels[k]||k}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${max?v/max*100:0}%;background:${colors[k]||'#9CA3AF'}"></div></div>
+      <div class="bar-val">${fmt(v)}</div>
+    </div>`).join('');
 }
 
-// ── TABLE ──
+// TABLE
 function applyFilter() {
   const q = (document.getElementById('tbl-search')?.value||'').toLowerCase();
   filtered = allData.filter(s=>{
-    if (activeFilter !== 'all') {
-      const ms = s.match_status || 'unknown_match_status';
-      if (ms !== activeFilter) return false;
-    }
+    if (activeFilter!=='all' && (s.match_status||'unknown_match_status')!==activeFilter) return false;
     if (q) {
-      const name = (typeof s.search_term==='object'
-        ? [s.search_term.first_name,s.search_term.last_name].filter(Boolean).join(' ')
-        : s.search_term||'').toLowerCase();
-      const ref = (s.client_ref||'').toLowerCase();
+      const name = (s.search_term||'').toLowerCase();
+      const ref  = (s.client_ref||'').toLowerCase();
       if (!name.includes(q) && !ref.includes(q)) return false;
     }
     return true;
   });
-  tblPage = 1;
-  renderTable();
+  tblPage = 1; renderTable();
 }
 
 function renderTable() {
   const tbody = document.getElementById('tbl-body');
-  tbody.innerHTML = '';
-  const start = (tblPage-1)*TBL_PG;
-  const slice = filtered.slice(start, start+TBL_PG);
+  const slice = filtered.slice((tblPage-1)*25, tblPage*25);
+  if (!slice.length) { tbody.innerHTML=`<tr><td colspan="8"><div class="empty">Aucun résultat</div></td></tr>`; renderFooter(); return; }
 
-  if (!slice.length) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty">Aucun résultat</div></td></tr>`;
-    renderFooter(); return;
-  }
-  slice.forEach(s=>{
-    const name = typeof s.search_term==='object'
-      ? [s.search_term.first_name,s.search_term.last_name].filter(Boolean).join(' ')
-      : (s.search_term||'—');
-    const ref    = s.client_ref || '—';
+  const stLbl = {pending:'Pending',in_progress:'En cours',cleared:'Validé',rejected:'Rejeté'};
+  const msLbl = {true_positive:'Confirmé',false_positive:'Faux positif',potential_match:'Potentiel',unknown_match_status:'Non traité'};
+
+  tbody.innerHTML = slice.map(s=>{
+    const name   = s.search_term||'—';
+    const ref    = s.client_ref||'—';
     const date   = s.created_at ? new Date(s.created_at).toLocaleDateString('fr-FR') : '—';
-    const status = s.status || 'pending';
-    const ms     = s.match_status || 'unknown_match_status';
-    const hits   = s.total_hits || 0;
+    const status = s.status||'pending';
+    const ms     = s.match_status||'unknown_match_status';
+    const hits   = s.total_hits||0;
     const types  = (s.filters?.types||[]).slice(0,3);
     const url    = `https://app.complyadvantage.com/searches/${s.id}`;
-
-    const stLabel = {pending:'Pending',in_progress:'En cours',cleared:'Validé',rejected:'Rejeté'}[status]||status;
-    const msLabel = {true_positive:'Confirmé',false_positive:'Faux positif',potential_match:'Potentiel',unknown_match_status:'Non traité'}[ms]||ms;
-
     const typesHtml = types.map(t=>{
       const cls = t.includes('sanction')?'sanction':t.includes('pep')?'pep':t.includes('warning')?'warning':t.includes('adverse')?'adverse':'fitness';
       const lbl = {sanction:'Sanction',pep:'PEP',warning:'Warning','adverse-media':'Adverse','fitness-probity':'Fitness'}[t]||t;
       return `<span class="ttag ttag-${cls}">${lbl}</span>`;
     }).join('');
-
-    tbody.innerHTML += `
-      <tr>
-        <td class="td-name" title="${name}">${name}</td>
-        <td class="td-ref">${ref}</td>
-        <td class="td-date">${date}</td>
-        <td><span class="badge b-${status}"><span class="badge-dot"></span>${stLabel}</span></td>
-        <td><span class="badge b-${ms}"><span class="badge-dot"></span>${msLabel}</span></td>
-        <td><div class="type-tags">${typesHtml}</div></td>
-        <td class="td-hits">${hits||''}</td>
-        <td class="td-link"><a href="${url}" target="_blank">Ouvrir ↗</a></td>
-      </tr>`;
-  });
+    return `<tr>
+      <td class="td-name" title="${name}">${name}</td>
+      <td class="td-ref">${ref}</td>
+      <td class="td-date">${date}</td>
+      <td><span class="badge b-${status}"><span class="badge-dot"></span>${stLbl[status]||status}</span></td>
+      <td><span class="badge b-${ms}"><span class="badge-dot"></span>${msLbl[ms]||ms}</span></td>
+      <td><div class="type-tags">${typesHtml}</div></td>
+      <td class="td-hits">${hits||''}</td>
+      <td class="td-link"><a href="${url}" target="_blank">Ouvrir ↗</a></td>
+    </tr>`;
+  }).join('');
   renderFooter();
 }
 
 function renderFooter() {
-  const total = filtered.length;
-  const pages = Math.ceil(total/TBL_PG);
-  const el = document.getElementById('tbl-footer');
-  const s = (tblPage-1)*TBL_PG+1, e = Math.min(tblPage*TBL_PG, total);
+  const total=filtered.length, pages=Math.ceil(total/25);
+  const el=document.getElementById('tbl-footer');
   if (!total) { el.innerHTML=''; return; }
-
-  let btns = '';
-  pageRange(tblPage, pages).forEach(p=>{
-    if (p==='…') btns += `<span style="padding:4px 6px;font-size:12px;color:var(--muted)">…</span>`;
-    else btns += `<button class="page-btn ${p===tblPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+  const s=(tblPage-1)*25+1, e=Math.min(tblPage*25,total);
+  let btns='';
+  pageRange(tblPage,pages).forEach(p=>{
+    if(p==='…') btns+=`<span style="padding:4px 6px;font-size:12px;color:var(--muted)">…</span>`;
+    else btns+=`<button class="page-btn ${p===tblPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
   });
-  el.innerHTML = `
-    <span>${fmt(s)}–${fmt(e)} sur ${fmt(total)}</span>
-    <div class="page-btns">
-      <button class="page-btn" onclick="goPage(${tblPage-1})" ${tblPage===1?'disabled':''}>‹</button>
-      ${btns}
-      <button class="page-btn" onclick="goPage(${tblPage+1})" ${tblPage===pages?'disabled':''}>›</button>
-    </div>`;
+  el.innerHTML=`<span>${fmt(s)}–${fmt(e)} sur ${fmt(total)}</span><div class="page-btns"><button class="page-btn" onclick="goPage(${tblPage-1})" ${tblPage===1?'disabled':''}>‹</button>${btns}<button class="page-btn" onclick="goPage(${tblPage+1})" ${tblPage===pages?'disabled':''}>›</button></div>`;
 }
 
-function pageRange(cur, tot) {
-  if (tot<=7) return Array.from({length:tot},(_,i)=>i+1);
-  if (cur<=4) return [1,2,3,4,5,'…',tot];
-  if (cur>=tot-3) return [1,'…',tot-4,tot-3,tot-2,tot-1,tot];
+function pageRange(cur,tot) {
+  if(tot<=7) return Array.from({length:tot},(_,i)=>i+1);
+  if(cur<=4) return [1,2,3,4,5,'…',tot];
+  if(cur>=tot-3) return [1,'…',tot-4,tot-3,tot-2,tot-1,tot];
   return [1,'…',cur-1,cur,cur+1,'…',tot];
 }
 function goPage(p) {
-  const pages = Math.ceil(filtered.length/TBL_PG);
-  if (p<1||p>pages) return;
-  tblPage = p; renderTable();
+  const pages=Math.ceil(filtered.length/25);
+  if(p<1||p>pages) return;
+  tblPage=p; renderTable();
   document.querySelector('.table-wrap').scrollIntoView({behavior:'smooth',block:'nearest'});
 }
 
-// ── ASSIGNEES ──
+// ASSIGNEES
 function renderAssignees() {
-  const grid = document.getElementById('assignee-grid');
-  grid.innerHTML = '';
-  const map = {};
+  const grid=document.getElementById('assignee-grid');
+  const map={};
   allData.forEach(s=>{
-    const uid = s.assigned_user_id || '_none';
-    if (!map[uid]) map[uid]={total:0,cleared:0,hits:0};
+    const uid=s.assigned_user_id||'_none';
+    if(!map[uid]) map[uid]={total:0,cleared:0,hits:0};
     map[uid].total++;
-    if (s.status==='cleared') map[uid].cleared++;
-    if ((s.total_hits||0)>0) map[uid].hits++;
+    if(s.status==='cleared') map[uid].cleared++;
+    if((s.total_hits||0)>0) map[uid].hits++;
   });
-  const entries = Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
-  if (!entries.length) { grid.innerHTML='<div class="empty">Aucun analyste</div>'; return; }
+  const entries=Object.entries(map).sort((a,b)=>b[1].total-a[1].total);
+  if(!entries.length){grid.innerHTML='<div class="empty">Aucun analyste</div>';return;}
+  grid.innerHTML='';
   entries.forEach(([uid,st])=>{
-    const u = users[uid];
-    const name  = u ? (u.name||u.email) : (uid==='_none'?'Non assigné':'Analyste '+uid.slice(0,6));
-    const email = u?.email || '';
-    const pct   = st.total ? Math.round(st.cleared/st.total*100) : 0;
-    const d = document.createElement('div');
-    d.className = 'acard fade-in';
-    d.innerHTML = `
+    const u=users[uid];
+    const name=u?(u.name||u.email):(uid==='_none'?'Non assigné':'Analyste '+uid.slice(0,6));
+    const email=u?.email||'';
+    const pct=st.total?Math.round(st.cleared/st.total*100):0;
+    const d=document.createElement('div');
+    d.className='acard fade-in';
+    d.innerHTML=`
       <div class="acard-name" title="${name}">${name}</div>
       <div class="acard-email">${email||'&nbsp;'}</div>
       <div class="acard-stats">
@@ -851,50 +656,35 @@ function renderAssignees() {
         <div><div class="astat-val">${fmt(st.cleared)}</div><div class="astat-lbl">Validés</div></div>
         <div><div class="astat-val">${fmt(st.hits)}</div><div class="astat-lbl">Avec hits</div></div>
       </div>
-      <div class="acard-bar">
-        <div class="abar-track"><div class="abar-fill" style="width:${pct}%"></div></div>
-        <div class="abar-pct">${pct}%</div>
-      </div>`;
+      <div class="acard-bar"><div class="abar-track"><div class="abar-fill" style="width:${pct}%"></div></div><div class="abar-pct">${pct}%</div></div>`;
     grid.appendChild(d);
   });
 }
 
-// ════════════════════════════════════
-// UI HELPERS
-// ════════════════════════════════════
-function showProgress(v) { document.getElementById('progress-wrap').style.display = v?'block':'none'; }
-function setProgress(p)  { document.getElementById('progress-fill').style.width = p+'%'; }
-function setMsg(m)       { document.getElementById('progress-msg').textContent = m; }
-function showError(m) {
-  const el = document.getElementById('error-wrap');
-  el.style.display = m ? 'flex' : 'none';
-  el.textContent = m;
-}
-function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+// UI
+function showProgress(v){document.getElementById('progress-wrap').style.display=v?'block':'none';}
+function setProgress(p){document.getElementById('progress-fill').style.width=p+'%';}
+function setMsg(m){document.getElementById('progress-msg').textContent=m;}
+function showError(m){const el=document.getElementById('error-wrap');el.style.display=m?'block':'none';el.textContent=m;}
 
-// ════════════════════════════════════
 // EVENTS
-// ════════════════════════════════════
 document.getElementById('period-btns').querySelectorAll('.period-btn').forEach(b=>{
   b.addEventListener('click',()=>{
     document.querySelectorAll('.period-btn').forEach(x=>x.classList.remove('active'));
     b.classList.add('active');
-    activeDays = parseInt(b.dataset.days);
-    loadData();
+    activeDays=parseInt(b.dataset.days);
+    applyPeriod();
   });
 });
 document.getElementById('pills').querySelectorAll('.pill').forEach(p=>{
   p.addEventListener('click',()=>{
     document.querySelectorAll('.pill').forEach(x=>x.classList.remove('active'));
     p.classList.add('active');
-    activeFilter = p.dataset.f;
+    activeFilter=p.dataset.f;
     applyFilter();
   });
 });
 
-// ════════════════════════════════════
-// INIT
-// ════════════════════════════════════
 initAuth();
 </script>
 </body>
