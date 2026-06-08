@@ -397,7 +397,8 @@ async function loadRequests() {
         dept   : f.DemandeurDept  || '',
         desc   : f.Description  || '',
         deadline: f.Deadline    || '',
-        sla    : 0,
+        sla           : 0,
+        responsable   : f.ResponsableCPL || '',
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
         comments: []
@@ -485,20 +486,23 @@ function renderList() {
   }).join('');
 
   const cplTh   = isCPL ? '<th>Demandeur</th><th>Département</th>' : '';
-  const cols    = isCPL ? 8 : 6;
+  const cplThR  = isCPL ? '<th>Responsable CPL</th>' : '';
+  const cols    = isCPL ? 9 : 6;
 
   const rows = filtered.map(req => {
     const over = isCPL && req.sla > 5 && ['En cours','En attente','Soumis'].includes(req.statut);
     const near = isCPL && req.sla >= 4 && req.sla <= 5 && ['En cours','Soumis'].includes(req.statut);
     const cplTd = isCPL ? `<td class="td-muted" style="color:#374151">${req.from}</td><td class="td-muted">${req.dept}</td>` : '';
+    const cplTdR = isCPL ? `<td class="td-muted">${req.responsable || '—'}</td>` : '';
     return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">
       <td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}</td>
       <td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>
       ${cplTd}
       <td>${bdg(req.prio, PC[req.prio]||'bdg-normale')}</td>
-      <td>${bdg(req.statut, SC[req.statut]||'bdg-brouillon')}${req.statut==='En attente'&&!isCPL?'<div class="action-req">↩ Action requise</div>':''}</td>
+      <td>${bdg(req.statut, SC[req.statut]||'bdg-brouillon')}${req.statut==="En attente d'informations"&&!isCPL?'<div class="action-req">↩ Action requise</div>':''}</td>
       <td class="td-muted">${req.date}</td>
-      <td class="td-muted">${req.updated}</td>
+      <td class="td-muted">${req.deadline ? new Date(req.deadline).toLocaleDateString('fr-FR') : '—'}</td>
+      ${cplTdR}
     </tr>`;
   }).join('') || `<tr><td colspan="${cols}" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune demande dans cette catégorie</td></tr>`;
 
@@ -524,7 +528,7 @@ function renderList() {
       <table class="data-table cpl-table">
         <thead><tr>
           <th>Référence</th><th>Objet</th>${cplTh}
-          <th>Priorité</th><th>Statut</th><th>Soumis le</th><th>Activité</th>
+          <th>Priorité</th><th>Statut</th><th>Soumis le</th><th>Deadline</th>${cplThR}
         </tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
       </table>
@@ -1069,6 +1073,8 @@ function openDetail(ref) {
           <div style="display:flex;gap:20px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap">
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Demandeur :</strong> ${selectedReq.from} — ${selectedReq.dept}</div>
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Soumis :</strong> ${selectedReq.date}</div>
+            ${selectedReq.deadline ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Deadline :</strong> ${new Date(selectedReq.deadline).toLocaleDateString('fr-FR')}</div>` : ''}
+            ${selectedReq.responsable ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Responsable CPL :</strong> ${selectedReq.responsable}</div>` : ''}
           </div>
         </div>
 
@@ -1135,7 +1141,7 @@ async function loadComments(ref) {
         return {
           auteur  : f.NomAuteur   || '',
           texte   : f.ContenuMsg  || '',
-          interne : f.EstInterne === true || f.EstInterne === 'true' || f.EstInterne === 1,
+          interne : f.EstInterne === true || f.EstInterne === 'true' || f.EstInterne === 1 || f.EstInterne === '1' || f.EstInterne === 'Yes' || f.EstInterne === 'Oui',
           date    : item.createdDateTime ? new Date(item.createdDateTime).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
           _ts     : item.createdDateTime ? new Date(item.createdDateTime).getTime() : 0
         };
@@ -1228,7 +1234,7 @@ async function changeStatus() {
   btn.textContent = 'Enregistrement...';
 
   try {
-    const fields = { Statut: newStatus };
+    const fields = { Statut: newStatus, ResponsableCPL: currentUser.name };
     if (newStatus === 'Rejeté' && motif) fields.MotifRejet = motif;
 
     await graphPatch(
