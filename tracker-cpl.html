@@ -845,16 +845,16 @@ async function submitRequest() {
     // 1. Créer l'item dans la liste SharePoint
     const itemBody = {
       fields: {
-        Title           : 'CPL-EN-COURS',   // temporaire, mis à jour après
-        Objet           : objet,
-        Sujet           : type,
-        'Priorité'      : selPrio,
-        Statut          : 'Soumis',
-        Description     : desc,
-        Demandeur       : currentUser.name,
-        DemandeurEmail  : currentUser.email,
-        DemandeurDept   : currentUser.dept,
-        DateSoumission  : now.toISOString(),
+        Title                    : 'CPL-EN-COURS',
+        Objet                    : objet,
+        Sujet                    : type,
+        'Priorit_x00e9_'         : selPrio,
+        Statut                   : 'Soumis',
+        Description              : desc,
+        Demandeur                : currentUser.name,
+        DemandeurEmail           : currentUser.email,
+        DemandeurDept            : currentUser.dept,
+        DateSoumission           : now.toISOString(),
         ...(deadline ? { Deadline: deadline } : {})
       }
     };
