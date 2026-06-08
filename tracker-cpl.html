@@ -564,64 +564,93 @@ function exportCSV() {
 }
 
 // ═══════════════════════════════════════════════════════════
-// DASHBOARD KPI
+// DASHBOARD KPI (données réelles)
 // ═══════════════════════════════════════════════════════════
 function renderDashboard() {
-  const VOL    = [8,12,7,15,11,6];
-  const MONTHS = ['Jan','Fév','Mar','Avr','Mai','Jun'];
-  const maxV   = Math.max(...VOL);
+  const open    = requests.filter(r => ['Soumis',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const resolved= requests.filter(r => ['Résolu','Clôturé'].includes(r.statut)).length;
+  const rejected= requests.filter(r => r.statut === 'Rejeté').length;
+  const total   = requests.length;
 
-  const bars = VOL.map((v,i) => `
+  // Volume par mois (6 derniers mois)
+  const now = new Date();
+  const months = Array.from({length:6}, (_,i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
+    return { label: d.toLocaleDateString('fr-FR',{month:'short'}), year: d.getFullYear(), month: d.getMonth(), count: 0 };
+  });
+  requests.forEach(r => {
+    if (!r._ts) return;
+    const d = new Date(r._ts);
+    const m = months.find(x => x.year === d.getFullYear() && x.month === d.getMonth());
+    if (m) m.count++;
+  });
+  const maxVol = Math.max(...months.map(m => m.count), 1);
+
+  const bars = months.map(m => `
     <div class="bar-item">
-      <div class="bar-fill" style="height:${Math.round((v/maxV)*110)}px" title="${v} demandes"></div>
-      <span class="bar-lbl">${MONTHS[i]}</span>
+      <div class="bar-fill" style="height:${Math.round((m.count/maxVol)*110)}px" title="${m.count} demandes"></div>
+      <span class="bar-lbl">${m.label}</span>
     </div>`).join('');
 
-  const TYPES = [
-    ['Validation doc.',28,'#00143B'],['Due diligence',22,'#D18F41'],
-    ['Avis réglementaire',18,'#006660'],['Revue politique',14,'#2563EB'],
-    ['Formation',10,'#7C3AED'],['Autres',8,'#6B7280']
-  ];
+  // Répartition par type
+  const typeCount = {};
+  requests.forEach(r => { if(r.type) typeCount[r.type] = (typeCount[r.type]||0) + 1; });
+  const typeEntries = Object.entries(typeCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const PIE_C = ['#00143B','#D18F41','#006660','#2563EB','#7C3AED','#6B7280'];
 
   let pie = '<svg viewBox="0 0 100 100" width="110" height="110">';
-  let a = -Math.PI/2;
-  TYPES.forEach(([,p,c]) => {
-    const r = (p/100)*2*Math.PI;
-    const x1=50+47*Math.cos(a),y1=50+47*Math.sin(a); a+=r;
-    const x2=50+47*Math.cos(a),y2=50+47*Math.sin(a);
-    pie += `<path d="M50,50 L${x1.toFixed(1)},${y1.toFixed(1)} A47,47 0 ${r>Math.PI?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${c}" stroke="#fff" stroke-width="1.5"/>`;
-  });
-  pie += '<circle cx="50" cy="50" r="26" fill="#fff"/></svg>';
+  if (typeEntries.length === 0) {
+    pie += '<circle cx="50" cy="50" r="47" fill="#F3F4F6"/><circle cx="50" cy="50" r="26" fill="#fff"/>';
+  } else {
+    const totalT = typeEntries.reduce((s,[,v])=>s+v,0);
+    let angle = -Math.PI/2;
+    typeEntries.forEach(([,count],i) => {
+      const r2 = (count/totalT)*2*Math.PI;
+      const x1=50+47*Math.cos(angle),y1=50+47*Math.sin(angle); angle+=r2;
+      const x2=50+47*Math.cos(angle),y2=50+47*Math.sin(angle);
+      pie += `<path d="M50,50 L${x1.toFixed(1)},${y1.toFixed(1)} A47,47 0 ${r2>Math.PI?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${PIE_C[i%PIE_C.length]}" stroke="#fff" stroke-width="1.5"/>`;
+    });
+    pie += '<circle cx="50" cy="50" r="26" fill="#fff"/>';
+  }
+  pie += '</svg>';
 
-  const legend = TYPES.map(([n,p,c]) => `
+  const legend = typeEntries.length ? typeEntries.map(([name,count],i) => `
     <div class="pie-row">
-      <div class="pie-dot" style="background:${c}"></div>
-      <span class="pie-name">${n}</span>
-      <span class="pie-pct">${p}%</span>
-    </div>`).join('');
+      <div class="pie-dot" style="background:${PIE_C[i%PIE_C.length]}"></div>
+      <span class="pie-name">${name}</span>
+      <span class="pie-pct">${count}</span>
+    </div>`).join('') : '<p style="font-size:12px;color:var(--text-secondary)">Aucune donnée</p>';
+
+  // Répartition par département
+  const deptCount = {};
+  requests.forEach(r => { if(r.dept) deptCount[r.dept] = (deptCount[r.dept]||0)+1; });
+  const deptRows = Object.entries(deptCount).sort((a,b)=>b[1]-a[1]).map(([dept,count]) => `
+    <tr><td style="padding:7px 8px;color:#374151">${dept}</td>
+    <td style="padding:7px 8px;text-align:right;font-weight:500;color:var(--navy)">${count}</td>
+    <td style="padding:7px 8px;text-align:right;color:var(--text-secondary)">${total?Math.round(count/total*100):0}%</td></tr>`).join('');
 
   return `
     <div class="kpi-grid">
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#EFF6FF">${svgIcon('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>', 'stroke="#2563EB"')}</div>
-        <div class="kpi-val">3</div><div class="kpi-lbl">Demandes ouvertes</div>
+        <div class="kpi-icon" style="background:#EFF6FF">${svgIcon('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>','stroke="#2563EB"')}</div>
+        <div class="kpi-val">${open}</div><div class="kpi-lbl">Demandes ouvertes</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#F0FDF4">${svgIcon('<polyline points="20 6 9 17 4 12"/>', 'stroke="#15803D"')}</div>
-        <div class="kpi-val">12</div><div class="kpi-lbl">Résolues (30 jours)</div>
+        <div class="kpi-icon" style="background:#F0FDF4">${svgIcon('<polyline points="20 6 9 17 4 12"/>','stroke="#15803D"')}</div>
+        <div class="kpi-val">${resolved}</div><div class="kpi-lbl">Résolues / Clôturées</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#FEF2F2">${svgIcon('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>', 'stroke="#DC2626"')}</div>
-        <div class="kpi-val">1</div><div class="kpi-lbl">Hors SLA actifs</div>
+        <div class="kpi-icon" style="background:#FEF2F2">${svgIcon('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>','stroke="#DC2626"')}</div>
+        <div class="kpi-val">${rejected}</div><div class="kpi-lbl">Rejetées</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#FFF7ED">${svgIcon('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>', 'stroke="#D18F41"')}</div>
-        <div class="kpi-val">3.2j</div><div class="kpi-lbl">Délai moyen résolution</div>
+        <div class="kpi-icon" style="background:#F4F5F8">${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>','stroke="#6B7280"')}</div>
+        <div class="kpi-val">${total}</div><div class="kpi-lbl">Total demandes</div>
       </div>
     </div>
     <div class="charts-row">
       <div class="chart-card">
-        <div class="chart-title">Volume mensuel</div>
+        <div class="chart-title">Volume — 6 derniers mois</div>
         <div class="bar-chart">${bars}</div>
       </div>
       <div class="chart-card">
@@ -631,18 +660,13 @@ function renderDashboard() {
     </div>
     <div class="sla-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="chart-title" style="margin:0">Performance SLA par type</div>
-        <span style="font-size:11px;color:var(--text-secondary)">Objectif ≤ 5 jours ouvrés</span>
+        <div class="chart-title" style="margin:0">Demandes par département</div>
+        <span style="font-size:11px;color:var(--text-secondary)">${total} demande${total>1?'s':''} au total</span>
       </div>
-      <table class="sla-table">
-        <thead><tr><th>Type</th><th>Délai moy.</th><th>Taux SLA</th><th>Rejet</th></tr></thead>
-        <tbody>
-          <tr><td>Due diligence</td><td>4.2j</td><td><span style="color:#15803D;font-weight:600">78%</span></td><td>5%</td></tr>
-          <tr><td>Validation documentation</td><td>2.8j</td><td><span style="color:#15803D;font-weight:600">92%</span></td><td>2%</td></tr>
-          <tr><td>Avis réglementaire</td><td>6.1j</td><td><span style="color:#DC2626;font-weight:600">61%</span></td><td>8%</td></tr>
-          <tr><td>Revue politique interne</td><td>3.5j</td><td><span style="color:#15803D;font-weight:600">88%</span></td><td>4%</td></tr>
-        </tbody>
-      </table>
+      ${deptRows ? `<table class="sla-table">
+        <thead><tr><th>Département</th><th style="text-align:right">Demandes</th><th style="text-align:right">Part</th></tr></thead>
+        <tbody>${deptRows}</tbody>
+      </table>` : '<p style="font-size:13px;color:var(--text-secondary)">Aucune donnée disponible.</p>'}
     </div>`;
 }
 
@@ -662,9 +686,22 @@ function goNew() {
       <div class="form-card">
         <div style="margin-bottom:18px">
           <h2 class="section-title" style="font-size:18px">Nouvelle demande</h2>
-          <p class="section-desc">Demandeur : ${currentUser.name} — ${currentUser.dept} &nbsp;·&nbsp; Référence générée à la soumission</p>
+          <p class="section-desc">Demandeur : ${currentUser.name} &nbsp;·&nbsp; Référence générée à la soumission</p>
         </div>
         <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label">Département *</label>
+            <select class="form-input" id="f-dept">
+              <option value="">Sélectionner un département...</option>
+              <option>Equity</option>
+              <option>Innovation</option>
+              <option>Private Equity</option>
+              <option>Private Credit</option>
+              <option>BCD</option>
+              <option>Infrastructure Trade Credit</option>
+              <option>Autres</option>
+            </select>
+          </div>
           <div class="form-group full-width">
             <label class="form-label">Type de demande *</label>
             <select class="form-input" id="f-type">
@@ -824,12 +861,13 @@ async function uploadFromDetail() {
 }
 
 async function submitRequest() {
+  const dept     = document.getElementById('f-dept').value;
   const type     = document.getElementById('f-type').value;
   const objet    = document.getElementById('f-objet').value.trim();
   const desc     = document.getElementById('f-desc').value.trim();
   const deadline = document.getElementById('f-deadline').value;
 
-  if (!type || !objet || !desc) {
+  if (!dept || !type || !objet || !desc) {
     alert('Veuillez remplir tous les champs obligatoires (*)');
     return;
   }
@@ -853,7 +891,7 @@ async function submitRequest() {
         Description              : desc,
         Demandeur                : currentUser.name,
         DemandeurEmail           : currentUser.email,
-        DemandeurDept            : currentUser.dept,
+        DemandeurDept            : dept,
         DateSoumission           : now.toISOString(),
         ...(deadline ? { Deadline: deadline } : {})
       }
