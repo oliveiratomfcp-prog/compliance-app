@@ -399,6 +399,7 @@ async function loadRequests() {
         deadline: f.Deadline    || '',
         sla           : 0,
         responsable   : f.ResponsableCPL || '',
+        historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
         comments: []
@@ -910,6 +911,7 @@ async function submitRequest() {
         DemandeurEmail           : currentUser.email,
         DemandeurDept            : dept,
         DateSoumission           : now.toISOString(),
+        HistoriqueStatuts        : JSON.stringify([{ date: now.toISOString(), statut: 'Soumis', par: currentUser.name }]),
         ...(deadline ? { Deadline: deadline } : {})
       }
     };
@@ -994,37 +996,43 @@ function openDetail(ref) {
   selectedReq = requests.find(r => r.ref === ref);
   if (!selectedReq) return;
 
-  const TLC = {submit:'#00143B',progress:'#EA580C',wait:'#B45309',done:'#15803D',reject:'#DC2626'};
+  // ── Timeline depuis l'historique réel SharePoint ──────────
+  const STATUS_COLORS = {
+    'Soumis'                   : '#2563EB',
+    "En cours d'analyse"       : '#EA580C',
+    "En attente d'informations": '#B45309',
+    'Résolu'                   : '#15803D',
+    'Clôturé'                  : '#065F46',
+    'Rejeté'                   : '#DC2626'
+  };
 
-  const tl = [
-    {l:'Demande soumise',     s:`par ${selectedReq.from}`,              d:selectedReq.date+' 09:14', c:TLC.submit},
-    ...((['En cours','En attente','Résolu','Clôturé','Rejeté'].includes(selectedReq.statut))?
-        [{l:'Prise en charge',s:'Compliance',                           d:selectedReq.date+' 14:20',  c:TLC.progress}]:[]),
-    ...(selectedReq.statut==='En attente'?
-        [{l:"En attente d'informations",s:'Complément requis',           d:'04/06/2026 14:15',         c:TLC.wait}]:[]),
-    ...((selectedReq.statut==='Résolu'||selectedReq.statut==='Clôturé')?
-        [{l:'Demande résolue',s:'Avis fourni — voir SharePoint',         d:'30/05/2026 16:44',         c:TLC.done}]:[]),
-    ...(selectedReq.statut==='Rejeté'?
-        [{l:'Rejetée',        s:'Informations insuffisantes. Merci de resoumettre.',d:'22/05/2026 11:30',c:TLC.reject}]:[]),
-  ];
-
-  const tlHTML = tl.map(t => `
-    <div class="tl-item">
-      <div class="tl-dot" style="background:${t.c};box-shadow:0 0 0 1.5px ${t.c}"></div>
-      <div class="tl-label">${t.l}</div>
-      <div class="tl-sub">${t.s}</div>
-      <div class="tl-date">${t.d}</div>
-    </div>`).join('');
+  const tlHTML = (selectedReq.historique && selectedReq.historique.length > 0)
+    ? selectedReq.historique.map(h => {
+        const c = STATUS_COLORS[h.statut] || '#6B7280';
+        const d = h.date ? new Date(h.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        return `<div class="tl-item">
+          <div class="tl-dot" style="background:${c};box-shadow:0 0 0 1.5px ${c}"></div>
+          <div class="tl-label">${h.statut}</div>
+          <div class="tl-sub">par ${h.par}</div>
+          <div class="tl-date">${d}</div>
+        </div>`;
+      }).join('')
+    : `<div class="tl-item">
+        <div class="tl-dot" style="background:#2563EB;box-shadow:0 0 0 1.5px #2563EB"></div>
+        <div class="tl-label">Soumis</div>
+        <div class="tl-sub">par ${selectedReq.from}</div>
+        <div class="tl-date">${selectedReq.date}</div>
+      </div>`;
 
   const visComments = [];  // chargés dynamiquement depuis SharePoint via loadComments()
   const commentsHTML = '';
 
   const cplActions = isCPL ? `
     <div class="cpl-actions-panel">
-      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Actions Compliance</div>
+      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Changer le statut</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <select class="form-input" id="cpl-status-select" onchange="toggleMotifField()">
-          <option value="">Changer le statut...</option>
+          <option value="">Sélectionner un statut...</option>
           <option value="En cours d_analyse">En cours d'analyse</option>
           <option value="En attente d_informations">En attente d'informations</option>
           <option value="Résolu">Résolu</option>
@@ -1036,13 +1044,27 @@ function openDetail(ref) {
           <textarea class="form-input" id="cpl-motif" rows="3"
             placeholder="Expliquez la raison du rejet..."></textarea>
         </div>
-        <textarea class="form-input internal-ta" id="cpl-note" rows="3"
+        <textarea class="form-input internal-ta" id="cpl-note" rows="2"
           placeholder="Note interne (visible Compliance uniquement)..."></textarea>
         <button class="btn-primary" id="cpl-apply-btn" style="width:100%;justify-content:center" onclick="changeStatus()">
           ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
           Appliquer
         </button>
       </div>
+    </div>
+    <div class="cpl-actions-panel" style="margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Attribuer à</div>
+      <div style="display:flex;gap:8px">
+        <select class="form-input" id="cpl-assign-select" style="flex:1">
+          <option value="">Sélectionner...</option>
+          <option value="Thomas Oliveira" ${selectedReq.responsable==='Thomas Oliveira'?'selected':''}>Thomas Oliveira</option>
+          <option value="Cassandre Memet" ${selectedReq.responsable==='Cassandre Memet'?'selected':''}>Cassandre Memet</option>
+          <option value="Manalle Ourrami" ${selectedReq.responsable==='Manalle Ourrami'?'selected':''}>Manalle Ourrami</option>
+          <option value="Jessica Manukyan" ${selectedReq.responsable==='Jessica Manukyan'?'selected':''}>Jessica Manukyan</option>
+        </select>
+        <button class="btn-secondary" onclick="assignRequest()">Attribuer</button>
+      </div>
+      ${selectedReq.responsable ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-top:6px">Actuellement : <strong style="color:#374151">${selectedReq.responsable}</strong></div>` : ''}
     </div>`
     : (selectedReq.statut === 'Résolu' ? `
     <button class="btn-secondary" style="width:100%;margin-top:12px;justify-content:center"
@@ -1234,7 +1256,8 @@ async function changeStatus() {
   btn.textContent = 'Enregistrement...';
 
   try {
-    const fields = { Statut: newStatus, ResponsableCPL: currentUser.name };
+    const history = [...(selectedReq.historique || []), { date: new Date().toISOString(), statut: newStatus, par: currentUser.name }];
+    const fields = { Statut: newStatus, ResponsableCPL: currentUser.name, HistoriqueStatuts: JSON.stringify(history) };
     if (newStatus === 'Rejeté' && motif) fields.MotifRejet = motif;
 
     await graphPatch(
@@ -1312,11 +1335,28 @@ async function changeStatus() {
 async function reopenRequest() {
   if (!confirm('Rouvrir cette demande ?')) return;
   try {
+    const history = [...(selectedReq.historique || []), { date: new Date().toISOString(), statut: 'Soumis', par: currentUser.name }];
     await graphPatch(
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
-      { Statut: 'Soumis' }
+      { Statut: 'Soumis', HistoriqueStatuts: JSON.stringify(history) }
     );
     alert('✅ Demande rouverte — statut repassé à Soumis.');
+    await loadRequests();
+    openDetail(selectedReq.ref);
+  } catch(e) {
+    alert(`Erreur : ${e.message}`);
+  }
+}
+
+async function assignRequest() {
+  const name = document.getElementById('cpl-assign-select')?.value;
+  if (!name) { alert('Veuillez sélectionner un membre CPL.'); return; }
+  try {
+    await graphPatch(
+      `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+      { ResponsableCPL: name }
+    );
+    alert(`✅ Demande attribuée à ${name}.`);
     await loadRequests();
     openDetail(selectedReq.ref);
   } catch(e) {
