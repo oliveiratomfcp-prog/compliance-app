@@ -363,9 +363,9 @@ async function initSharePointThenLoad() {
     spDriveId    = drive?.id || null;
 
     // 4. Liste commentaires
-    const commLists = await graphGet(`/sites/${spSiteId}/lists?$filter=displayName eq 'Tracker CPL Commentaires'`);
+    const commLists = await graphGet(`/sites/${spSiteId}/lists?$filter=displayName eq 'Tracker CPL commentaires'`);
     spCommListId = commLists.value[0]?.id || null;
-    if (!spCommListId) console.warn('Liste "Tracker CPL Commentaires" introuvable');
+    if (!spCommListId) console.warn('Liste "Tracker CPL commentaires" introuvable');
 
     await loadRequests();
   } catch(e) {
