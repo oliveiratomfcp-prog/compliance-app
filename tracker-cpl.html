@@ -208,71 +208,10 @@ let cplTab       = 'demandes';
 let msalInst     = null;
 
 // ═══════════════════════════════════════════════════════════
-// DONNÉES DE DÉMONSTRATION
-// (seront remplacées par des appels API Graph / SharePoint)
+// DEMANDES — stockées en mémoire de session
+// (persistance SharePoint à connecter ultérieurement)
 // ═══════════════════════════════════════════════════════════
-const MOCK = [
-  {
-    ref:'CPL-2026-0047', objet:'Revue contrat prestataire IT Infra',
-    type:'Validation documentation commerciale', prio:'Urgente',
-    statut:'En attente', date:'03/06/2026', updated:"Aujourd'hui",
-    from:'Marc Lefebvre', email:'marc.lefebvre@eiffel-ig.com', dept:'IT', sla:6,
-    desc:"Contrat cadre avec prestataire infra cloud. Renouvellement annuel à valider avant le 15 juin. Clauses RGPD et réversibilité à examiner.",
-    comments:[{author:'Marc Lefebvre',date:'03/06 09:14',text:"Documents disponibles sur SharePoint. Merci de valider avant la deadline du 15 juin.",internal:false}]
-  },
-  {
-    ref:'CPL-2026-0046', objet:'Due diligence nouveau client Dubai',
-    type:'Due diligence', prio:'Critique',
-    statut:'En cours', date:'01/06/2026', updated:'Hier',
-    from:'Sophie Martin', email:'sophie.martin@eiffel-ig.com', dept:'Front Office', sla:4,
-    desc:"Nouveau client institutionnel basé à Dubaï. AML/KYC complet requis avant ouverture de compte. Potentiel de 50M€ AUM.",
-    comments:[
-      {author:'Sophie Martin',date:'01/06 08:45',text:"Client recommandé par partenaire senior. Urgence commerciale.",internal:false},
-      {author:'Cassandre Memet',date:'01/06 15:20',text:"Adverse media screening en cours. Résultat attendu vendredi. RAS pour l'instant.",internal:true}
-    ]
-  },
-  {
-    ref:'CPL-2026-0045', objet:'Avis MAR art. 17 — stratégie equity',
-    type:'Avis réglementaire', prio:'Normale',
-    statut:'Résolu', date:'28/05/2026', updated:'30/05',
-    from:'Sophie Martin', email:'sophie.martin@eiffel-ig.com', dept:'Front Office', sla:3,
-    desc:"Clarification obligations de déclaration MAR article 17 pour nouvelle stratégie actions européennes.",
-    comments:[
-      {author:'Sophie Martin',date:'28/05 10:00',text:"Besoin de clarification avant lancement de la stratégie.",internal:false},
-      {author:'Thomas Oliveira',date:'30/05 16:44',text:"Avis fourni. Déclaration requise uniquement si seuil de 5% atteint. Voir note SharePoint.",internal:false}
-    ]
-  },
-  {
-    ref:'CPL-2026-0044', objet:'Formation AML — équipe commerciale',
-    type:'Formation compliance', prio:'Normale',
-    statut:'Clôturé', date:'20/05/2026', updated:'02/06',
-    from:'Antoine Dupont', email:'antoine.dupont@eiffel-ig.com', dept:'Legal', sla:7,
-    desc:"Organisation formation AML obligatoire annuelle pour 12 collaborateurs équipe commerciale.",
-    comments:[
-      {author:'Antoine Dupont',date:'20/05 09:00',text:"Formation à planifier avant fin juin. 12 personnes concernées.",internal:false},
-      {author:'Manalle Ourrami',date:'25/05 11:00',text:"Formation planifiée le 10 juin. Invitations envoyées.",internal:false}
-    ]
-  },
-  {
-    ref:'CPL-2026-0043', objet:"Politique cadeaux & avantages v3",
-    type:'Revue de politique interne', prio:'Normale',
-    statut:'Soumis', date:'06/06/2026', updated:'06/06',
-    from:'Antoine Dupont', email:'antoine.dupont@eiffel-ig.com', dept:'Legal', sla:0,
-    desc:"Mise à jour politique cadeaux et avantages suite aux nouvelles recommandations AFG 2026.",
-    comments:[{author:'Antoine Dupont',date:'06/06 11:30',text:"Projet de politique v3 joint. Vos commentaires bienvenus.",internal:false}]
-  },
-  {
-    ref:'CPL-2026-0042', objet:"Déclaration conflit d'intérêts Q1",
-    type:'Déclaration / signalement', prio:'Urgente',
-    statut:'Rejeté', date:'15/05/2026', updated:'22/05',
-    from:'Marc Lefebvre', email:'marc.lefebvre@eiffel-ig.com', dept:'IT', sla:6,
-    desc:"Déclaration d'un potentiel conflit d'intérêts détecté lors de la revue trimestrielle.",
-    comments:[
-      {author:'Marc Lefebvre',date:'15/05 14:00',text:"Signalement conflit potentiel — voir pièce jointe.",internal:false},
-      {author:'Manalle Ourrami',date:'22/05 11:30',text:"Rejeté : formulaire officiel non rempli. Resoumettre via CPL-F01.",internal:false}
-    ]
-  }
-];
+const MOCK = [];
 
 
 
@@ -643,17 +582,113 @@ function setPrio(p, btn) {
   btn.classList.add('sel');
 }
 
-function submitRequest() {
-  const type  = document.getElementById('f-type').value;
-  const objet = document.getElementById('f-objet').value.trim();
-  const desc  = document.getElementById('f-desc').value.trim();
-  if(!type || !objet || !desc) {
+async function submitRequest() {
+  const type     = document.getElementById('f-type').value;
+  const objet    = document.getElementById('f-objet').value.trim();
+  const desc     = document.getElementById('f-desc').value.trim();
+  const deadline = document.getElementById('f-deadline').value;
+
+  if (!type || !objet || !desc) {
     alert('Veuillez remplir tous les champs obligatoires (*)');
     return;
   }
-  // TODO : appel API Graph / SharePoint pour créer la demande
-  alert(`Demande soumise — CPL-2026-0048\nElle sera visible dans la liste après connexion à l'API.`);
-  goList();
+
+  const btn = document.querySelector('[onclick="submitRequest()"]');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours...';
+
+  try {
+    // Acquérir un token avec le scope Mail.Send
+    const account = msalInst.getAllAccounts()[0];
+    const token = await msalInst.acquireTokenSilent({
+      scopes: ['Mail.Send'],
+      account
+    });
+
+    // Générer une référence temporaire
+    const now  = new Date();
+    const year = now.getFullYear();
+    const ref  = `CPL-${year}-XXXX`;
+
+    // Corps du mail
+    const mailBody = `
+      <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
+        <p>Bonjour,</p>
+        <p>Une nouvelle demande a été soumise via le <strong>Tracker CPL</strong>.</p>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0">
+          <tr style="background:#F4F5F8">
+            <td style="padding:8px 12px;font-weight:600;width:160px">Référence</td>
+            <td style="padding:8px 12px">${ref}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;font-weight:600">Demandeur</td>
+            <td style="padding:8px 12px">${currentUser.name} — ${currentUser.dept}</td>
+          </tr>
+          <tr style="background:#F4F5F8">
+            <td style="padding:8px 12px;font-weight:600">Type</td>
+            <td style="padding:8px 12px">${type}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;font-weight:600">Priorité</td>
+            <td style="padding:8px 12px">${selPrio}</td>
+          </tr>
+          <tr style="background:#F4F5F8">
+            <td style="padding:8px 12px;font-weight:600">Objet</td>
+            <td style="padding:8px 12px">${objet}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 12px;font-weight:600">Description</td>
+            <td style="padding:8px 12px">${desc.replace(/\n/g,'<br>')}</td>
+          </tr>
+          ${deadline ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Deadline souhaitée</td><td style="padding:8px 12px">${deadline}</td></tr>` : ''}
+          <tr>
+            <td style="padding:8px 12px;font-weight:600">Date de soumission</td>
+            <td style="padding:8px 12px">${now.toLocaleString('fr-FR')}</td>
+          </tr>
+        </table>
+        <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
+      </div>`;
+
+    await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token.accessToken}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        message: {
+          subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Urgente' ? '🟡' : ''} — ${objet}`,
+          body: { contentType: 'HTML', content: mailBody },
+          toRecipients: [{ emailAddress: { address: 'cpl@eiffel-ig.com' } }]
+        },
+        saveToSentItems: true
+      })
+    });
+
+    // Ajouter en mémoire de session
+    const newReq = {
+      ref, objet, type, prio: selPrio,
+      statut: 'Soumis',
+      date: now.toLocaleDateString('fr-FR'),
+      updated: "À l'instant",
+      from: currentUser.name,
+      email: currentUser.email,
+      dept: currentUser.dept,
+      sla: 0,
+      desc,
+      comments: []
+    };
+    MOCK.unshift(newReq);
+
+    alert(`✅ Demande soumise et mail envoyé à cpl@eiffel-ig.com`);
+    goList();
+
+  } catch(e) {
+    console.error('Erreur envoi mail:', e);
+    alert('Erreur lors de l\'envoi. Vérifiez les permissions Mail.Send dans Azure AD.');
+    btn.disabled = false;
+    btn.textContent = 'Soumettre la demande';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
