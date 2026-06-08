@@ -1133,8 +1133,8 @@ async function loadComments(ref) {
       .map(item => {
         const f = item.fields;
         return {
-          auteur  : f.Auteur     || '',
-          texte   : f.Texte      || '',
+          auteur  : f.NomAuteur   || '',
+          texte   : f.ContenuMsg  || '',
           interne : f.EstInterne === true || f.EstInterne === 'true' || f.EstInterne === 1,
           date    : item.createdDateTime ? new Date(item.createdDateTime).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
           _ts     : item.createdDateTime ? new Date(item.createdDateTime).getTime() : 0
@@ -1174,13 +1174,11 @@ async function sendComment() {
   btn.textContent = 'Envoi...';
 
   try {
-    // Envoi minimal — Title + Texte + Auteur uniquement
     const fields = {
-      Title  : selectedReq.ref,
-      Texte  : texte,
-      Auteur : currentUser.name
+      Title      : selectedReq.ref,
+      ContenuMsg : texte,
+      NomAuteur  : currentUser.name
     };
-    // EstInterne en dernier — champ booléen parfois sensible
     if (interne) fields.EstInterne = true;
 
     await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, { fields });
