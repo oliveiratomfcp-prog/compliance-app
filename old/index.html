@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Compliance App — Eiffel IG</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="translations.js"></script>
+</head>
+<body>
+
+  <!-- ===== ÉCRAN DE CONNEXION ===== -->
+  <div id="screen-login" class="screen active">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="72" />
+      </div>
+      <div class="login-divider"></div>
+      <h1 class="login-title" id="login-title-el">Compliance Portal</h1>
+      <p class="login-desc" id="login-desc-el">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder à la plateforme.</p>
+      <button id="btn-login" class="btn-microsoft">
+        <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+        <span id="login-btn-el">Se connecter avec Microsoft</span>
+      </button>
+      <p class="login-footer" id="login-footer-el">Accès réservé aux collaborateurs Eiffel IG</p>
+    </div>
+  </div>
+
+  <!-- ===== APPLICATION PRINCIPALE ===== -->
+  <div id="screen-app" class="screen">
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="36" />
+      </div>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="restricted">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="nav-restricted-el">Restricted List</span>
+        </button>
+        <button class="nav-tab" data-tab="declaration">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          <span id="nav-declare-el">Déclarer</span>
+        </button>
+        <button class="nav-tab" data-tab="history">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span id="nav-history-el">Historique</span>
+        </button>
+        <a class="nav-tab" href="doc-review.html" style="text-decoration:none;">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+  <span>Doc Review</span>
+  <span style="font-size:9px;font-weight:700;background:#006660;color:white;padding:1px 6px;border-radius:10px;margin-left:4px;">New</span>
+</a>
+      </div>
+      <div class="nav-user">
+        <button id="lang-toggle-btn" class="btn-lang" onclick="setLang(currentLang === 'fr' ? 'en' : 'fr')">EN</button>
+        <div class="user-avatar" id="user-avatar">--</div>
+        <div class="user-info">
+          <span class="user-name" id="user-name">Chargement...</span>
+          <span class="user-role" id="nav-role-el">Collaborateur</span>
+        </div>
+        <button id="btn-logout" class="btn-logout" title="Se déconnecter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <main class="main-content">
+
+      <!-- ===== ONGLET 1 : RESTRICTED LIST ===== -->
+      <section id="tab-restricted" class="tab-content active">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title" id="restricted-title-el">Restricted List</h2>
+            <p class="section-desc" id="restricted-desc-el">Liste des titres financiers sous restriction</p>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button id="btn-bulk-check" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+              <span id="restricted-bulk-btn-el">Vérification en masse</span>
+            </button>
+            <button id="btn-export-excel" class="btn-secondary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              <span id="restricted-excel-btn-el">Exporter Excel</span>
+            </button>
+            <button id="btn-generate-restricted-pdf" class="btn-primary">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span id="restricted-pdf-btn-el">Générer l'attestation PDF</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- BULK CHECK -->
+        <div id="bulk-check-container" class="hidden" style="margin-bottom:20px">
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+              <div>
+                <h3 style="font-size:15px;font-weight:700;color:var(--navy)" id="bulk-title-el">Vérification en masse</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px" id="bulk-desc-el">Collez vos codes ISIN ou noms — un par ligne ou séparés par des virgules</p>
+              </div>
+              <button onclick="document.getElementById('bulk-check-container').classList.add('hidden')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px">✕</button>
+            </div>
+            <textarea id="bulk-input" class="form-input form-textarea" style="min-height:120px;font-family:monospace;font-size:13px" placeholder="FR0000131104&#10;Apple&#10;..."></textarea>
+            <div style="display:flex;gap:10px;margin-top:12px;justify-content:flex-end">
+              <button id="btn-bulk-run" class="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <span id="bulk-run-btn-el">Lancer la vérification</span>
+              </button>
+            </div>
+            <div id="bulk-results" class="hidden" style="margin-top:16px"></div>
+          </div>
+        </div>
+
+        <div class="search-bar-container">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-restricted" class="search-input" placeholder="Rechercher par nom ou code ISIN..." />
+        </div>
+
+        <div id="restricted-loading" class="loading-state">
+          <div class="spinner"></div>
+          <p id="restricted-loading-el">Chargement de la liste...</p>
+        </div>
+
+        <div id="restricted-error" class="error-state hidden">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <p id="restricted-error-msg">Erreur de chargement</p>
+        </div>
+
+        <div id="restricted-table-container" class="hidden">
+          <div class="table-meta">
+            <span id="restricted-count" class="table-count">0 titres</span>
+            <span class="table-date" id="restricted-realtime-el">Mis à jour en temps réel depuis SharePoint</span>
+          </div>
+          <div class="table-wrapper">
+            <table class="data-table" id="restricted-table">
+              <thead>
+                <tr>
+                  <th class="sortable" onclick="sortTable('nom')"><span id="col-company-el">Société / Titre</span> <span id="sort-nom">↕</span></th>
+                  <th><span id="col-isin-el">Code ISIN</span></th>
+                  <th class="sortable" onclick="sortTable('type')"><span id="col-type-el">Type de restriction</span> <span id="sort-type">↕</span></th>
+                  <th><span id="col-team-el">Équipe</span></th>
+                  <th class="sortable" onclick="sortTable('dateDebut')"><span id="col-start-el">Date de début</span> <span id="sort-dateDebut">↕</span></th>
+                  <th class="sortable" onclick="sortTable('dateFin')"><span id="col-end-el">Date de fin</span> <span id="sort-dateFin">↕</span></th>
+                </tr>
+              </thead>
+              <tbody id="restricted-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ONGLET 2 : DÉCLARATION ===== -->
+      <section id="tab-declaration" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title" id="declare-title-el">Déclarer</h2>
+            <p class="section-desc" id="declare-desc-el">Saisie Compliance et déclaration de transaction personnelle</p>
+          </div>
+        </div>
+
+        <div class="declare-grid">
+
+          <!-- CARTE 1 : NDA -->
+          <div class="declare-card">
+            <div class="declare-card-icon" style="background:rgba(209,143,65,0.1);color:#92400e">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <span class="declare-card-badge badge badge-nda">NDA</span>
+            <h3 class="declare-card-title" id="nda-title-el">NDA List</h3>
+            <p class="declare-card-desc" id="nda-desc-el">Ajouter un nouveau titre sous NDA dans la liste de restriction.</p>
+            <p class="declare-card-note" id="nda-note-el">Mise à jour immédiate de la Restricted List</p>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=NmVlYWEwMmYtZDhjNS00OThkLWJjMGYtZjM2NGExMmRmNTJm&nav=ZDcwNzU0Y2YtY2VjYi00M2NlLWIxNWItOGQ2NjkwYWM5NTdi" target="_blank" class="btn-form-open" style="margin-top:auto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span id="nda-btn-el">Ouvrir le formulaire NDA</span>
+            </a>
+          </div>
+
+          <!-- CARTE 2 : INFO PRIV -->
+          <div class="declare-card">
+            <div class="declare-card-icon" style="background:rgba(192,57,43,0.08);color:#c0392b">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            </div>
+            <span class="declare-card-badge badge badge-restricted">Info privilégiée</span>
+            <h3 class="declare-card-title" id="infoprev-title-el">Information privilégiée</h3>
+            <p class="declare-card-desc" id="infoprev-desc-el">Ajouter un nouveau titre sous information privilégiée.</p>
+            <p class="declare-card-note" id="infoprev-note-el">Mise à jour immédiate de la Restricted List</p>
+            <a href="https://eiffelinvestmentgroup.sharepoint.com/sites/CPL/_layouts/15/listforms.aspx?cid=ODE0OWFlMDUtMTkzNC00Y2FhLWIyZmQtMzI3YzAxZGU2YzA1&nav=ZWEzNTliNjEtYmVjNS00OTY0LTkzOWItMjZkNzk4YmNmYzYx" target="_blank" class="btn-form-open" style="margin-top:auto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+              <span id="infoprev-btn-el">Ouvrir le formulaire Info privilégiée</span>
+            </a>
+          </div>
+
+          <!-- CARTE 3 : TRANSACTION -->
+          <div class="declare-card declare-card-clickable" onclick="toggleTransactionForm()">
+            <div class="declare-card-icon" style="background:rgba(0,20,59,0.08);color:#00143B">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            </div>
+            <span class="declare-card-badge badge badge-active">Transaction</span>
+            <h3 class="declare-card-title" id="transaction-card-title-el">Demande de transaction personnelle</h3>
+            <p class="declare-card-desc" id="transaction-card-desc-el">Soumettez une demande de transaction et générez votre attestation PDF à envoyer à CPL sous 24h.</p>
+            <p class="declare-card-note" id="transaction-card-note-el">Cliquez pour ouvrir le formulaire</p>
+            <div class="btn-form-open" style="margin-top:auto">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              <span id="transaction-card-btn-el">Déclarer une transaction</span>
+            </div>
+          </div>
+
+          <!-- CARTE 4 : REGISTRE CADEAUX -->
+          <div class="declare-card declare-card-clickable" onclick="toggleGiftForm()">
+            <div class="declare-card-icon" style="background:rgba(0,102,96,0.08);color:#006660">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></svg>
+            </div>
+            <span class="declare-card-badge badge" style="background:#e8f4f4;color:#006660">Cadeau</span>
+            <h3 class="declare-card-title">Registre cadeaux</h3>
+            <p class="declare-card-desc">Déclarez un cadeau reçu ou offert dans le cadre de vos fonctions. La déclaration est enregistrée dans le registre SharePoint.</p>
+            <p class="declare-card-note">Cliquez pour ouvrir le formulaire</p>
+            <div class="btn-form-open" style="margin-top:auto;background:#006660">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+              Déclarer un cadeau
+            </div>
+          </div>
+
+        </div>
+
+        <!-- FORMULAIRE CADEAU -->
+        <div id="gift-form-container" class="hidden" style="margin-top:20px">
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <div>
+                <h3 style="font-size:16px;font-weight:700;color:var(--navy)">Registre cadeaux</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px">Enregistrement d'un cadeau reçu ou offert</p>
+              </div>
+              <button onclick="toggleGiftForm()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
+            </div>
+            <div class="declare-alert" style="margin-bottom:20px;border-color:rgba(0,102,96,0.25);background:rgba(0,102,96,0.06)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#006660" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span style="color:#006660">Tout cadeau reçu ou offert dans le cadre professionnel doit être déclaré au RCCI.</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-group full-width">
+                <label class="form-label">Description du cadeau *</label>
+                <input type="text" id="g-description" class="form-input" placeholder="Ex: Bouteille de vin, place de concert, repas d'affaires..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Émetteur (qui offre) *</label>
+                <input type="text" id="g-emetteur" class="form-input" placeholder="Ex: Société XYZ, M. Dupont..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Destinataire (qui reçoit) *</label>
+                <input type="text" id="g-destinataire" class="form-input" placeholder="Ex: Thomas Oliveira, Client ABC..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Date *</label>
+                <input type="date" id="g-date" class="form-input" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Valeur estimée (€)</label>
+                <input type="number" id="g-valeur" class="form-input" placeholder="Ex: 50" step="0.01" />
+              </div>
+            </div>
+            <div class="form-actions">
+              <div id="gift-msg" class="form-message hidden"></div>
+              <button id="btn-submit-gift" class="btn-primary" style="background:#006660">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                Enregistrer la déclaration
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- FORMULAIRE TRANSACTION -->
+        <div id="transaction-form-container" class="hidden" style="margin-top:20px">
+          <div class="form-card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+              <div>
+                <h3 style="font-size:16px;font-weight:700;color:var(--navy)" id="form-title-el">Demande de transaction personnelle</h3>
+                <p style="font-size:13px;color:var(--text-secondary);margin-top:3px" id="form-subtitle-el">Remplissez le formulaire et générez votre attestation PDF</p>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div class="tooltip-container">
+                  <button class="tooltip-btn" onclick="toggleTooltip()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span id="rules-btn-el">Règles applicables</span>
+                  </button>
+                  <div class="tooltip-box hidden" id="rules-tooltip">
+                    <p class="tooltip-title" id="rules-title-el">Règles — Transactions personnelles</p>
+                    <div id="rules-list-el">
+                      <p>🚫 <strong>Interdit depuis le 1er avril 2026 :</strong> toute transaction personnelle sur titres vifs cotés.</p>
+                      <p>⚠️ <strong>Cession de titres déjà en portefeuille :</strong> accord préalable du RCCI obligatoire via "demande de transaction personnelle".</p>
+                      <p>✅ <strong>Autorisé :</strong> fonds gérés par Eiffel IG, fonds non gérés, trackers, puts, calls, warrants sur indices cotés.</p>
+                      <p>📋 <strong>Déclaration obligatoire :</strong> transactions sur fonds Eiffel IG ou vente de titre déjà en PTF + envoi de l'avis d'opéré sous 48h.</p>
+                      <p>📅 <strong>Annuellement :</strong> remise au RCCI du relevé complet des opérations sur instruments financiers.</p>
+                    </div>
+                  </div>
+                </div>
+                <button onclick="toggleTransactionForm()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
+              </div>
+            </div>
+            <div class="declare-alert" style="margin-bottom:20px">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="form-alert-el">La demande doit être faite <strong>avant tout passage d'ordre</strong> et à joindre au mail généré automatiquement.</span>
+            </div>
+            <div class="form-grid">
+              <div class="form-group full-width">
+                <label class="form-label" id="form-label-titre">Nom du titre financier *</label>
+                <input type="text" id="f-titre" class="form-input" placeholder="Ex: Apple Inc., Total SA..." />
+              </div>
+              <div class="form-group">
+                <label class="form-label" id="form-label-type">Type d'opération *</label>
+                <select id="f-type" class="form-input">
+                  <option value="">-- Sélectionner --</option>
+                  <option value="Achat">Achat</option>
+                  <option value="Vente">Vente</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label" id="form-label-qty">Quantité *</label>
+                <input type="number" id="f-quantite" class="form-input" placeholder="Ex: 100" min="1" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" id="form-label-price">Prix unitaire (€)</label>
+                <input type="number" id="f-prix" class="form-input" placeholder="Ex: 145.50" step="0.01" />
+              </div>
+              <div class="form-group">
+                <label class="form-label" id="form-label-date">Date de transaction *</label>
+                <input type="date" id="f-date" class="form-input" />
+              </div>
+              <div class="form-group full-width">
+                <label class="form-label" id="form-label-account">Compte utilisé *</label>
+                <input type="text" id="f-compte" class="form-input" placeholder="Ex: Compte-titres BNP, PEA Boursorama..." />
+              </div>
+              <div class="form-group full-width">
+                <label class="form-label" id="form-label-comment">Commentaire (optionnel)</label>
+                <textarea id="f-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
+              </div>
+            </div>
+            <div class="form-actions">
+              <div id="declaration-msg" class="form-message hidden"></div>
+              <button id="btn-submit-declaration" class="btn-primary">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                <span id="form-submit-btn-el">Générer attestation et mail</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===== ONGLET 3 : HISTORIQUE ===== -->
+      <section id="tab-history" class="tab-content">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title" id="history-title-el">Mon historique</h2>
+            <p class="section-desc" id="history-desc-el">Vos déclarations et consultations passées</p>
+          </div>
+          <button class="btn-primary" onclick="refreshHistory()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span id="history-refresh-el">Rafraîchir</span>
+          </button>
+        </div>
+
+        <div class="search-bar-container">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="search-history" class="search-input" placeholder="Rechercher par nom de titre..." />
+        </div>
+
+        <div id="history-loading" class="loading-state">
+          <div class="spinner"></div>
+          <p id="history-loading-el">Chargement de l'historique...</p>
+        </div>
+
+        <div id="history-empty" class="empty-state hidden">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <p id="history-empty-el">Aucune déclaration pour l'instant</p>
+        </div>
+
+        <div id="history-table-container" class="hidden">
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th id="col-h-titre-el">Titre</th>
+                  <th id="col-h-type-el">Type</th>
+                  <th id="col-h-qty-el">Quantité / Statut</th>
+                  <th id="col-h-price-el">Prix</th>
+                  <th id="col-h-date-tx-el">Date transaction</th>
+                  <th id="col-h-date-decl-el">Date</th>
+                  <th id="col-h-pdf-el">Attestation</th>
+                </tr>
+              </thead>
+              <tbody id="history-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
