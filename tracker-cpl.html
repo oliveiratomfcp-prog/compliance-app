@@ -1130,12 +1130,13 @@ async function loadComments(ref) {
     );
     const all = data.value.map(item => {
       const f = item.fields;
+      const dateRaw = item.createdDateTime;
       return {
-        auteur  : f.Auteur        || '',
-        texte   : f.Texte         || '',
-        interne : f.EstInterne    === true || f.EstInterne === 'true' || f.EstInterne === 1,
-        date    : f.DateCommentaire ? new Date(f.DateCommentaire).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
-        _ts     : f.DateCommentaire ? new Date(f.DateCommentaire).getTime() : 0
+        auteur  : f.Auteur     || '',
+        texte   : f.Texte      || '',
+        interne : f.EstInterne === true || f.EstInterne === 'true' || f.EstInterne === 1,
+        date    : dateRaw ? new Date(dateRaw).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
+        _ts     : dateRaw ? new Date(dateRaw).getTime() : 0
       };
     })
     .filter(c => isCPL || !c.interne)
@@ -1174,12 +1175,11 @@ async function sendComment() {
   try {
     await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, {
       fields: {
-        Title           : selectedReq.ref,
-        Texte           : texte,
-        Auteur          : currentUser.name,
-        AuteurEmail     : currentUser.email,
-        EstInterne      : interne,
-        DateCommentaire : new Date().toISOString()
+        Title       : selectedReq.ref,
+        Texte       : texte,
+        Auteur      : currentUser.name,
+        AuteurEmail : currentUser.email,
+        EstInterne  : interne
       }
     });
     document.getElementById('comment-input').value = '';
