@@ -475,7 +475,7 @@ function renderList() {
     let st = '';
     if(active && s !== 'all') st = `style="background:${BG[s]};color:${CO[s]};border-color:${BO[s]}"`;
     else if(active)            st = `style="background:var(--navy);color:#fff;border-color:var(--navy)"`;
-    return `<button class="filter-pill" onclick="setFilter('${s}')" ${st}>${s==='all'?'Tous':s}${count>0?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
+    return `<button class="filter-pill" data-s="${s}" onclick="setFilter(this.dataset.s)" ${st}>${s==='all'?'Tous':s}${count>0?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
   }).join('');
 
   const cplTh   = isCPL ? '<th>Demandeur</th><th>Département</th>' : '';
