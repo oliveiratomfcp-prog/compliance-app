@@ -227,7 +227,15 @@ let spSiteId     = null;
 let spListId     = null;
 let spDriveId    = null;
 let spCommListId = null;  // liste Tracker CPL Commentaires
-let requests     = [];   // chargées depuis SharePoint
+let requests     = [];
+let sortCol      = '_ts';
+let sortDir      = -1;    // -1 desc, 1 asc
+
+function sortBy(col) {
+  if (sortCol === col) sortDir *= -1;
+  else { sortCol = col; sortDir = 1; }
+  renderList();
+}
 
 
 
@@ -486,15 +494,30 @@ function renderList() {
     return `<button class="filter-pill" data-s="${s}" onclick="setFilter(this.dataset.s)" ${st}>${s==='all'?'Tous':s}${count>0?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
   }).join('');
 
-  const cplTh   = isCPL ? '<th>Demandeur</th><th>Département</th>' : '';
-  const cplThR  = isCPL ? '<th>Responsable CPL</th>' : '';
-  const cols    = isCPL ? 9 : 6;
+  // Tri
+  const sortedFiltered = [...filtered].sort((a, b) => {
+    let va = a[sortCol] ?? '';
+    let vb = b[sortCol] ?? '';
+    if (typeof va === 'string') va = va.toLowerCase();
+    if (typeof vb === 'string') vb = vb.toLowerCase();
+    return va < vb ? -sortDir : va > vb ? sortDir : 0;
+  });
 
-  const rows = filtered.map(req => {
+  const arrow = col => sortCol === col ? (sortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
+  const th = (label, col, w) =>
+    `<th onclick="sortBy('${col}')" style="cursor:pointer;white-space:nowrap;${w?'width:'+w:''}">
+      ${label}<span style="opacity:.4;font-size:10px">${arrow(col)}</span>
+    </th>`;
+
+  const cplTh  = isCPL ? `${th('Demandeur','from','120px')}${th('Département','dept','110px')}` : '';
+  const cplThR = isCPL ? `${th('Responsable CPL','responsable','140px')}` : '';
+  const cols   = isCPL ? 9 : 6;
+
+  const rows = sortedFiltered.map(req => {
     const over = isCPL && req.sla > 5 && ['En cours','En attente','Soumis'].includes(req.statut);
     const near = isCPL && req.sla >= 4 && req.sla <= 5 && ['En cours','Soumis'].includes(req.statut);
     const cplTd = isCPL ? `<td class="td-muted" style="color:#374151">${req.from}</td><td class="td-muted">${req.dept}</td>` : '';
-    const cplTdR = isCPL ? `<td class="td-muted">${req.responsable || '—'}</td>` : '';
+    const cplTdR = isCPL ? `<td class="td-muted" style="white-space:nowrap">${req.responsable || '—'}</td>` : '';
     return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">
       <td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}</td>
       <td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>
@@ -525,11 +548,17 @@ function renderList() {
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
     <div class="cpl-filters">${filterBtns}${searchBox}</div>
-    <div class="table-wrapper">
-      <table class="data-table cpl-table">
+    <div class="table-wrapper" style="overflow-x:auto">
+      <table class="data-table cpl-table" style="min-width:${isCPL?'900px':'600px'}">
         <thead><tr>
-          <th>Référence</th><th>Objet</th>${cplTh}
-          <th>Priorité</th><th>Statut</th><th>Soumis le</th><th>Deadline</th>${cplThR}
+          ${th('Référence','ref','130px')}
+          ${th('Objet','objet','')}
+          ${cplTh}
+          ${th('Priorité','prio','90px')}
+          ${th('Statut','statut','130px')}
+          ${th('Soumis le','date','100px')}
+          ${th('Deadline','deadline','100px')}
+          ${cplThR}
         </tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
       </table>
