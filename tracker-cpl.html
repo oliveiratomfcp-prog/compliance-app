@@ -166,7 +166,12 @@
   </nav>
 
   <main class="main-content">
-    <div id="view-list"></div>
+    <div id="view-list">
+      <div id="list-loading" style="display:flex;align-items:center;gap:10px;padding:40px 0;justify-content:center;color:var(--text-secondary);font-size:14px">
+        <div class="spinner"></div> Chargement depuis SharePoint...
+      </div>
+      <div id="list-error" style="display:none;padding:20px;background:#FEF2F2;border-radius:8px;color:#DC2626;font-size:13px"></div>
+    </div>
     <div id="view-new" class="hidden"></div>
     <div id="view-detail" class="hidden"></div>
   </main>
@@ -187,7 +192,7 @@ const msalConfig = {
 'use strict';
 
 // ═══════════════════════════════════════════════════════════
-// CONFIGURATION — emails CPL (rôle Compliance)
+// CONFIGURATION
 // ═══════════════════════════════════════════════════════════
 const CPL_EMAILS = [
   'thomas.oliveira@eiffel-ig.com',
@@ -195,6 +200,16 @@ const CPL_EMAILS = [
   'manalle.ourrami@eiffel-ig.com',
   'jessica.manukyan@eiffel-ig.com'
 ];
+
+const SP = {
+  hostname : 'eiffelinvestmentgroup.sharepoint.com',
+  sitePath : '/sites/CPLDashboard',
+  listName : 'Tracker CPL Demandes',
+  libName  : 'CPL-Tracker'
+};
+
+const GRAPH_SCOPES  = ['User.Read', 'Sites.ReadWrite.All', 'Mail.Send'];
+const CPL_MAIL      = 'cpl@eiffel-ig.com';
 
 // ═══════════════════════════════════════════════════════════
 // STATE
@@ -206,12 +221,10 @@ let selectedReq  = null;
 let statusFilter = 'all';
 let cplTab       = 'demandes';
 let msalInst     = null;
-
-// ═══════════════════════════════════════════════════════════
-// DEMANDES — stockées en mémoire de session
-// (persistance SharePoint à connecter ultérieurement)
-// ═══════════════════════════════════════════════════════════
-const MOCK = [];
+let spSiteId     = null;
+let spListId     = null;
+let spDriveId    = null;
+let requests     = [];   // chargées depuis SharePoint
 
 
 
@@ -231,7 +244,7 @@ async function initApp() {
 
   document.getElementById('btn-login').onclick = async () => {
     try {
-      const result = await msalInst.loginPopup({ scopes: ['User.Read'] });
+      const result = await msalInst.loginPopup({ scopes: GRAPH_SCOPES });
       await loginWithAccount(result.account);
     } catch(e) {
       console.error('Login failed:', e);
@@ -246,12 +259,9 @@ async function initApp() {
 
 async function loginWithAccount(account) {
   try {
-    const token = await msalInst.acquireTokenSilent({ scopes:['User.Read'], account });
-    const res   = await fetch('https://graph.microsoft.com/v1.0/me', {
-      headers: { Authorization: `Bearer ${token.accessToken}` }
-    });
-    const p = await res.json();
-    setUser({ name: p.displayName, email: p.userPrincipalName, dept: p.department || 'Collaborateur' });
+    const token = await getToken(['User.Read'], account);
+    const p = await graphGet('/me', token);
+    setUser({ name: p.displayName, email: p.userPrincipalName, dept: p.department || 'Collaborateur', account });
   } catch(e) {
     console.error('Token error:', e);
     showScreen('login');
@@ -267,7 +277,131 @@ function setUser(u) {
   document.getElementById('user-name').textContent = u.name;
   document.getElementById('user-role').textContent  = isCPL ? 'Compliance' : 'Collaborateur';
   showScreen('app');
-  renderList();
+  initSharePointThenLoad();
+}
+
+// ═══════════════════════════════════════════════════════════
+// GRAPH HELPERS
+// ═══════════════════════════════════════════════════════════
+async function getToken(scopes, account) {
+  const acc = account || currentUser.account || msalInst.getAllAccounts()[0];
+  const res = await msalInst.acquireTokenSilent({ scopes, account: acc });
+  return res.accessToken;
+}
+
+async function graphGet(path, token) {
+  const t = token || await getToken(GRAPH_SCOPES);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    headers: { Authorization: `Bearer ${t}` }
+  });
+  if (!res.ok) throw new Error(`Graph GET ${path} → ${res.status}`);
+  return res.json();
+}
+
+async function graphPost(path, body) {
+  const t = await getToken(GRAPH_SCOPES);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(`Graph POST ${path} → ${res.status}: ${e}`); }
+  return res.status === 204 ? null : res.json();
+}
+
+async function graphPatch(path, body) {
+  const t = await getToken(GRAPH_SCOPES);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) throw new Error(`Graph PATCH ${path} → ${res.status}`);
+  return res.status === 204 ? null : res.json();
+}
+
+async function graphPut(path, data, contentType) {
+  const t = await getToken(GRAPH_SCOPES);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': contentType || 'application/octet-stream' },
+    body: data
+  });
+  if (!res.ok) throw new Error(`Graph PUT ${path} → ${res.status}`);
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SHAREPOINT — initialisation + chargement
+// ═══════════════════════════════════════════════════════════
+async function initSharePointThenLoad() {
+  setListLoading(true);
+  try {
+    // 1. Site ID
+    const site = await graphGet(`/sites/${SP.hostname}:${SP.sitePath}`);
+    spSiteId = site.id;
+
+    // 2. List ID
+    const lists = await graphGet(`/sites/${spSiteId}/lists?$filter=displayName eq '${encodeURIComponent(SP.listName)}'`);
+    spListId = lists.value[0]?.id;
+    if (!spListId) throw new Error(`Liste "${SP.listName}" introuvable sur SharePoint`);
+
+    // 3. Drive ID (bibliothèque CPL-Tracker)
+    const drives = await graphGet(`/sites/${spSiteId}/drives`);
+    const drive  = drives.value.find(d => d.name === SP.libName);
+    spDriveId    = drive?.id || null;
+
+    await loadRequests();
+  } catch(e) {
+    console.error('SharePoint init error:', e);
+    setListLoading(false);
+    showListError(e.message);
+  }
+}
+
+async function loadRequests() {
+  setListLoading(true);
+  try {
+    const data = await graphGet(
+      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$orderby=fields/DateSoumission desc&$top=200`
+    );
+    requests = data.value.map(item => {
+      const f = item.fields;
+      return {
+        spId   : item.id,
+        ref    : f.Title        || '',
+        objet  : f.Objet        || '',
+        type   : f.Sujet        || '',
+        prio   : f.Priorit_x00e9_ || f.Priorité || f.Priorite || '',
+        statut : f.Statut       || 'Soumis',
+        date   : f.DateSoumission ? new Date(f.DateSoumission).toLocaleDateString('fr-FR') : '',
+        updated: item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).toLocaleDateString('fr-FR') : '',
+        from   : f.Demandeur    || '',
+        email  : f.DemandeurEmail || '',
+        dept   : f.DemandeurDept  || '',
+        desc   : f.Description  || '',
+        deadline: f.Deadline    || '',
+        sla    : 0,
+        comments: []
+      };
+    });
+    setListLoading(false);
+    renderList();
+  } catch(e) {
+    console.error('Erreur chargement demandes:', e);
+    setListLoading(false);
+    showListError(e.message);
+  }
+}
+
+function setListLoading(on) {
+  const el = document.getElementById('list-loading');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+function showListError(msg) {
+  const el = document.getElementById('list-error');
+  if (el) { el.textContent = `Erreur : ${msg}`; el.style.display = 'block'; }
 }
 
 
@@ -294,8 +428,9 @@ function setCplTab(t) { cplTab = t; renderList(); }
 // HELPERS
 // ═══════════════════════════════════════════════════════════
 const SC = {
-  'Brouillon':'bdg-brouillon','Soumis':'bdg-soumis','En cours':'bdg-en-cours',
-  'En attente':'bdg-en-attente','Résolu':'bdg-resolu','Clôturé':'bdg-cloture','Rejeté':'bdg-rejete'
+  'Brouillon':'bdg-brouillon','Soumis':'bdg-soumis',
+  "En cours d'analyse":'bdg-en-cours',"En attente d'informations":'bdg-en-attente',
+  'Résolu':'bdg-resolu','Clôturé':'bdg-cloture','Rejeté':'bdg-rejete'
 };
 const PC = {'Normale':'bdg-normale','Urgente':'bdg-urgente','Critique':'bdg-critique'};
 
@@ -311,16 +446,16 @@ function svgIcon(path, extras) {
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
 function renderList() {
-  const all      = isCPL ? MOCK : MOCK.filter(r => r.email === currentUser.email);
+  const all      = isCPL ? requests : requests.filter(r => r.email === currentUser.email);
   const filtered = statusFilter === 'all' ? all : all.filter(r => r.statut === statusFilter);
-  const open     = all.filter(r => ['Soumis','En cours','En attente'].includes(r.statut)).length;
-  const awaiting = all.filter(r => r.statut === 'En attente').length;
-  const overSLA  = MOCK.filter(r => r.sla > 5 && ['Soumis','En cours','En attente'].includes(r.statut)).length;
+  const open     = all.filter(r => ['Soumis',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const awaiting = all.filter(r => r.statut === "En attente d'informations").length;
+  const overSLA  = requests.filter(r => r.sla > 5 && ['Soumis',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
 
-  const STATUSES = ['all','Soumis','En cours','En attente','Résolu','Clôturé','Rejeté'];
-  const BG = {Soumis:'#EFF6FF','En cours':'#FFF7ED','En attente':'#FEFCE8',Résolu:'#F0FDF4',Clôturé:'#ECFDF5',Rejeté:'#FEF2F2'};
-  const CO = {Soumis:'#2563EB','En cours':'#C2410C','En attente':'#B45309',Résolu:'#15803D',Clôturé:'#065F46',Rejeté:'#DC2626'};
-  const BO = {Soumis:'#BFDBFE','En cours':'#FED7AA','En attente':'#FDE68A',Résolu:'#BBF7D0',Clôturé:'#6EE7B7',Rejeté:'#FECACA'};
+  const STATUSES = ['all','Soumis',"En cours d'analyse","En attente d'informations",'Résolu','Clôturé','Rejeté'];
+  const BG = {Soumis:'#EFF6FF',"En cours d'analyse":'#FFF7ED',"En attente d'informations":'#FEFCE8',Résolu:'#F0FDF4',Clôturé:'#ECFDF5',Rejeté:'#FEF2F2'};
+  const CO = {Soumis:'#2563EB',"En cours d'analyse":'#C2410C',"En attente d'informations":'#B45309',Résolu:'#15803D',Clôturé:'#065F46',Rejeté:'#DC2626'};
+  const BO = {Soumis:'#BFDBFE',"En cours d'analyse":'#FED7AA',"En attente d'informations":'#FDE68A',Résolu:'#BBF7D0',Clôturé:'#6EE7B7',Rejeté:'#FECACA'};
 
   const filterBtns = STATUSES.map(s => {
     const active = statusFilter === s;
@@ -385,7 +520,7 @@ function renderList() {
           ${tabBtns}
         </div>
         <p class="section-desc">${isCPL
-          ? `${MOCK.length} demandes au total &nbsp;·&nbsp; ${open} ouvertes &nbsp;·&nbsp; ${overSLA} hors SLA`
+          ? `${requests.length} demandes au total &nbsp;·&nbsp; ${open} ouvertes &nbsp;·&nbsp; ${overSLA} hors SLA`
           : `${all.length} demande${all.length>1?'s':''} &nbsp;·&nbsp; ${awaiting} action${awaiting>1?'s':''} requise${awaiting>1?'s':''} de votre part`
         }</p>
       </div>
@@ -410,7 +545,7 @@ function searchTable(q) {
 function exportCSV() {
   const headers = ['Référence','Objet','Type','Priorité','Statut','Demandeur','Département','Soumis le','Activité'];
   const lines = [headers.join(';')].concat(
-    MOCK.map(r => [r.ref,r.objet,r.type,r.prio,r.statut,r.from,r.dept,r.date,r.updated].join(';'))
+    requests.map(r => [r.ref,r.objet,r.type,r.prio,r.statut,r.from,r.dept,r.date,r.updated].join(';'))
   );
   const blob = new Blob(['\uFEFF'+lines.join('\n')], {type:'text/csv;charset=utf-8;'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
@@ -598,94 +733,77 @@ async function submitRequest() {
   btn.textContent = 'Envoi en cours...';
 
   try {
-    // Acquérir un token avec le scope Mail.Send
-    const account = msalInst.getAllAccounts()[0];
-    const token = await msalInst.acquireTokenSilent({
-      scopes: ['Mail.Send'],
-      account
-    });
-
-    // Générer une référence temporaire
     const now  = new Date();
     const year = now.getFullYear();
-    const ref  = `CPL-${year}-XXXX`;
 
-    // Corps du mail
+    // 1. Créer l'item dans la liste SharePoint
+    const itemBody = {
+      fields: {
+        Title           : 'CPL-EN-COURS',   // temporaire, mis à jour après
+        Objet           : objet,
+        Sujet           : type,
+        'Priorité'      : selPrio,
+        Statut          : 'Soumis',
+        Description     : desc,
+        Demandeur       : currentUser.name,
+        DemandeurEmail  : currentUser.email,
+        DemandeurDept   : currentUser.dept,
+        DateSoumission  : now.toISOString(),
+        ...(deadline ? { Deadline: deadline } : {})
+      }
+    };
+    const created = await graphPost(`/sites/${spSiteId}/lists/${spListId}/items`, itemBody);
+    const spItemId = created.id;
+
+    // 2. Générer la référence CPL et mettre à jour le titre
+    const ref = `CPL-${year}-${String(spItemId).padStart(4, '0')}`;
+    await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { Title: ref });
+
+    // 3. Créer le dossier dans la bibliothèque CPL-Tracker
+    if (spDriveId) {
+      try {
+        await graphPost(`/sites/${spSiteId}/drives/${spDriveId}/items/root/children`, {
+          name: ref,
+          folder: {},
+          '@microsoft.graph.conflictBehavior': 'replace'
+        });
+      } catch(e) { console.warn('Dossier SP non créé:', e); }
+    }
+
+    // 4. Envoyer le mail à cpl@eiffel-ig.com
     const mailBody = `
       <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
         <p>Bonjour,</p>
         <p>Une nouvelle demande a été soumise via le <strong>Tracker CPL</strong>.</p>
-        <table style="border-collapse:collapse;width:100%;margin:16px 0">
-          <tr style="background:#F4F5F8">
-            <td style="padding:8px 12px;font-weight:600;width:160px">Référence</td>
-            <td style="padding:8px 12px">${ref}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 12px;font-weight:600">Demandeur</td>
-            <td style="padding:8px 12px">${currentUser.name} — ${currentUser.dept}</td>
-          </tr>
-          <tr style="background:#F4F5F8">
-            <td style="padding:8px 12px;font-weight:600">Type</td>
-            <td style="padding:8px 12px">${type}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 12px;font-weight:600">Priorité</td>
-            <td style="padding:8px 12px">${selPrio}</td>
-          </tr>
-          <tr style="background:#F4F5F8">
-            <td style="padding:8px 12px;font-weight:600">Objet</td>
-            <td style="padding:8px 12px">${objet}</td>
-          </tr>
-          <tr>
-            <td style="padding:8px 12px;font-weight:600">Description</td>
-            <td style="padding:8px 12px">${desc.replace(/\n/g,'<br>')}</td>
-          </tr>
-          ${deadline ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Deadline souhaitée</td><td style="padding:8px 12px">${deadline}</td></tr>` : ''}
-          <tr>
-            <td style="padding:8px 12px;font-weight:600">Date de soumission</td>
-            <td style="padding:8px 12px">${now.toLocaleString('fr-FR')}</td>
-          </tr>
+        <table style="border-collapse:collapse;width:100%;margin:16px 0;border:1px solid #E5E7EB">
+          <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600;width:180px">Référence</td><td style="padding:8px 12px">${ref}</td></tr>
+          <tr><td style="padding:8px 12px;font-weight:600">Demandeur</td><td style="padding:8px 12px">${currentUser.name} — ${currentUser.dept}</td></tr>
+          <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Type</td><td style="padding:8px 12px">${type}</td></tr>
+          <tr><td style="padding:8px 12px;font-weight:600">Priorité</td><td style="padding:8px 12px">${selPrio}</td></tr>
+          <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Objet</td><td style="padding:8px 12px">${objet}</td></tr>
+          <tr><td style="padding:8px 12px;font-weight:600">Description</td><td style="padding:8px 12px">${desc.replace(/\n/g,'<br>')}</td></tr>
+          ${deadline ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Deadline</td><td style="padding:8px 12px">${deadline}</td></tr>` : ''}
+          <tr><td style="padding:8px 12px;font-weight:600">Soumis le</td><td style="padding:8px 12px">${now.toLocaleString('fr-FR')}</td></tr>
         </table>
         <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
       </div>`;
 
-    await fetch('https://graph.microsoft.com/v1.0/me/sendMail', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token.accessToken}`,
-        'Content-Type': 'application/json'
+    await graphPost('/me/sendMail', {
+      message: {
+        subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Urgente' ? '🟡' : ''} — ${objet} (${ref})`,
+        body: { contentType: 'HTML', content: mailBody },
+        toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
       },
-      body: JSON.stringify({
-        message: {
-          subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Urgente' ? '🟡' : ''} — ${objet}`,
-          body: { contentType: 'HTML', content: mailBody },
-          toRecipients: [{ emailAddress: { address: 'cpl@eiffel-ig.com' } }]
-        },
-        saveToSentItems: true
-      })
+      saveToSentItems: true
     });
 
-    // Ajouter en mémoire de session
-    const newReq = {
-      ref, objet, type, prio: selPrio,
-      statut: 'Soumis',
-      date: now.toLocaleDateString('fr-FR'),
-      updated: "À l'instant",
-      from: currentUser.name,
-      email: currentUser.email,
-      dept: currentUser.dept,
-      sla: 0,
-      desc,
-      comments: []
-    };
-    MOCK.unshift(newReq);
-
-    alert(`✅ Demande soumise et mail envoyé à cpl@eiffel-ig.com`);
+    alert(`✅ Demande ${ref} soumise.\nMail envoyé à ${CPL_MAIL}.`);
+    await loadRequests();
     goList();
 
   } catch(e) {
-    console.error('Erreur envoi mail:', e);
-    alert('Erreur lors de l\'envoi. Vérifiez les permissions Mail.Send dans Azure AD.');
+    console.error('Erreur soumission:', e);
+    alert(`Erreur : ${e.message}`);
     btn.disabled = false;
     btn.textContent = 'Soumettre la demande';
   }
@@ -695,7 +813,7 @@ async function submitRequest() {
 // VUE DÉTAIL
 // ═══════════════════════════════════════════════════════════
 function openDetail(ref) {
-  selectedReq = MOCK.find(r => r.ref === ref);
+  selectedReq = requests.find(r => r.ref === ref);
   if (!selectedReq) return;
 
   const TLC = {submit:'#00143B',progress:'#EA580C',wait:'#B45309',done:'#15803D',reject:'#DC2626'};
