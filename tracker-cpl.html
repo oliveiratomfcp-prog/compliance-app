@@ -373,7 +373,7 @@ async function loadRequests() {
   setListLoading(true);
   try {
     const data = await graphGet(
-      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$orderby=fields/DateSoumission desc&$top=200`
+      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$top=200`
     );
     requests = data.value.map(item => {
       const f = item.fields;
@@ -392,9 +392,10 @@ async function loadRequests() {
         desc   : f.Description  || '',
         deadline: f.Deadline    || '',
         sla    : 0,
+        _ts    : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         comments: []
       };
-    });
+    }).sort((a, b) => b._ts - a._ts); // tri par date décroissante côté client
     setListLoading(false);
     renderList();
   } catch(e) {
