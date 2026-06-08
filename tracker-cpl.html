@@ -392,7 +392,8 @@ async function loadRequests() {
         desc   : f.Description  || '',
         deadline: f.Deadline    || '',
         sla    : 0,
-        _ts    : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
+        _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
+        _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
         comments: []
       };
     }).sort((a, b) => b._ts - a._ts); // tri par date décroissante côté client
@@ -572,6 +573,12 @@ function renderDashboard() {
   const rejected= requests.filter(r => r.statut === 'Rejeté').length;
   const total   = requests.length;
 
+  // Délai moyen de traitement (demandes résolues/clôturées)
+  const resolvedReqs = requests.filter(r => ['Résolu','Clôturé'].includes(r.statut) && r._ts && r._lastModified);
+  const avgDays = resolvedReqs.length
+    ? (resolvedReqs.reduce((sum,r) => sum + (r._lastModified - r._ts), 0) / resolvedReqs.length / (1000*60*60*24)).toFixed(1)
+    : '—';
+
   // Volume par mois (6 derniers mois)
   const now = new Date();
   const months = Array.from({length:6}, (_,i) => {
@@ -644,8 +651,8 @@ function renderDashboard() {
         <div class="kpi-val">${rejected}</div><div class="kpi-lbl">Rejetées</div>
       </div>
       <div class="kpi-card">
-        <div class="kpi-icon" style="background:#F4F5F8">${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>','stroke="#6B7280"')}</div>
-        <div class="kpi-val">${total}</div><div class="kpi-lbl">Total demandes</div>
+        <div class="kpi-icon" style="background:#FFF7ED">${svgIcon('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>','stroke="#D18F41"')}</div>
+        <div class="kpi-val">${avgDays}${avgDays !== '—' ? 'j' : ''}</div><div class="kpi-lbl">Délai moyen traitement</div>
       </div>
     </div>
     <div class="charts-row">
@@ -1018,8 +1025,8 @@ function openDetail(ref) {
       <div style="display:flex;flex-direction:column;gap:8px">
         <select class="form-input" id="cpl-status-select" onchange="toggleMotifField()">
           <option value="">Changer le statut...</option>
-          <option value="En cours d'analyse">En cours d'analyse</option>
-          <option value="En attente d'informations">En attente d'informations</option>
+          <option value="En cours d_analyse">En cours d'analyse</option>
+          <option value="En attente d_informations">En attente d'informations</option>
           <option value="Résolu">Résolu</option>
           <option value="Rejeté">Rejeté</option>
           <option value="Clôturé">Clôturé</option>
@@ -1108,16 +1115,26 @@ function openDetail(ref) {
 // ═══════════════════════════════════════════════════════════
 // CHANGEMENT DE STATUT (CPL)
 // ═══════════════════════════════════════════════════════════
+
+// Mapping valeurs select → texte exact SharePoint
+const STATUS_MAP = {
+  "En cours d_analyse"       : "En cours d'analyse",
+  "En attente d_informations": "En attente d'informations",
+  "Résolu"                   : "Résolu",
+  "Rejeté"                   : "Rejeté",
+  "Clôturé"                  : "Clôturé"
+};
+
 function toggleMotifField() {
-  const sel = document.getElementById('cpl-status-select');
+  const sel   = document.getElementById('cpl-status-select');
   const motif = document.getElementById('motif-field');
   if (motif) motif.style.display = sel?.value === 'Rejeté' ? 'block' : 'none';
 }
 
 async function changeStatus() {
-  const newStatus = document.getElementById('cpl-status-select')?.value;
+  const rawVal    = document.getElementById('cpl-status-select')?.value;
+  const newStatus = STATUS_MAP[rawVal] || rawVal;
   const motif     = document.getElementById('cpl-motif')?.value.trim();
-  const note      = document.getElementById('cpl-note')?.value.trim();
 
   if (!newStatus) { alert('Veuillez sélectionner un statut.'); return; }
   if (newStatus === 'Rejeté' && !motif) { alert('Le motif de rejet est obligatoire.'); return; }
@@ -1134,11 +1151,6 @@ async function changeStatus() {
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
       fields
     );
-
-    // Mettre à jour localement
-    selectedReq.statut = newStatus;
-    const idx = requests.findIndex(r => r.spId === selectedReq.spId);
-    if (idx !== -1) requests[idx].statut = newStatus;
 
     alert(`✅ Statut mis à jour : ${newStatus}`);
     await loadRequests();
