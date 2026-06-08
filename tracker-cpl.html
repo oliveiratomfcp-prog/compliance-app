@@ -284,9 +284,18 @@ function setUser(u) {
 // GRAPH HELPERS
 // ═══════════════════════════════════════════════════════════
 async function getToken(scopes, account) {
-  const acc = account || currentUser.account || msalInst.getAllAccounts()[0];
-  const res = await msalInst.acquireTokenSilent({ scopes, account: acc });
-  return res.accessToken;
+  const acc = account || currentUser?.account || msalInst.getAllAccounts()[0];
+  try {
+    const res = await msalInst.acquireTokenSilent({ scopes, account: acc });
+    return res.accessToken;
+  } catch(e) {
+    // Consentement manquant ou token expiré → popup interactive
+    if (e.name === 'InteractionRequiredAuthError' || e instanceof msal.InteractionRequiredAuthError) {
+      const res = await msalInst.acquireTokenPopup({ scopes, account: acc });
+      return res.accessToken;
+    }
+    throw e;
+  }
 }
 
 async function graphGet(path, token) {
@@ -879,34 +888,37 @@ async function submitRequest() {
       }
     }
 
-    // 4. Envoyer le mail à cpl@eiffel-ig.com
-    const mailBody = `
-      <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
-        <p>Bonjour,</p>
-        <p>Une nouvelle demande a été soumise via le <strong>Tracker CPL</strong>.</p>
-        <table style="border-collapse:collapse;width:100%;margin:16px 0;border:1px solid #E5E7EB">
-          <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600;width:180px">Référence</td><td style="padding:8px 12px">${ref}</td></tr>
-          <tr><td style="padding:8px 12px;font-weight:600">Demandeur</td><td style="padding:8px 12px">${currentUser.name} — ${currentUser.dept}</td></tr>
-          <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Type</td><td style="padding:8px 12px">${type}</td></tr>
-          <tr><td style="padding:8px 12px;font-weight:600">Priorité</td><td style="padding:8px 12px">${selPrio}</td></tr>
-          <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Objet</td><td style="padding:8px 12px">${objet}</td></tr>
-          <tr><td style="padding:8px 12px;font-weight:600">Description</td><td style="padding:8px 12px">${desc.replace(/\n/g,'<br>')}</td></tr>
-          ${deadline ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Deadline</td><td style="padding:8px 12px">${deadline}</td></tr>` : ''}
-          <tr><td style="padding:8px 12px;font-weight:600">Soumis le</td><td style="padding:8px 12px">${now.toLocaleString('fr-FR')}</td></tr>
-        </table>
-        <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
-      </div>`;
+    // 5. Envoyer le mail à cpl@eiffel-ig.com (non bloquant)
+    try {
+      const mailBody = `
+        <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
+          <p>Bonjour,</p>
+          <p>Une nouvelle demande a été soumise via le <strong>Tracker CPL</strong>.</p>
+          <table style="border-collapse:collapse;width:100%;margin:16px 0;border:1px solid #E5E7EB">
+            <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600;width:180px">Référence</td><td style="padding:8px 12px">${ref}</td></tr>
+            <tr><td style="padding:8px 12px;font-weight:600">Demandeur</td><td style="padding:8px 12px">${currentUser.name} — ${currentUser.dept}</td></tr>
+            <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Type</td><td style="padding:8px 12px">${type}</td></tr>
+            <tr><td style="padding:8px 12px;font-weight:600">Priorité</td><td style="padding:8px 12px">${selPrio}</td></tr>
+            <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Objet</td><td style="padding:8px 12px">${objet}</td></tr>
+            <tr><td style="padding:8px 12px;font-weight:600">Description</td><td style="padding:8px 12px">${desc.replace(/\n/g,'<br>')}</td></tr>
+            ${deadline ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Deadline</td><td style="padding:8px 12px">${deadline}</td></tr>` : ''}
+            <tr><td style="padding:8px 12px;font-weight:600">Soumis le</td><td style="padding:8px 12px">${now.toLocaleString('fr-FR')}</td></tr>
+          </table>
+          <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
+        </div>`;
+      await graphPost('/me/sendMail', {
+        message: {
+          subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Urgente' ? '🟡' : ''} — ${objet} (${ref})`,
+          body: { contentType: 'HTML', content: mailBody },
+          toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
+        },
+        saveToSentItems: true
+      });
+    } catch(mailErr) {
+      console.warn('Mail non envoyé (permission Mail.Send en attente) :', mailErr.message);
+    }
 
-    await graphPost('/me/sendMail', {
-      message: {
-        subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Urgente' ? '🟡' : ''} — ${objet} (${ref})`,
-        body: { contentType: 'HTML', content: mailBody },
-        toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
-      },
-      saveToSentItems: true
-    });
-
-    alert(`✅ Demande ${ref} soumise.\nMail envoyé à ${CPL_MAIL}.`);
+    alert(`✅ Demande ${ref} soumise avec succès.`);
     await loadRequests();
     goList();
 
