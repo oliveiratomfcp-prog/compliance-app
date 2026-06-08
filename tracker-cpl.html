@@ -689,12 +689,15 @@ function goNew() {
             <label class="form-label">Deadline souhaitée <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
             <input type="date" class="form-input" id="f-deadline">
           </div>
-          <div class="form-group">
-            <label class="form-label">Pièce jointe <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
-            <div class="upload-zone">
+          <div class="form-group full-width">
+            <label class="form-label">Pièces jointes <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
+            <div class="upload-zone" onclick="document.getElementById('f-files').click()" style="cursor:pointer">
               ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>')}
-              PDF, Word, Excel — via SharePoint (config. à venir)
+              Cliquez ou déposez vos fichiers ici
+              <div style="font-size:11px;margin-top:3px;color:#9CA3AF">PDF, Word, Excel, images — plusieurs fichiers acceptés</div>
             </div>
+            <input type="file" id="f-files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg" style="display:none" onchange="updateFileList()">
+            <div id="file-list" style="margin-top:6px"></div>
           </div>
         </div>
         <div class="form-actions">
@@ -715,6 +718,98 @@ function setPrio(p, btn) {
   selPrio = p;
   document.querySelectorAll('.prio-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
+}
+
+// ═══════════════════════════════════════════════════════════
+// UPLOAD FICHIERS
+// ═══════════════════════════════════════════════════════════
+function updateFileList() {
+  const files = document.getElementById('f-files').files;
+  const list  = document.getElementById('file-list');
+  if (!files.length) { list.innerHTML = ''; return; }
+  list.innerHTML = Array.from(files).map(f => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;padding:3px 0">
+      ${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')}
+      <span>${f.name}</span>
+      <span style="color:#9CA3AF">(${(f.size/1024).toFixed(0)} Ko)</span>
+    </div>`).join('');
+}
+
+async function uploadFile(ref, file) {
+  if (!spDriveId) return;
+  const encoded = encodeURIComponent(file.name);
+  const basePath = `/sites/${spSiteId}/drives/${spDriveId}/items/root:/${ref}/${encoded}`;
+
+  if (file.size <= 4 * 1024 * 1024) {
+    // Upload simple < 4 Mo
+    const buf = await file.arrayBuffer();
+    await graphPut(`${basePath}:/content`, buf, file.type || 'application/octet-stream');
+  } else {
+    // Upload session pour fichiers > 4 Mo
+    const session = await graphPost(`${basePath}:/createUploadSession`, {
+      item: { '@microsoft.graph.conflictBehavior': 'replace' }
+    });
+    const chunkSize = 3 * 1024 * 1024;
+    const buf = await file.arrayBuffer();
+    let start = 0;
+    while (start < file.size) {
+      const end   = Math.min(start + chunkSize, file.size);
+      const chunk = buf.slice(start, end);
+      await fetch(session.uploadUrl, {
+        method : 'PUT',
+        headers: {
+          'Content-Range' : `bytes ${start}-${end-1}/${file.size}`,
+          'Content-Length': String(end - start)
+        },
+        body: chunk
+      });
+      start = end;
+    }
+  }
+}
+
+async function loadFilesForDetail(ref) {
+  const container = document.getElementById('files-container');
+  if (!container || !spDriveId) return;
+  container.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">Chargement...</span>';
+  try {
+    const res   = await graphGet(`/sites/${spSiteId}/drives/${spDriveId}/items/root:/${ref}:/children`);
+    const files = res.value.filter(f => f.file);
+    if (!files.length) {
+      container.innerHTML = '<p style="font-size:12.5px;color:var(--text-secondary)">Aucun fichier déposé.</p>';
+    } else {
+      container.innerHTML = files.map(f => `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
+          <div style="display:flex;align-items:center;gap:8px">
+            ${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')}
+            <div>
+              <div style="font-size:12.5px;font-weight:500;color:#111827">${f.name}</div>
+              <div style="font-size:11px;color:var(--text-secondary)">${(f.size/1024).toFixed(0)} Ko</div>
+            </div>
+          </div>
+          <a href="${f.webUrl}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Ouvrir</a>
+        </div>`).join('');
+    }
+  } catch(e) {
+    container.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Dossier introuvable sur SharePoint.</p>';
+  }
+}
+
+async function uploadFromDetail() {
+  const input = document.getElementById('detail-file-input');
+  const ref   = selectedReq?.ref;
+  if (!input?.files.length || !ref) return;
+  const btn = document.getElementById('detail-upload-btn');
+  btn.disabled = true;
+  btn.textContent = 'Upload...';
+  for (const file of input.files) {
+    try { await uploadFile(ref, file); }
+    catch(e) { console.warn(`Erreur upload ${file.name}:`, e); }
+  }
+  btn.disabled = false;
+  btn.textContent = 'Déposer';
+  input.value = '';
+  await loadFilesForDetail(ref);
 }
 
 async function submitRequest() {
@@ -768,6 +863,20 @@ async function submitRequest() {
           '@microsoft.graph.conflictBehavior': 'replace'
         });
       } catch(e) { console.warn('Dossier SP non créé:', e); }
+    }
+
+    // 4. Upload des pièces jointes
+    const fileInput = document.getElementById('f-files');
+    if (fileInput?.files.length && spDriveId) {
+      btn.textContent = `Upload des fichiers (0/${fileInput.files.length})...`;
+      let i = 0;
+      for (const file of fileInput.files) {
+        try {
+          await uploadFile(ref, file);
+          i++;
+          btn.textContent = `Upload des fichiers (${i}/${fileInput.files.length})...`;
+        } catch(e) { console.warn(`Erreur upload ${file.name}:`, e); }
+      }
     }
 
     // 4. Envoyer le mail à cpl@eiffel-ig.com
@@ -903,6 +1012,18 @@ function openDetail(ref) {
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Soumis :</strong> ${selectedReq.date}</div>
           </div>
         </div>
+
+        <!-- PIÈCES JOINTES -->
+        <div class="form-card">
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Pièces jointes</div>
+          <div id="files-container"><span style="font-size:12px;color:var(--text-secondary)">Chargement...</span></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
+            <input type="file" id="detail-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg"
+              style="font-size:12px;flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px">
+            <button id="detail-upload-btn" class="btn-secondary" onclick="uploadFromDetail()" style="white-space:nowrap">Déposer</button>
+          </div>
+        </div>
+
         <div class="form-card">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Commentaires</div>
           ${commentsHTML || '<p style="color:var(--text-secondary);font-size:13px">Aucun commentaire.</p>'}
@@ -925,6 +1046,7 @@ function openDetail(ref) {
 
   showView('detail');
   window.scrollTo({top:0, behavior:'smooth'});
+  loadFilesForDetail(selectedReq.ref);
 }
 
 // ═══════════════════════════════════════════════════════════
