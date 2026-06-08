@@ -1192,7 +1192,7 @@ async function loadComments(ref) {
         const f = item.fields;
         return {
           auteur  : f.NomAuteur   || '',
-          texte   : f.ContenuMsg  || '',
+          texte   : f.Texte  || '',
           interne : f.EstInterne === true || f.EstInterne === 'true' || f.EstInterne === 1 || f.EstInterne === '1' || f.EstInterne === 'Yes' || f.EstInterne === 'Oui',
           date    : item.createdDateTime ? new Date(item.createdDateTime).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
           _ts     : item.createdDateTime ? new Date(item.createdDateTime).getTime() : 0
@@ -1235,7 +1235,7 @@ async function sendComment() {
     // Étape 1 : créer le commentaire sans EstInterne
     const fields = {
       Title      : selectedReq.ref,
-      ContenuMsg : texte,
+      Texte : texte,
       NomAuteur  : currentUser.name
     };
     const created = await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, { fields });
