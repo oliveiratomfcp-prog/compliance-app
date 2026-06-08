@@ -265,48 +265,35 @@ const MOCK = [
   }
 ];
 
-const DEMO_USERS = [
-  {name:'Thomas Oliveira',  email:'thomas.oliveira@eiffel-ig.com',  dept:'Compliance'},
-  {name:'Cassandre Memet',  email:'cassandre.memet@eiffel-ig.com',  dept:'Compliance'},
-  {name:'Manalle Ourrami',  email:'manalle.ourrami@eiffel-ig.com',  dept:'Compliance'},
-  {name:'Jessica Manukyan', email:'jessica.manukyan@eiffel-ig.com', dept:'Compliance'},
-  {name:'Marc Lefebvre',    email:'marc.lefebvre@eiffel-ig.com',    dept:'IT'},
-  {name:'Sophie Martin',    email:'sophie.martin@eiffel-ig.com',    dept:'Front Office'},
-  {name:'Antoine Dupont',   email:'antoine.dupont@eiffel-ig.com',   dept:'Legal'}
-];
+
 
 // ═══════════════════════════════════════════════════════════
 // AUTH MSAL
 // ═══════════════════════════════════════════════════════════
 async function initApp() {
-  try {
-    msalInst = new msal.PublicClientApplication(msalConfig);
-    await msalInst.initialize();
+  msalInst = new msal.PublicClientApplication(msalConfig);
+  await msalInst.initialize();
 
-    const accounts = msalInst.getAllAccounts();
-    if (accounts.length > 0) {
-      await loginWithAccount(accounts[0]);
-    } else {
-      showScreen('login');
-    }
-
-    document.getElementById('btn-login').onclick = async () => {
-      try {
-        const result = await msalInst.loginPopup({ scopes: ['User.Read'] });
-        await loginWithAccount(result.account);
-      } catch(e) { console.error('Login failed:', e); }
-    };
-
-    document.getElementById('btn-logout').onclick = async () => {
-      try { await msalInst.logoutPopup(); } catch(e) {}
-      showScreen('login');
-    };
-
-  } catch(e) {
-    // config.js absent ou environnement de démo
-    console.warn('MSAL non disponible — mode démo activé');
-    initDemoMode();
+  const accounts = msalInst.getAllAccounts();
+  if (accounts.length > 0) {
+    await loginWithAccount(accounts[0]);
+  } else {
+    showScreen('login');
   }
+
+  document.getElementById('btn-login').onclick = async () => {
+    try {
+      const result = await msalInst.loginPopup({ scopes: ['User.Read'] });
+      await loginWithAccount(result.account);
+    } catch(e) {
+      console.error('Login failed:', e);
+    }
+  };
+
+  document.getElementById('btn-logout').onclick = async () => {
+    try { await msalInst.logoutPopup(); } catch(e) {}
+    showScreen('login');
+  };
 }
 
 async function loginWithAccount(account) {
@@ -335,35 +322,6 @@ function setUser(u) {
   renderList();
 }
 
-// ── Mode démo (sans config.js) ─────────────────
-function initDemoMode() {
-  document.querySelector('.login-card').insertAdjacentHTML('beforeend', `
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,0.15)">
-      <p style="font-size:12px;color:rgba(255,255,255,0.5);margin-bottom:8px">Mode démo — Simuler une connexion :</p>
-      <select id="demo-sel" style="width:100%;padding:8px;border-radius:6px;font-size:13px;background:#1a2f52;color:#fff;border:1px solid rgba(255,255,255,0.2);margin-bottom:8px">
-        <optgroup label="Compliance (CPL)">
-          <option value="0">Thomas Oliveira</option>
-          <option value="1">Cassandre Memet</option>
-          <option value="2">Manalle Ourrami</option>
-          <option value="3">Jessica Manukyan</option>
-        </optgroup>
-        <optgroup label="Standard">
-          <option value="4" selected>Marc Lefebvre (IT)</option>
-          <option value="5">Sophie Martin (Front Office)</option>
-          <option value="6">Antoine Dupont (Legal)</option>
-        </optgroup>
-      </select>
-      <button onclick="loginDemo()" style="width:100%;padding:10px;border-radius:6px;background:#D18F41;color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer">
-        Accéder en démo
-      </button>
-    </div>`);
-  showScreen('login');
-}
-
-function loginDemo() {
-  const idx = parseInt(document.getElementById('demo-sel').value);
-  setUser(DEMO_USERS[idx]);
-}
 
 // ═══════════════════════════════════════════════════════════
 // NAVIGATION
