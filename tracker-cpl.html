@@ -25,7 +25,8 @@
 .cpl-table tbody tr.sla-over{background:#FEF2F2}
 .cpl-table tbody tr.sla-over:hover{background:#FEE2E2}
 .td-ref{font-family:monospace;font-size:11.5px;font-weight:600;color:var(--navy);white-space:nowrap}
-.td-objet-main{font-size:13px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px}
+.td-objet-main{font-size:13px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
+.main-content{max-width:1400px !important}
 .td-objet-sub{font-size:11px;color:var(--text-secondary);margin-top:1px}
 .td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
 .action-req{font-size:10px;color:#B45309;margin-top:2px}
@@ -548,16 +549,16 @@ function renderList() {
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
     <div class="cpl-filters">${filterBtns}${searchBox}</div>
-    <div class="table-wrapper" style="overflow-x:auto">
-      <table class="data-table cpl-table" style="min-width:${isCPL?'900px':'600px'}">
+    <div class="table-wrapper">
+      <table class="data-table cpl-table" style="width:100%;table-layout:auto">
         <thead><tr>
-          ${th('Référence','ref','130px')}
+          ${th('Référence','ref','')}
           ${th('Objet','objet','')}
           ${cplTh}
-          ${th('Priorité','prio','90px')}
-          ${th('Statut','statut','130px')}
-          ${th('Soumis le','date','100px')}
-          ${th('Deadline','deadline','100px')}
+          ${th('Priorité','prio','80px')}
+          ${th('Statut','statut','120px')}
+          ${th('Soumis le','date','95px')}
+          ${th('Deadline','deadline','95px')}
           ${cplThR}
         </tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
