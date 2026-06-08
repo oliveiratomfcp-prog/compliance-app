@@ -1016,18 +1016,22 @@ function openDetail(ref) {
     <div class="cpl-actions-panel">
       <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Actions Compliance</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <select class="form-input">
-          <option>Changer le statut...</option>
-          <option>En cours d'analyse</option>
-          <option>En attente d'informations</option>
-          <option>Résolu</option>
-          <option>Rejeté</option>
-          <option>Clôturé</option>
+        <select class="form-input" id="cpl-status-select" onchange="toggleMotifField()">
+          <option value="">Changer le statut...</option>
+          <option value="En cours d'analyse">En cours d'analyse</option>
+          <option value="En attente d'informations">En attente d'informations</option>
+          <option value="Résolu">Résolu</option>
+          <option value="Rejeté">Rejeté</option>
+          <option value="Clôturé">Clôturé</option>
         </select>
-        <textarea class="form-input internal-ta" rows="3"
+        <div id="motif-field" style="display:none">
+          <label style="font-size:11.5px;font-weight:500;color:#DC2626;display:block;margin-bottom:4px">Motif de rejet *</label>
+          <textarea class="form-input" id="cpl-motif" rows="3"
+            placeholder="Expliquez la raison du rejet..."></textarea>
+        </div>
+        <textarea class="form-input internal-ta" id="cpl-note" rows="3"
           placeholder="Note interne (visible Compliance uniquement)..."></textarea>
-        <button class="btn-primary" style="width:100%;justify-content:center"
-          onclick="alert('Action enregistrée — à connecter à l\\'API Graph/SharePoint')">
+        <button class="btn-primary" id="cpl-apply-btn" style="width:100%;justify-content:center" onclick="changeStatus()">
           ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
           Appliquer
         </button>
@@ -1035,7 +1039,7 @@ function openDetail(ref) {
     </div>`
     : (selectedReq.statut === 'Résolu' ? `
     <button class="btn-secondary" style="width:100%;margin-top:12px;justify-content:center"
-      onclick="alert('Demande rouverte — à connecter à l\\'API')">
+      onclick="reopenRequest()">
       Rouvrir cette demande
     </button>` : '');
 
@@ -1099,6 +1103,68 @@ function openDetail(ref) {
   showView('detail');
   window.scrollTo({top:0, behavior:'smooth'});
   loadFilesForDetail(selectedReq.ref);
+}
+
+// ═══════════════════════════════════════════════════════════
+// CHANGEMENT DE STATUT (CPL)
+// ═══════════════════════════════════════════════════════════
+function toggleMotifField() {
+  const sel = document.getElementById('cpl-status-select');
+  const motif = document.getElementById('motif-field');
+  if (motif) motif.style.display = sel?.value === 'Rejeté' ? 'block' : 'none';
+}
+
+async function changeStatus() {
+  const newStatus = document.getElementById('cpl-status-select')?.value;
+  const motif     = document.getElementById('cpl-motif')?.value.trim();
+  const note      = document.getElementById('cpl-note')?.value.trim();
+
+  if (!newStatus) { alert('Veuillez sélectionner un statut.'); return; }
+  if (newStatus === 'Rejeté' && !motif) { alert('Le motif de rejet est obligatoire.'); return; }
+
+  const btn = document.getElementById('cpl-apply-btn');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    const fields = { Statut: newStatus };
+    if (newStatus === 'Rejeté' && motif) fields.MotifRejet = motif;
+
+    await graphPatch(
+      `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+      fields
+    );
+
+    // Mettre à jour localement
+    selectedReq.statut = newStatus;
+    const idx = requests.findIndex(r => r.spId === selectedReq.spId);
+    if (idx !== -1) requests[idx].statut = newStatus;
+
+    alert(`✅ Statut mis à jour : ${newStatus}`);
+    await loadRequests();
+    openDetail(selectedReq.ref);
+
+  } catch(e) {
+    console.error('Erreur changement statut:', e);
+    alert(`Erreur : ${e.message}`);
+    btn.disabled = false;
+    btn.textContent = 'Appliquer';
+  }
+}
+
+async function reopenRequest() {
+  if (!confirm('Rouvrir cette demande ?')) return;
+  try {
+    await graphPatch(
+      `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+      { Statut: 'Soumis' }
+    );
+    alert('✅ Demande rouverte — statut repassé à Soumis.');
+    await loadRequests();
+    openDetail(selectedReq.ref);
+  } catch(e) {
+    alert(`Erreur : ${e.message}`);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
