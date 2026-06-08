@@ -1232,14 +1232,70 @@ async function sendComment() {
   btn.textContent = 'Envoi...';
 
   try {
+    // Étape 1 : créer le commentaire sans EstInterne
     const fields = {
       Title      : selectedReq.ref,
       ContenuMsg : texte,
       NomAuteur  : currentUser.name
     };
-    if (interne) fields.EstInterne = true;
+    const created = await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, { fields });
 
-    await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, { fields });
+    // Étape 2 : si note interne, PATCH séparé pour EstInterne
+    if (interne && created?.id) {
+      try {
+        await graphPatch(
+          `/sites/${spSiteId}/lists/${spCommListId}/items/${created.id}/fields`,
+          { EstInterne: true }
+        );
+      } catch(e) { console.warn('EstInterne PATCH failed:', e.message); }
+    }
+
+    // Notification email
+    if (!isCPL) {
+      // Demandeur a commenté → notifier CPL
+      try {
+        await graphPost('/me/sendMail', {
+          message: {
+            subject: `[Tracker CPL] Nouveau commentaire sur ${selectedReq.ref} — ${selectedReq.objet}`,
+            body: {
+              contentType: 'HTML',
+              content: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111;line-height:1.6">
+                <p>Bonjour,</p>
+                <p><strong>${currentUser.name}</strong> a ajouté un commentaire sur la demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> :</p>
+                <blockquote style="border-left:3px solid #D18F41;margin:12px 0;padding:8px 16px;background:#FFF7ED;color:#374151">${texte}</blockquote>
+                <p><a href="${window.location.origin}/tracker-cpl.html" style="color:#00143B;font-weight:600">Accéder au Tracker CPL →</a></p>
+                <hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
+                <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
+              </div>`
+            },
+            toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
+          },
+          saveToSentItems: true
+        }, GRAPH_SCOPES_MAIL);
+      } catch(mailErr) { console.warn('Notification CPL non envoyée:', mailErr.message); }
+    } else if (!interne && selectedReq.email) {
+      // CPL a commenté publiquement → notifier le demandeur
+      try {
+        await graphPost('/me/sendMail', {
+          message: {
+            subject: `[Tracker CPL] Nouveau message Compliance sur votre demande ${selectedReq.ref}`,
+            body: {
+              contentType: 'HTML',
+              content: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111;line-height:1.6">
+                <p>Bonjour ${selectedReq.from},</p>
+                <p>L'équipe Compliance a répondu à votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> :</p>
+                <blockquote style="border-left:3px solid #00143B;margin:12px 0;padding:8px 16px;background:#F4F5F8;color:#374151">${texte}</blockquote>
+                <p><a href="${window.location.origin}/tracker-cpl.html" style="color:#00143B;font-weight:600">Consulter ma demande →</a></p>
+                <hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
+                <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
+              </div>`
+            },
+            toRecipients: [{ emailAddress: { address: selectedReq.email } }]
+          },
+          saveToSentItems: true
+        }, GRAPH_SCOPES_MAIL);
+      } catch(mailErr) { console.warn('Notification demandeur non envoyée:', mailErr.message); }
+    }
 
     document.getElementById('comment-input').value = '';
     const cb = document.getElementById('comment-interne');
