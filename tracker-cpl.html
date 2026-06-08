@@ -226,6 +226,7 @@ let msalInst     = null;
 let spSiteId     = null;
 let spListId     = null;
 let spDriveId    = null;
+let spCommListId = null;  // liste Tracker CPL Commentaires
 let requests     = [];   // chargées depuis SharePoint
 
 
@@ -360,6 +361,11 @@ async function initSharePointThenLoad() {
     const drives = await graphGet(`/sites/${spSiteId}/drives`);
     const drive  = drives.value.find(d => d.name === SP.libName);
     spDriveId    = drive?.id || null;
+
+    // 4. Liste commentaires
+    const commLists = await graphGet(`/sites/${spSiteId}/lists?$filter=displayName eq 'Tracker CPL Commentaires'`);
+    spCommListId = commLists.value[0]?.id || null;
+    if (!spCommListId) console.warn('Liste "Tracker CPL Commentaires" introuvable');
 
     await loadRequests();
   } catch(e) {
@@ -1006,18 +1012,8 @@ function openDetail(ref) {
       <div class="tl-date">${t.d}</div>
     </div>`).join('');
 
-  const visComments = isCPL ? selectedReq.comments : selectedReq.comments.filter(c => !c.internal);
-
-  const commentsHTML = visComments.map(c => `
-    <div class="comment ${c.internal?'comment-internal':'comment-normal'}">
-      <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
-        ${c.internal?svgIcon('<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>','stroke="#B45309" width="11" height="11"'):''}
-        <span class="comment-author" style="color:${c.internal?'#713F12':'#111827'}">${c.author}</span>
-        <span class="comment-date">${c.date}</span>
-        ${c.internal?'<span class="internal-lbl">Note interne</span>':''}
-      </div>
-      <div style="color:${c.internal?'#713F12':'#374151'};line-height:1.5">${c.text}</div>
-    </div>`).join('');
+  const visComments = [];  // chargés dynamiquement depuis SharePoint via loadComments()
+  const commentsHTML = '';
 
   const cplActions = isCPL ? `
     <div class="cpl-actions-panel">
@@ -1089,11 +1085,15 @@ function openDetail(ref) {
 
         <div class="form-card">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Commentaires</div>
-          ${commentsHTML || '<p style="color:var(--text-secondary);font-size:13px">Aucun commentaire.</p>'}
-          <div style="margin-top:10px">
-            <textarea class="form-input form-textarea" rows="2" placeholder="Ajouter un commentaire..."></textarea>
+          <div id="comments-container"><span style="font-size:12px;color:var(--text-secondary)">Chargement...</span></div>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+            <textarea class="form-input form-textarea" id="comment-input" rows="2" placeholder="Ajouter un commentaire..."></textarea>
+            ${isCPL ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#B45309;margin:6px 0;cursor:pointer">
+              <input type="checkbox" id="comment-interne" style="width:14px;height:14px">
+              Note interne (visible Compliance uniquement)
+            </label>` : ''}
             <div style="display:flex;justify-content:flex-end;margin-top:6px">
-              <button class="btn-primary" onclick="alert('Commentaire envoyé — à connecter à l\\'API')">Envoyer</button>
+              <button class="btn-primary" id="send-comment-btn" onclick="sendComment()">Envoyer</button>
             </div>
           </div>
         </div>
@@ -1110,6 +1110,89 @@ function openDetail(ref) {
   showView('detail');
   window.scrollTo({top:0, behavior:'smooth'});
   loadFilesForDetail(selectedReq.ref);
+  loadComments(selectedReq.ref);
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMMENTAIRES
+// ═══════════════════════════════════════════════════════════
+async function loadComments(ref) {
+  const container = document.getElementById('comments-container');
+  if (!container) return;
+  if (!spCommListId) {
+    container.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Liste commentaires non configurée.</p>';
+    return;
+  }
+  container.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">Chargement...</span>';
+  try {
+    const data = await graphGet(
+      `/sites/${spSiteId}/lists/${spCommListId}/items?expand=fields&$filter=fields/Title eq '${ref}'&$top=200`
+    );
+    const all = data.value.map(item => {
+      const f = item.fields;
+      return {
+        auteur  : f.Auteur        || '',
+        texte   : f.Texte         || '',
+        interne : f.EstInterne    === true || f.EstInterne === 'true' || f.EstInterne === 1,
+        date    : f.DateCommentaire ? new Date(f.DateCommentaire).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
+        _ts     : f.DateCommentaire ? new Date(f.DateCommentaire).getTime() : 0
+      };
+    })
+    .filter(c => isCPL || !c.interne)
+    .sort((a,b) => a._ts - b._ts);
+
+    if (!all.length) {
+      container.innerHTML = '<p style="font-size:12.5px;color:var(--text-secondary)">Aucun commentaire.</p>';
+      return;
+    }
+    container.innerHTML = all.map(c => `
+      <div class="comment ${c.interne ? 'comment-internal' : 'comment-normal'}" style="margin-bottom:8px">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
+          ${c.interne ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : ''}
+          <span style="font-weight:600;color:${c.interne ? '#713F12' : '#111827'};font-size:12.5px">${c.auteur}</span>
+          <span style="color:#9CA3AF;font-size:11px">${c.date}</span>
+          ${c.interne ? '<span class="internal-lbl">Note interne</span>' : ''}
+        </div>
+        <div style="color:${c.interne ? '#713F12' : '#374151'};line-height:1.5;font-size:13px">${c.texte}</div>
+      </div>`).join('');
+  } catch(e) {
+    console.error('Erreur chargement commentaires:', e);
+    container.innerHTML = '<p style="font-size:12px;color:#DC2626">Erreur de chargement des commentaires.</p>';
+  }
+}
+
+async function sendComment() {
+  const texte   = document.getElementById('comment-input')?.value.trim();
+  const interne = document.getElementById('comment-interne')?.checked || false;
+  if (!texte) { alert('Veuillez saisir un commentaire.'); return; }
+  if (!spCommListId) { alert('Liste commentaires non configurée.'); return; }
+
+  const btn = document.getElementById('send-comment-btn');
+  btn.disabled = true;
+  btn.textContent = 'Envoi...';
+
+  try {
+    await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, {
+      fields: {
+        Title           : selectedReq.ref,
+        Texte           : texte,
+        Auteur          : currentUser.name,
+        AuteurEmail     : currentUser.email,
+        EstInterne      : interne,
+        DateCommentaire : new Date().toISOString()
+      }
+    });
+    document.getElementById('comment-input').value = '';
+    const cb = document.getElementById('comment-interne');
+    if (cb) cb.checked = false;
+    await loadComments(selectedReq.ref);
+  } catch(e) {
+    console.error('Erreur envoi commentaire:', e);
+    alert(`Erreur : ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Envoyer';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1151,6 +1234,61 @@ async function changeStatus() {
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
       fields
     );
+
+    // Notification email au demandeur
+    const subjects = {
+      "En cours d'analyse"        : `[Tracker CPL] Votre demande ${selectedReq.ref} est en cours de traitement`,
+      "En attente d'informations" : `[Tracker CPL] Action requise : complément d'information — ${selectedReq.ref}`,
+      "Résolu"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été résolue`,
+      "Rejeté"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été rejetée`,
+      "Clôturé"                   : null   // pas de notification pour clôture
+    };
+
+    const subject = subjects[newStatus];
+    if (subject && selectedReq.email) {
+      const bodyContent = {
+        "En cours d'analyse": `
+          <p>Bonjour ${selectedReq.from},</p>
+          <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été prise en charge par l'équipe Compliance et est actuellement en cours de traitement.</p>
+          <p>Vous serez notifié(e) dès qu'une réponse sera disponible.</p>`,
+        "En attente d'informations": `
+          <p>Bonjour ${selectedReq.from},</p>
+          <p>⚠️ L'équipe Compliance a besoin d'un complément d'information pour traiter votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em>.</p>
+          <p>Merci de revenir sur le <a href="${window.location.href}">Tracker CPL</a> pour apporter les informations complémentaires.</p>`,
+        "Résolu": `
+          <p>Bonjour ${selectedReq.from},</p>
+          <p>✅ Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été résolue par l'équipe Compliance.</p>
+          <p>Connectez-vous au <a href="${window.location.href}">Tracker CPL</a> pour consulter la réponse.</p>`,
+        "Rejeté": `
+          <p>Bonjour ${selectedReq.from},</p>
+          <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été rejetée par l'équipe Compliance.</p>
+          ${motif ? `<p><strong>Motif :</strong> ${motif}</p>` : ''}
+          <p>Vous pouvez soumettre une nouvelle demande en tenant compte de ce retour.</p>`
+      };
+
+      const body = bodyContent[newStatus] || '';
+
+      try {
+        await graphPost('/me/sendMail', {
+          message: {
+            subject,
+            body: {
+              contentType: 'HTML',
+              content: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111;line-height:1.6">
+                ${body}
+                <br><hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
+                <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
+              </div>`
+            },
+            toRecipients: [{ emailAddress: { address: selectedReq.email } }]
+          },
+          saveToSentItems: true
+        }, GRAPH_SCOPES_MAIL);
+        console.log(`Mail envoyé à ${selectedReq.email}`);
+      } catch(mailErr) {
+        console.warn('Notification non envoyée :', mailErr.message);
+      }
+    }
 
     alert(`✅ Statut mis à jour : ${newStatus}`);
     await loadRequests();
