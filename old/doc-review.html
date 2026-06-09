@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Doc Review — Compliance Portal</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="translations.js"></script>
+  <style>
+    .dr-content { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+    .dr-card { background: white; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 20px; }
+    .dr-card-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .dr-card-title { font-size: 14px; font-weight: 600; color: var(--navy); display: flex; align-items: center; gap: 8px; }
+    .dr-card-body { padding: 22px; }
+    .dr-tab-nav { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
+    .dr-tab-btn { padding: 9px 18px; font-size: 13px; font-weight: 500; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -1px; transition: all 0.15s; }
+    .dr-tab-btn:hover { color: var(--navy); }
+    .dr-tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); }
+    .dr-upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 36px 24px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.2s; }
+    .dr-upload-zone:hover, .dr-upload-zone.dragover { border-color: var(--teal); background: #f0f9f8; }
+    .dr-upload-icon { width: 44px; height: 44px; border-radius: 10px; background: white; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+    .dr-upload-zone h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--navy); }
+    .dr-upload-zone p { font-size: 12px; color: var(--text-secondary); }
+    .dr-formats { display: flex; gap: 6px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+    .dr-fmt { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: white; border: 1px solid var(--border); color: var(--text-secondary); }
+    .dr-file-selected { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f0f9f8; border: 1px solid #b2ddd9; border-radius: 10px; margin-top: 12px; }
+    .dr-file-badge { width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; }
+    .dr-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
+    .dr-select { font-size: 13px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--navy); cursor: pointer; font-family: inherit; }
+    .dr-select:focus { outline: none; border-color: var(--teal); }
+    .dr-market-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .dr-market-btn { padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: white; color: var(--text-secondary); transition: all 0.15s; }
+    .dr-market-btn.active { background: var(--navy); color: white; }
+    .dr-market-btn:first-child { border-right: 1px solid var(--border); }
+    .dr-market-info { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
+    .dr-market-info.retail { background: #fff8e6; border: 1px solid #f5cba7; color: #7d6608; }
+    .dr-market-info.pro { background: #e8f4f8; border: 1px solid #85b7eb; color: #185fa5; }
+    .dr-progress { margin-top: 18px; }
+    .dr-progress-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
+    .dr-progress-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); animation: drBlink 1s ease-in-out infinite; flex-shrink: 0; }
+    @keyframes drBlink { 0%,100%{opacity:0.3} 50%{opacity:1} }
+    .dr-progress-track { height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden; }
+    .dr-progress-fill { height: 100%; border-radius: 2px; background: var(--teal); transition: width 0.5s ease; }
+    .dr-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
+    .dr-metric { background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
+    .dr-metric-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+    .dr-metric-val { font-size: 26px; font-weight: 700; line-height: 1; }
+    .dr-metric-sub { font-size: 11px; color: #adb5bd; margin-top: 4px; }
+    .dr-score-bar { height: 5px; background: #e9ecef; border-radius: 3px; overflow: hidden; margin-top: 8px; }
+    .dr-score-fill { height: 100%; border-radius: 3px; transition: width 0.7s ease; }
+    .dr-summary { background: var(--navy); color: rgba(255,255,255,0.88); border-radius: 10px; padding: 16px 20px; font-size: 13px; line-height: 1.75; margin-bottom: 20px; }
+    .dr-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #adb5bd; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .dr-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+    .dr-finding { border-radius: 10px; border: 1px solid; padding: 14px 16px; margin-bottom: 10px; }
+    .dr-finding.danger { background: #fdedec; border-color: #f1948a; }
+    .dr-finding.warning { background: #fef9ec; border-color: #f5cba7; }
+    .dr-finding.ok { background: #eafaf1; border-color: #a9dfbf; }
+    .dr-finding-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 7px; flex-wrap: wrap; }
+    .dr-finding-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 4px; color: white; white-space: nowrap; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
+    .dr-finding.danger .dr-finding-badge { background: #c0392b; }
+    .dr-finding.warning .dr-finding-badge { background: #b7770d; }
+    .dr-finding.ok .dr-finding-badge { background: #1e7e4a; }
+    .dr-finding-title { font-size: 13px; font-weight: 600; color: #212529; line-height: 1.4; flex: 1; }
+    .dr-page-ref { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+    .dr-finding.danger .dr-page-ref { background: #fadbd8; color: #922b21; }
+    .dr-finding.warning .dr-page-ref { background: #fdebd0; color: #7d6608; }
+    .dr-finding.ok .dr-page-ref { background: #d5f5e3; color: #1e7e4a; }
+    .dr-finding-detail { font-size: 12px; line-height: 1.65; margin-bottom: 8px; }
+    .dr-finding.danger .dr-finding-detail { color: #922b21; }
+    .dr-finding.warning .dr-finding-detail { color: #7d6608; }
+    .dr-finding.ok .dr-finding-detail { color: #1a5276; }
+    .dr-citation { font-size: 12px; font-style: italic; padding: 7px 12px; border-radius: 0 6px 6px 0; border-left: 3px solid; margin-bottom: 8px; }
+    .dr-finding.danger .dr-citation { background: #fadbd8; border-color: #c0392b; color: #922b21; }
+    .dr-finding.warning .dr-citation { background: #fdebd0; border-color: #b7770d; color: #7d6608; }
+    .dr-correction { font-size: 12px; margin-top: 6px; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.04); }
+    .dr-correction-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; display: block; margin-bottom: 3px; }
+    .dr-challenger { margin-top: 20px; border: 1px solid #b2ddd9; border-radius: 10px; background: #f0f9f8; overflow: hidden; }
+    .dr-challenger-header { padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #b2ddd9; cursor: pointer; user-select: none; }
+    .dr-challenger-title { font-size: 13px; font-weight: 600; color: var(--teal); flex: 1; }
+    .dr-challenger-badge { font-size: 10px; font-weight: 700; background: var(--teal); color: white; padding: 2px 8px; border-radius: 20px; }
+    .dr-challenger-body { padding: 16px; font-size: 13px; line-height: 1.7; color: #155a56; }
+    .dr-challenger-item { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #b2ddd9; align-items: flex-start; }
+    .dr-challenger-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+    .dr-challenger-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex-shrink: 0; margin-top: 7px; }
+    .dr-tags { display: flex; flex-wrap: wrap; gap: 7px; }
+    .dr-tag { font-size: 11px; padding: 4px 12px; border-radius: 20px; background: #f1f3f5; color: #6c757d; border: 1px solid var(--border); }
+    .dr-report-title { font-size: 17px; font-weight: 700; color: var(--navy); }
+    .dr-report-meta { font-size: 12px; color: #adb5bd; margin-top: 3px; }
+    .dr-market-pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px; margin-left: 8px; vertical-align: middle; }
+    .dr-market-pill.retail { background: #fff3cd; color: #856404; }
+    .dr-market-pill.pro { background: #cfe2ff; color: #084298; }
+    .dr-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: drSpin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
+    @keyframes drSpin { to { transform: rotate(360deg); } }
+    .hidden { display: none !important; }
+    textarea.dr-textarea { width: 100%; min-height: 160px; font-size: 13px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; color: var(--navy); background: white; resize: vertical; }
+    textarea.dr-textarea:focus { outline: none; border-color: var(--teal); }
+  </style>
+</head>
+<body>
+
+  <!-- ===== ÉCRAN DE CONNEXION ===== -->
+  <div id="screen-login" class="screen active">
+    <div class="login-card">
+      <div class="login-logo">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="72" />
+      </div>
+      <div class="login-divider"></div>
+      <h1 class="login-title">Compliance Portal</h1>
+      <p class="login-desc">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder à la plateforme.</p>
+      <button id="btn-login" class="btn-microsoft">
+        <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
+        Se connecter avec Microsoft
+      </button>
+      <p class="login-footer">Accès réservé aux collaborateurs Eiffel IG</p>
+    </div>
+  </div>
+
+  <!-- ===== APPLICATION PRINCIPALE ===== -->
+  <div id="screen-app" class="screen">
+
+    <!-- NAVBAR identique au portail existant -->
+    <nav class="navbar">
+      <div class="nav-brand">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="36" />
+      </div>
+      <div class="nav-tabs">
+        <a class="nav-tab" href="index.html" style="text-decoration:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Restricted List</span>
+        </a>
+        <a class="nav-tab" href="index.html" style="text-decoration:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          <span>Déclarer</span>
+        </a>
+        <a class="nav-tab" href="index.html" style="text-decoration:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Historique</span>
+        </a>
+        <button class="nav-tab active" style="cursor:default;border:none;background:none;">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Doc Review</span>
+          <span style="font-size:9px;font-weight:700;background:#006660;color:white;padding:1px 6px;border-radius:10px;margin-left:4px;">New</span>
+        </button>
+      </div>
+      <div class="nav-user">
+        <div class="user-avatar" id="user-avatar">--</div>
+        <div class="user-info">
+          <span class="user-name" id="user-name">Chargement...</span>
+          <span class="user-role">Collaborateur</span>
+        </div>
+        <button id="btn-logout" class="btn-logout" title="Se déconnecter">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </nav>
+
+    <main class="main-content">
+      <div class="dr-content">
+
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">Doc Review</h2>
+            <p class="section-desc">Pré-contrôle de conformité AMF / MIF II de la documentation marketing</p>
+          </div>
+          <button class="btn-secondary" onclick="resetAll()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
+            Nouveau document
+          </button>
+        </div>
+
+        <!-- CARTE UPLOAD -->
+        <div class="dr-card" id="inputCard">
+          <div class="dr-card-header">
+            <div class="dr-card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Soumettre un document
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+              <select class="dr-select" id="docType">
+                <option value="présentation commerciale">Présentation commerciale (PPTX/PDF)</option>
+                <option value="fiche produit / DICI">Fiche produit / DICI</option>
+                <option value="email marketing">Email / newsletter</option>
+                <option value="post LinkedIn">Post LinkedIn</option>
+                <option value="post réseaux sociaux">Post réseaux sociaux (Twitter, Instagram…)</option>
+                <option value="rapport de gestion">Rapport de gestion / reporting</option>
+                <option value="document publicitaire">Document publicitaire (bannière, encart)</option>
+                <option value="communiqué de presse">Communiqué de presse</option>
+              </select>
+              <div class="dr-market-toggle">
+                <button class="dr-market-btn active" id="btnRetail" onclick="setMarket('retail')">Retail</button>
+                <button class="dr-market-btn" id="btnPro" onclick="setMarket('professionnel')">Professionnel</button>
+              </div>
+            </div>
+          </div>
+          <div class="dr-card-body">
+
+            <div id="marketInfo" class="dr-market-info retail">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              <span id="marketInfoText">Marché <strong>Retail</strong> — règles AMF renforcées : mentions légales exhaustives, avertissements obligatoires, équilibre risque/rendement strict.</span>
+            </div>
+
+            <div class="dr-tab-nav">
+              <button class="dr-tab-btn active" id="tabBtnFile" onclick="switchTab('file')">Fichier</button>
+              <button class="dr-tab-btn" id="tabBtnText" onclick="switchTab('text')">Texte / Email</button>
+            </div>
+
+            <div id="panelFile">
+              <div class="dr-upload-zone" id="dropZone"
+                   onclick="document.getElementById('fileInput').click()"
+                   ondragover="handleDragOver(event)"
+                   ondragleave="handleDragLeave(event)"
+                   ondrop="handleDrop(event)">
+                <div class="dr-upload-icon">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006660" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                </div>
+                <h3>Déposer ou sélectionner un fichier</h3>
+                <p>Glissez votre document ici ou cliquez pour parcourir</p>
+                <div class="dr-formats">
+                  <span class="dr-fmt">PDF</span>
+                  <span class="dr-fmt">PPTX</span>
+                  <span class="dr-fmt">DOCX</span>
+                  <span class="dr-fmt">TXT</span>
+                  <span class="dr-fmt">HTML</span>
+                </div>
+              </div>
+              <input type="file" id="fileInput" accept=".pdf,.pptx,.docx,.txt,.html" class="hidden" onchange="handleFile(this.files[0])" />
+              <div id="fileInfoBar" class="hidden"></div>
+            </div>
+
+            <div id="panelText" class="hidden">
+              <textarea class="dr-textarea" id="pastedText" placeholder="Collez ici le contenu de votre email, newsletter ou extrait de document marketing…"></textarea>
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+                <span style="font-size:12px;color:var(--text-secondary);" id="charCount">0 caractère</span>
+                <button class="btn-secondary" onclick="clearText()" style="padding:5px 12px;font-size:12px;">Effacer</button>
+              </div>
+            </div>
+
+            <div class="dr-controls">
+              <button class="btn-primary" id="analyzeBtn" onclick="runAnalysis()">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Analyser le document
+              </button>
+            </div>
+
+            <div id="progressWrap" class="dr-progress hidden">
+              <div class="dr-progress-label">
+                <span class="dr-progress-dot"></span>
+                <span id="progressMsg">Analyse en cours…</span>
+              </div>
+              <div class="dr-progress-track">
+                <div class="dr-progress-fill" id="progressFill" style="width:0%;"></div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- CARTE RÉSULTATS -->
+        <div class="dr-card hidden" id="resultsCard">
+          <div class="dr-card-header">
+            <div class="dr-card-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              Rapport de pré-contrôle
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button class="btn-primary" onclick="exportPDF()" style="padding:7px 14px;font-size:12px;">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Exporter PDF
+              </button>
+              <button class="btn-secondary" onclick="resetAll()" style="padding:7px 14px;font-size:12px;">Nouveau</button>
+            </div>
+          </div>
+          <div class="dr-card-body">
+
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;">
+              <div>
+                <div class="dr-report-title" id="reportTitle">Rapport de conformité</div>
+                <div class="dr-report-meta" id="reportMeta"></div>
+              </div>
+            </div>
+
+            <div class="dr-metrics">
+              <div class="dr-metric">
+                <div class="dr-metric-label">Score de conformité</div>
+                <div class="dr-metric-val" id="scoreVal" style="color:#006660;">—</div>
+                <div class="dr-score-bar"><div class="dr-score-fill" id="scoreBar" style="width:0%;"></div></div>
+              </div>
+              <div class="dr-metric">
+                <div class="dr-metric-label">Points bloquants</div>
+                <div class="dr-metric-val" id="blockerCount" style="color:#c0392b;">0</div>
+                <div class="dr-metric-sub">à corriger avant diffusion</div>
+              </div>
+              <div class="dr-metric">
+                <div class="dr-metric-label">Points d'attention</div>
+                <div class="dr-metric-val" id="warningCount" style="color:#b7770d;">0</div>
+                <div class="dr-metric-sub">à vérifier</div>
+              </div>
+            </div>
+
+            <div class="dr-section-label">Synthèse</div>
+            <div class="dr-summary" id="summaryBox"></div>
+
+            <div class="dr-section-label">Points de contrôle AMF / MIF II</div>
+            <div id="findingsList"></div>
+
+            <div class="dr-section-label" style="margin-top:20px;">Thèmes détectés</div>
+            <div class="dr-tags" id="tagsList"></div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script>
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+  const msalConfig = {
+    auth: {
+      clientId: '56c83db2-7fc6-4826-8073-82077e91ae27',
+      authority: 'https://login.microsoftonline.com/eb5288b6-5ccb-4f5d-88fb-346db1317a4f',
+      redirectUri: window.location.origin + window.location.pathname,
+    },
+    cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
+  };
+  const msalInstance = new msal.PublicClientApplication(msalConfig);
+  let currentUser = null;
+  let extractedText = '';
+  let activeTab = 'file';
+  let selectedMarket = 'retail';
+  let progressInterval = null;
+
+  window.addEventListener('DOMContentLoaded', async () => {
+    const ta = document.getElementById('pastedText');
+    if (ta) ta.addEventListener('input', function() {
+      const n = this.value.length;
+      document.getElementById('charCount').textContent = n.toLocaleString('fr-FR') + ' caractère' + (n > 1 ? 's' : '');
+    });
+    try {
+      await msalInstance.initialize();
+      const resp = await msalInstance.handleRedirectPromise();
+      if (resp) msalInstance.setActiveAccount(resp.account);
+      const accounts = msalInstance.getAllAccounts();
+      if (accounts.length === 0) {
+        document.getElementById('btn-login').onclick = () => msalInstance.loginRedirect({ scopes: ['User.Read'] });
+        return;
+      }
+      msalInstance.setActiveAccount(accounts[0]);
+      currentUser = accounts[0];
+      const initials = (currentUser.name || 'U').split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
+      document.getElementById('user-avatar').textContent = initials;
+      document.getElementById('user-name').textContent = currentUser.name || currentUser.username;
+      document.getElementById('screen-login').classList.remove('active');
+      document.getElementById('screen-app').classList.add('active');
+    } catch (e) {
+      console.warn('Auth:', e);
+      document.getElementById('screen-login').classList.remove('active');
+      document.getElementById('screen-app').classList.add('active');
+    }
+    document.getElementById('btn-logout').onclick = () => msalInstance.logoutRedirect();
+  });
+
+  function setMarket(market) {
+    selectedMarket = market;
+    document.getElementById('btnRetail').classList.toggle('active', market === 'retail');
+    document.getElementById('btnPro').classList.toggle('active', market === 'professionnel');
+    const info = document.getElementById('marketInfo');
+    info.className = 'dr-market-info ' + (market === 'retail' ? 'retail' : 'pro');
+    document.getElementById('marketInfoText').innerHTML = market === 'retail'
+      ? 'Marché <strong>Retail</strong> — règles AMF renforcées : mentions légales exhaustives, avertissements obligatoires, équilibre risque/rendement strict.'
+      : 'Marché <strong>Professionnel</strong> — règles MIF II allégées : certaines mentions simplifiées, mais les garanties de rendement restent strictement interdites.';
+  }
+
+  function switchTab(tab) {
+    activeTab = tab;
+    document.getElementById('panelFile').classList.toggle('hidden', tab !== 'file');
+    document.getElementById('panelText').classList.toggle('hidden', tab !== 'text');
+    document.getElementById('tabBtnFile').classList.toggle('active', tab === 'file');
+    document.getElementById('tabBtnText').classList.toggle('active', tab === 'text');
+  }
+
+  function clearText() {
+    document.getElementById('pastedText').value = '';
+    document.getElementById('charCount').textContent = '0 caractère';
+  }
+
+  function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); }
+  function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('dragover'); }
+  function handleDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.remove('dragover');
+    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+  }
+
+  async function handleFile(file) {
+    if (!file) return;
+    const ext = file.name.split('.').pop().toLowerCase();
+    const colors = { pdf: '#c0392b', pptx: '#D85A30', docx: '#185FA5', txt: '#1e7e4a', html: '#b7770d' };
+    const bar = document.getElementById('fileInfoBar');
+    bar.innerHTML = `<div class="dr-file-selected">
+      <div class="dr-file-badge" style="background:${colors[ext]||'#6c757d'}">${ext.toUpperCase()}</div>
+      <div>
+        <div style="font-size:13px;font-weight:600;color:var(--navy);">${file.name}</div>
+        <div style="font-size:11px;color:var(--text-secondary);" id="fileStatus">${Math.round(file.size/1024)} Ko · extraction en cours…</div>
+      </div>
+    </div>`;
+    bar.classList.remove('hidden');
+
+    try {
+      if (ext === 'pdf') {
+        const ab = await file.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
+        let text = '';
+        for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+          text += `[Page ${i}]\n` + content.items.map(s => s.str).join(' ') + '\n\n';
+        }
+        extractedText = text;
+
+      } else if (ext === 'pptx') {
+        const ab = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(ab);
+        const slideFiles = Object.keys(zip.files)
+          .filter(n => n.match(/^ppt\/slides\/slide\d+\.xml$/))
+          .sort((a, b) => {
+            const na = parseInt(a.match(/slide(\d+)/)[1]);
+            const nb = parseInt(b.match(/slide(\d+)/)[1]);
+            return na - nb;
+          });
+        let text = '';
+        for (let i = 0; i < slideFiles.length; i++) {
+          const xml = await zip.files[slideFiles[i]].async('string');
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(xml, 'text/xml');
+          const nodes = doc.querySelectorAll('t');
+          const slideText = Array.from(nodes).map(n => n.textContent).filter(t => t.trim()).join(' ');
+          if (slideText.trim()) text += `[Slide ${i+1}]\n${slideText}\n\n`;
+        }
+        extractedText = text || '[Aucun texte extrait des slides]';
+
+      } else if (ext === 'docx') {
+        const ab = await file.arrayBuffer();
+        const zip = await JSZip.loadAsync(ab);
+        const xmlFile = zip.files['word/document.xml'];
+        if (!xmlFile) throw new Error('Format DOCX invalide');
+        const xml = await xmlFile.async('string');
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(xml, 'text/xml');
+        const paras = doc.querySelectorAll('p');
+        let text = '';
+        let paraNum = 0;
+        paras.forEach(p => {
+          const t = Array.from(p.querySelectorAll('t')).map(n => n.textContent).join('');
+          if (t.trim()) { text += t + '\n'; paraNum++; }
+        });
+        extractedText = text || '[Aucun texte extrait du document]';
+
+      } else {
+        extractedText = await file.text();
+      }
+
+      const status = document.getElementById('fileStatus');
+      if (status) {
+        const lines = extractedText.split('\n').filter(l => l.trim()).length;
+        status.textContent = `${Math.round(file.size/1024)} Ko · ${extractedText.length} caractères extraits · prêt à analyser`;
+      }
+
+    } catch (e) {
+      alert('Erreur lors de la lecture du fichier : ' + e.message);
+      extractedText = '';
+    }
+  }
+
+  function loadDemo() {
+    switchTab('text');
+    const demo = `PRÉSENTATION COMMERCIALE — FONDS EIFFEL RENDEMENT 2027
+
+[Page 1 — Introduction]
+Performance remarquable : +12,4% en 2023. Ce fonds obligataire offre des rendements exceptionnels et une sécurité totale pour votre capital.
+
+[Page 2 — Caractéristiques produit]
+Investissez dès maintenant et profitez de gains garantis sur 3 ans. Notre stratégie éprouvée génère systématiquement des performances supérieures au marché.
+- Rendement cible : 6% par an
+- Notation : BBB (Investment Grade)
+- Durée recommandée : 3 ans minimum
+- ISIN : FR0013412285
+
+[Page 3 — Cible investisseurs]
+Pour les investisseurs souhaitant une rentabilité maximale sans contrainte de marché.
+Contact : equipe-commerciale@eiffel-ig.com`;
+    document.getElementById('pastedText').value = demo;
+    document.getElementById('charCount').textContent = demo.length + ' caractères';
+  }
+
+  function startProgress(steps) {
+    document.getElementById('progressWrap').classList.remove('hidden');
+    document.getElementById('progressFill').style.width = '5%';
+    let i = 0;
+    progressInterval = setInterval(() => {
+      if (i < steps.length) {
+        document.getElementById('progressMsg').textContent = steps[i++];
+        document.getElementById('progressFill').style.width = Math.min(88, 5 + (i / steps.length) * 83) + '%';
+      }
+    }, 1800);
+  }
+
+  function endProgress() {
+    clearInterval(progressInterval);
+    document.getElementById('progressFill').style.width = '100%';
+    setTimeout(() => document.getElementById('progressWrap').classList.add('hidden'), 400);
+  }
+
+  function buildMainPrompt(content, docType, market) {
+    const marketRules = market === 'retail'
+      ? `MARCHÉ CIBLE : Clientèle non professionnelle (Retail)
+Règles renforcées AMF / Procédure Eiffel IG V4 :
+- Mention "Ceci est une communication publicitaire. Veuillez-vous référer au prospectus du fonds et au document d'informations clés (si applicable) avant de prendre toute décision finale d'investissement." : OBLIGATOIRE en première page
+- Avertissement en bas de chaque slide/page : OBLIGATOIRE
+- Avertissement complet en dernière page (disclaimer légal Eiffel IG) : OBLIGATOIRE pour présentations
+- Mention "Les performances passées ne préjugent pas des performances futures" : OBLIGATOIRE si performance citée, bien visible, pas en note de bas de page
+- Avertissement risque de perte en capital : OBLIGATOIRE et explicite (formulation "risque de perte en capital" obligatoire — "OPC non garanti en capital" seul est INSUFFISANT)
+- Équilibre strict risques/avantages : risques en police identique aux avantages, pas en note de bas de page
+- Association "performance + sécurité/garantie/risque maîtrisé" : STRICTEMENT INTERDITE
+- Durée de placement recommandée : OBLIGATOIRE si objectif chiffré cité
+- Profil de risque SRI : OBLIGATOIRE, cohérent avec la documentation réglementaire
+- Frais : mention OBLIGATOIRE si coûts évoqués
+- Performances passées : OBLIGATOIRE sur 10 ans (ou historique complet si fonds < 10 ans), par périodes de 12 mois complets, avec source et période de référence
+- FIA non professionnels / FCPR evergreen : mention du caractère non liquide OBLIGATOIRE
+- Fonds FCPI : avertissement spécifique blocage/risque/fiscal OBLIGATOIRE en gras et encadré
+- Fonds ELTIF : avertissement ELTIF OBLIGATOIRE`
+      : `MARCHÉ CIBLE : Investisseurs professionnels (MIF II)
+Règles Procédure Eiffel IG V4 :
+- Mention "Ceci est une communication publicitaire..." : OBLIGATOIRE en première page même pour les pros
+- Avertissement en bas de chaque slide : OBLIGATOIRE
+- Disclaimer légal complet en dernière page : OBLIGATOIRE pour présentations
+- Garanties de rendement ou de capital : STRICTEMENT INTERDITES même pour les pros
+- Performances passées : doivent être factuelles, avec période de référence et source
+- Mention "performances passées ne préjugent pas..." : OBLIGATOIRE si performance citée
+- Langage promotionnel excessif, formulations optimistes non étayées : NON CONFORME
+- Association "performance + sécurité" sans explication : NON CONFORME
+- Documents en anglais : acceptables après consentement du client professionnel`;
+
+    // Le format est piloté par le menu déroulant, pas par détection approximative
+    const shortFormats = ['email marketing', 'post linkedin', 'post réseaux sociaux', 'communiqué de presse', 'document publicitaire'];
+    const isShortFormat = shortFormats.includes(docType.toLowerCase());
+
+    const formatContext = isShortFormat
+      ? `FORMAT : Communication courte (${docType})
+Règles adaptées au format court — Position AMF DOC-2011-24 :
+- La mention "#CommunicationPublicitaire" ou "Communication publicitaire" suffit pour identifier le caractère publicitaire
+- Un lien vers plus d'information est la bonne pratique attendue
+- NE PAS exiger de disclaimer multi-pages, d'avertissement en bas de chaque slide, ou de disclaimer légal complet — inadapté à ce format
+- Pour un post LinkedIn ou tweet : le contenu doit être neutre, factuel, et pointer vers un document complet
+- L'essentiel : pas de garantie de rendement, pas de performance comme élément principal, pas de formulation trompeuse`
+      : `FORMAT : Document long (${docType})
+Exigences complètes de la Procédure Eiffel IG V4 :
+- Mention publicitaire obligatoire en première page/slide
+- Avertissement en bas de chaque slide pour les présentations PPTX
+- Disclaimer légal complet en dernière page
+- Équilibre risques/avantages sur l'ensemble du document
+- Mentions légales exhaustives adaptées au marché cible`;
+
+    return `Tu es le RCCI (Responsable de la Conformité et du Contrôle Interne) d'Eiffel Investment Group, SGP française agréée AMF. Tu révises ce document avant diffusion.
+
+Ton rôle n'est PAS de cocher une liste de cases mécaniquement. Tu dois analyser ce document comme un professionnel expérimenté : comprendre son intention, son contexte, son format, et juger si l'esprit de la réglementation est respecté. Un point qui n'est pas pertinent pour ce type de document ne doit pas être signalé.
+
+TYPE DE DOCUMENT : ${docType}
+MARCHÉ CIBLE : ${market === 'retail' ? 'Clientèle non professionnelle (Retail)' : 'Investisseurs professionnels'}
+
+${formatContext}
+
+${marketRules}
+
+PRINCIPES FONDAMENTAUX (s'appliquent à TOUS les formats, sans exception) :
+Ces points sont non-négociables quel que soit le format ou la longueur du document :
+1. Toute garantie de rendement ou de capital est INTERDITE ("garanti", "sans risque", "gains assurés", "capital protégé", "sécurité totale")
+2. L'association "performance + sécurité/garantie/risque maîtrisé" sans nuance est INTERDITE
+3. Si une performance passée est citée, la mention "Les performances passées ne préjugent pas des performances futures" est OBLIGATOIRE — adaptée au format (dans le corps du texte pour un post court, visible dans le document pour une présentation)
+4. Toute performance doit être accompagnée de sa période de référence
+5. Les formulations optimistes sans base factuelle sont INTERDITES : "le meilleur fonds", "rendements sans effort", "stratégie éprouvée qui génère systématiquement"
+6. La performance ne peut pas être l'élément principal et unique de la communication
+
+RÈGLES CONTEXTUELLES (à appliquer avec discernement selon le format) :
+Ces règles s'appliquent quand elles ont du sens pour le format analysé :
+- Pour une présentation longue (PPTX, PDF) : vérifier disclaimers par slide, disclaimer dernière page, équilibre risques/avantages sur l'ensemble du document
+- Pour un document avec données chiffrées : vérifier les sources, les périodes de référence, la cohérence avec les documents réglementaires
+- Pour un document mentionnant des avantages fiscaux : vérifier la contrepartie (blocage + risque de perte en capital)
+- Pour un document citant des prix/labels : vérifier le mode d'attribution + disclaimer "ne préjugent pas des résultats futurs"
+- Pour un document avec exemples d'investissements réussis : vérifier la présence d'investissements moins favorables
+
+APPROCHE D'ANALYSE :
+- Commence par qualifier le document : quel est son objectif commercial réel ? À qui s'adresse-t-il concrètement ?
+- Évalue l'impression générale qu'aurait un investisseur à la lecture : est-il bien informé des risques ? Le document est-il équilibré ?
+- Ne signale un point que si tu considères qu'un régulateur AMF le noterait réellement lors d'un contrôle
+- Si un élément est absent mais non pertinent pour ce format, ne le signale pas
+- Si un document est globalement bien construit avec quelques ajustements mineurs, le score doit le refléter (ne pas systématiquement descendre sous 50)
+
+CITATIONS ET LOCALISATION — RÈGLES STRICTES :
+- Pour chaque point identifié (bloquant, attention, conforme), tu DOIS citer l'extrait verbatim exact du document qui justifie ton analyse
+- Si le problème porte sur une formulation présente dans le document : cite-la mot pour mot entre guillemets dans le champ "citation"
+- Si le problème porte sur une mention ABSENTE (ex : disclaimer manquant, avertissement oublié) : "citation" = null, et précise dans "page" l'endroit où elle devrait figurer (ex : "Première page", "Dernière slide")
+- Si le document comporte plusieurs pages ou slides : le champ "page" est OBLIGATOIRE pour chaque finding — indique "Slide X", "Page X", ou la section concernée
+- Ne jamais laisser "page" à null sur un document multi-pages sauf si le problème concerne l'intégralité du document
+- Pour les points conformes ("ok") : cite également le passage qui valide la conformité
+
+DOCUMENT À ANALYSER :
+---
+${content.substring(0, 50000)}
+---
+
+Réponds UNIQUEMENT en JSON valide brut (sans backticks, sans commentaires) :
+{
+  "format_detecte": "<description courte du format réel détecté et du contexte>",
+  "score": <entier 0-100>,
+  "synthese": "<3-4 phrases : qualification du document, principaux enjeux, recommandation de diffusion oui/non/avec corrections>",
+  "blockers": [{
+    "titre": "<problème court>",
+    "detail": "<pourquoi c'est non-conforme dans CE contexte précis, avec référence réglementaire>",
+    "citation": "<extrait verbatim OBLIGATOIRE du passage concerné — null uniquement si la mention est totalement absente du document>",
+    "page": "<Slide X / Page X / section — OBLIGATOIRE si document multi-pages, null uniquement pour document d'une seule page>",
+    "correction": "<ce qu'il faut écrire ou ajouter, formulé concrètement pour le marketing>"
+  }],
+  "warnings": [{
+    "titre": "...", "detail": "...", "citation": "<extrait verbatim ou null si absent>", "page": "<Slide X / Page X / null>", "correction": "..."
+  }],
+  "ok": [{"titre": "...", "detail": "...", "citation": "<extrait verbatim qui valide la conformité>", "page": "<Slide X / Page X / null>"}],
+  "themes": ["..."]
+}
+
+BARÈME (à appliquer avec discernement) :
+BLOQUANT (-20 à -30 pts) : garantie rendement/capital, promesse performance future, association performance+sécurité, absence totale de toute mention du caractère publicitaire sur un document long
+BLOQUANT (-10 à -20 pts) : performance sans avertissement "passées ne préjugent pas", performance sans période de référence, déséquilibre grave risques/avantages
+ATTENTION (-5 à -10 pts) : absence durée placement recommandée sur document long, frais non mentionnés sur document long, comparaison non sourcée
+ATTENTION (-2 à -5 pts) : formulation ambiguë, amélioration souhaitable mais non bloquante
+NE PAS PÉNALISER : absence d'un disclaimer complet sur un format court, éléments non pertinents pour le type de document`;
+  }
+
+  function buildChallengerPrompt(content, docType, market, firstResult) {
+    const existingTitles = [
+      ...(firstResult.blockers||[]).map(b=>b.titre),
+      ...(firstResult.warnings||[]).map(w=>w.titre)
+    ].join(' | ');
+
+    return `Tu es un RCCI senior chez Eiffel Investment Group. Une première analyse de conformité a été faite sur ce document. Ta mission est UNIQUEMENT d'identifier des points MANQUANTS que la première analyse n'a pas vus — pas de répéter ce qui est déjà détecté.
+
+Document (${docType}, marché ${market}) :
+---
+${content.substring(0, 25000)}
+---
+
+Points déjà identifiés — NE PAS répéter :
+${existingTitles || 'aucun'}
+
+Format détecté par la première analyse : ${firstResult.format_detecte || docType}
+
+En tant que RCCI expérimenté, vérifie ces points avec discernement selon le format réel du document :
+
+Pour une PRÉSENTATION (PPTX, PDF long) :
+- Y a-t-il bien une mention publicitaire en première slide ?
+- Y a-t-il un disclaimer légal en dernière page ?
+- Si performance cumulée citée : la performance annuelle par année est-elle présente ?
+- Les exemples d'investissements réussis sont-ils équilibrés par des investissements moins favorables ?
+
+Pour un EMAIL ou POST COURT :
+- Le contenu est-il neutre et renvoie-t-il vers plus d'information ?
+- Y a-t-il une mention "#CommunicationPublicitaire" ou équivalent ?
+- Ne pas signaler l'absence de disclaimers complets — inadapté au format
+
+Pour TOUS les formats :
+- Formulations interdites présentes : "risque maîtrisé", "rentabilité attractive avec risque modéré", "performance éprouvée qui génère systématiquement" ?
+- Avantage fiscal sans durée de blocage + risque de perte en capital mentionnés ?
+- Prix/label sans mode d'attribution + disclaimer "ne préjugent pas des résultats futurs" ?
+
+VÉRIFICATION DES CITATIONS ET LOCALISATIONS :
+Pour chaque point que tu identifies, tu DOIS :
+- Citer l'extrait verbatim exact du document qui justifie ton constat — pas de paraphrase, pas de reformulation
+- Si le document comporte plusieurs pages ou slides : préciser OBLIGATOIREMENT le numéro de page ou de slide concerné
+- Si le problème porte sur une mention absente : "citation" = null, mais précise dans "page" l'endroit exact où la mention devrait figurer
+- Ne jamais remonter un point sans pouvoir l'ancrer dans le texte du document ou localiser précisément où l'élément manque
+
+Ne signale que ce qu'un régulateur AMF noterait réellement pour CE type de document.
+
+JSON brut uniquement — uniquement les points non déjà couverts :
+{
+  "points_manquants": [
+    {
+      "titre": "<problème précis>",
+      "detail": "<pourquoi non-conforme dans ce contexte, avec référence réglementaire>",
+      "citation": "<extrait verbatim OBLIGATOIRE du passage concerné — null uniquement si la mention est totalement absente>",
+      "page": "<Slide X / Page X / section — OBLIGATOIRE si document multi-pages>",
+      "correction": "<ce qu'il faut ajouter ou modifier concrètement>",
+      "severite": "bloquant|attention"
+    }
+  ]
+}`;
+  }
+
+  async function runAnalysis() {
+    const pastedContent = document.getElementById('pastedText').value.trim();
+    const content = activeTab === 'text' ? pastedContent : (extractedText || pastedContent);
+    if (!content || content.length < 20) {
+      alert('Veuillez fournir un document ou du texte à analyser.\n\nUtilisez "Charger un exemple" pour tester.');
+      return;
+    }
+const apiKey = '***REMOVED***';    if (!apiKey || apiKey.startsWith('sk-VOTRE')) {
+      alert('Clé API OpenAI non configurée.\nOuvrez config.js et remplacez sk-VOTRE_CLE_ICI par votre vraie clé.');
+      return;
+    }
+    const docType = document.getElementById('docType').value;
+    const btn = document.getElementById('analyzeBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="dr-spinner"></span>Analyse en cours…';
+    document.getElementById('resultsCard').classList.add('hidden');
+    startProgress([
+      'Extraction du contenu…',
+      'Application des règles AMF / MIF II…',
+      'Analyse des mentions légales…',
+      'Localisation des extraits problématiques…',
+      'Vérification du langage promotionnel…',
+      'Lancement analyse challenger GPT-4o mini…',
+      'Consolidation du rapport…'
+    ]);
+
+    try {
+      const res1 = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: typeof APP_CONFIG !== 'undefined' ? (APP_CONFIG.OPENAI_MODEL || 'gpt-4o') : 'gpt-4o',
+          messages: [{ role: 'user', content: buildMainPrompt(content, docType, selectedMarket) }],
+          temperature: 0.1,
+          response_format: { type: 'json_object' }
+        })
+      });
+      if (!res1.ok) {
+        const err = await res1.json().catch(() => ({}));
+        throw new Error(err.error?.message || `HTTP ${res1.status}`);
+      }
+      const data1 = await res1.json();
+      const result = JSON.parse(data1.choices[0].message.content.replace(/```json|```/g, '').trim());
+
+      let challenger = null;
+      try {
+        const res2 = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [{ role: 'user', content: buildChallengerPrompt(content, docType, selectedMarket, result) }],
+            temperature: 0.2,
+            response_format: { type: 'json_object' }
+          })
+        });
+        if (res2.ok) {
+          const data2 = await res2.json();
+          challenger = JSON.parse(data2.choices[0].message.content.replace(/```json|```/g, '').trim());
+        }
+      } catch (e) { console.warn('Challenger:', e); }
+
+      endProgress();
+      renderResults(result, challenger, docType, selectedMarket);
+
+    } catch (e) {
+      endProgress();
+      alert('Erreur lors de l\'analyse :\n\n' + e.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Analyser le document`;
+    }
+  }
+
+  function renderResults(result, challenger, docType, market) {
+    // Fusionner les points du challenger directement dans les listes
+    const allBlockers = [...(result.blockers || [])];
+    const allWarnings = [...(result.warnings || [])];
+    if (challenger && (challenger.points_manquants || []).length > 0) {
+      challenger.points_manquants.forEach(p => {
+        const f = { titre: p.titre, detail: p.detail, citation: p.citation || null, page: p.page || null, correction: p.correction || null };
+        if (p.severite === 'bloquant') allBlockers.push(f);
+        else allWarnings.push(f);
+      });
+    }
+
+    const score = Math.min(100, Math.max(0, result.score || 0));
+    const scoreColor = score >= 75 ? '#1e7e4a' : score >= 50 ? '#b7770d' : '#c0392b';
+    document.getElementById('scoreVal').textContent = score + ' / 100';
+    document.getElementById('scoreVal').style.color = scoreColor;
+    document.getElementById('scoreBar').style.width = score + '%';
+    document.getElementById('scoreBar').style.background = scoreColor;
+    document.getElementById('blockerCount').textContent = allBlockers.length;
+    document.getElementById('warningCount').textContent = allWarnings.length;
+
+    const now = new Date();
+    const pillClass = market === 'retail' ? 'retail' : 'pro';
+    const pillLabel = market === 'retail' ? 'Retail' : 'Professionnel';
+    document.getElementById('reportTitle').innerHTML =
+      `Analyse — ${docType.charAt(0).toUpperCase() + docType.slice(1)}<span class="dr-market-pill ${pillClass}">${pillLabel}</span>`;
+    document.getElementById('reportMeta').textContent =
+      `${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}` +
+      (currentUser ? ` · ${currentUser.name || currentUser.username}` : '');
+
+    document.getElementById('summaryBox').textContent = result.synthese || '';
+    if (result.format_detecte) {
+      const formatBadge = document.createElement('div');
+      formatBadge.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.15);';
+      formatBadge.textContent = 'Format détecté : ' + result.format_detecte;
+      document.getElementById('summaryBox').prepend(formatBadge);
+    }
+
+    const list = document.getElementById('findingsList');
+    list.innerHTML = '';
+
+    const mkFinding = (type, label, f) => {
+      const pageRef = (f.page && f.page !== 'null') ? `<span class="dr-page-ref"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>${f.page}</span>` : '';
+      const citation = (f.citation && f.citation !== 'null') ? `<div class="dr-citation">"${f.citation}"</div>` : '';
+      const correction = (f.correction && f.correction !== 'null') ? `<div class="dr-correction"><span class="dr-correction-label">Correction suggérée</span>${f.correction}</div>` : '';
+      list.innerHTML += `<div class="dr-finding ${type}"><div class="dr-finding-header"><span class="dr-finding-badge">${label}</span><span class="dr-finding-title">${f.titre}</span>${pageRef}</div><p class="dr-finding-detail">${f.detail}</p>${citation}${correction}</div>`;
+    };
+
+    allBlockers.forEach(f => mkFinding('danger', 'Bloquant', f));
+    allWarnings.forEach(f => mkFinding('warning', 'Attention', f));
+    (result.ok || []).forEach(f => mkFinding('ok', 'Conforme', f));
+
+    document.getElementById('tagsList').innerHTML = (result.themes || []).map(t => `<span class="dr-tag">${t}</span>`).join('');
+    document.getElementById('resultsCard').classList.remove('hidden');
+    document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function exportPDF() { window.print(); }
+
+  function resetAll() {
+    extractedText = '';
+    const ta = document.getElementById('pastedText');
+    if (ta) ta.value = '';
+    document.getElementById('charCount').textContent = '0 caractère';
+    document.getElementById('fileInfoBar').classList.add('hidden');
+    document.getElementById('resultsCard').classList.add('hidden');
+    document.getElementById('fileInput').value = '';
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  </script>
+</body>
+</html>
