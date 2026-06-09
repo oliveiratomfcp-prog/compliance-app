@@ -457,11 +457,11 @@ function setCplTab(t) { cplTab = t; renderList(); }
 // HELPERS
 // ═══════════════════════════════════════════════════════════
 const SC = {
-  'Brouillon':'bdg-brouillon','Soumis':'bdg-soumis',
+  'Brouillon':'bdg-brouillon','À traiter':'bdg-soumis',
   "En cours d'analyse":'bdg-en-cours',"En attente d'informations":'bdg-en-attente',
-  'Résolu':'bdg-resolu','Clôturé':'bdg-cloture','Rejeté':'bdg-rejete'
+  'Traité':'bdg-resolu','Clôturé':'bdg-cloture','Rejeté':'bdg-rejete'
 };
-const PC = {'Normale':'bdg-normale','Urgente':'bdg-urgente','Critique':'bdg-critique'};
+const PC = {'Faible':'bdg-normale','Élevé':'bdg-urgente','Critique':'bdg-critique'};
 
 function bdg(label, cls) {
   return `<span class="bdg ${cls}">${label}</span>`;
@@ -477,14 +477,14 @@ function svgIcon(path, extras) {
 function renderList() {
   const all      = isCPL ? requests : requests.filter(r => r.email === currentUser.email);
   const filtered = statusFilter === 'all' ? all : all.filter(r => r.statut === statusFilter);
-  const open     = all.filter(r => ['Soumis',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const open     = all.filter(r => ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
   const awaiting = all.filter(r => r.statut === "En attente d'informations").length;
-  const overSLA  = requests.filter(r => r.sla > 5 && ['Soumis',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const overSLA  = requests.filter(r => r.sla > 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
 
-  const STATUSES = ['all','Soumis',"En cours d'analyse","En attente d'informations",'Résolu','Clôturé','Rejeté'];
-  const BG = {Soumis:'#EFF6FF',"En cours d'analyse":'#FFF7ED',"En attente d'informations":'#FEFCE8',Résolu:'#F0FDF4',Clôturé:'#ECFDF5',Rejeté:'#FEF2F2'};
-  const CO = {Soumis:'#2563EB',"En cours d'analyse":'#C2410C',"En attente d'informations":'#B45309',Résolu:'#15803D',Clôturé:'#065F46',Rejeté:'#DC2626'};
-  const BO = {Soumis:'#BFDBFE',"En cours d'analyse":'#FED7AA',"En attente d'informations":'#FDE68A',Résolu:'#BBF7D0',Clôturé:'#6EE7B7',Rejeté:'#FECACA'};
+  const STATUSES = ['all','À traiter',"En cours d'analyse","En attente d'informations",'Traité','Clôturé','Rejeté'];
+  const BG = {'À traiter':'#EFF6FF',"En cours d'analyse":'#FFF7ED',"En attente d'informations":'#FEFCE8','Traité':'#F0FDF4',Clôturé:'#ECFDF5',Rejeté:'#FEF2F2'};
+  const CO = {'À traiter':'#2563EB',"En cours d'analyse":'#C2410C',"En attente d'informations":'#B45309','Traité':'#15803D',Clôturé:'#065F46',Rejeté:'#DC2626'};
+  const BO = {'À traiter':'#BFDBFE',"En cours d'analyse":'#FED7AA',"En attente d'informations":'#FDE68A','Traité':'#BBF7D0',Clôturé:'#6EE7B7',Rejeté:'#FECACA'};
 
   const filterBtns = STATUSES.map(s => {
     const active = statusFilter === s;
@@ -609,13 +609,13 @@ function exportCSV() {
 // DASHBOARD KPI (données réelles)
 // ═══════════════════════════════════════════════════════════
 function renderDashboard() {
-  const open    = requests.filter(r => ['Soumis',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
-  const resolved= requests.filter(r => ['Résolu','Clôturé'].includes(r.statut)).length;
+  const open    = requests.filter(r => ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const resolved= requests.filter(r => ['Traité','Clôturé'].includes(r.statut)).length;
   const rejected= requests.filter(r => r.statut === 'Rejeté').length;
   const total   = requests.length;
 
   // Délai moyen de traitement (demandes résolues/clôturées)
-  const resolvedReqs = requests.filter(r => ['Résolu','Clôturé'].includes(r.statut) && r._ts && r._lastModified);
+  const resolvedReqs = requests.filter(r => r.statut === 'Traité' && r._ts && r._lastModified);
   const avgDays = resolvedReqs.length
     ? (resolvedReqs.reduce((sum,r) => sum + (r._lastModified - r._ts), 0) / resolvedReqs.length / (1000*60*60*24)).toFixed(1)
     : '—';
@@ -721,10 +721,10 @@ function renderDashboard() {
 // ═══════════════════════════════════════════════════════════
 // VUE NOUVELLE DEMANDE
 // ═══════════════════════════════════════════════════════════
-let selPrio = 'Normale';
+let selPrio = 'Faible';
 
 function goNew() {
-  selPrio = 'Normale';
+  selPrio = 'Faible';
   document.getElementById('view-new').innerHTML = `
     <button class="back-btn" onclick="goList()">
       ${svgIcon('<polyline points="15 18 9 12 15 6"/>')}
@@ -741,13 +741,21 @@ function goNew() {
             <label class="form-label">Département *</label>
             <select class="form-input" id="f-dept">
               <option value="">Sélectionner un département...</option>
-              <option>Equity</option>
+              <option>Listed Equity</option>
               <option>Innovation</option>
               <option>Private Equity</option>
               <option>Private Credit</option>
               <option>BCD</option>
-              <option>Infrastructure Trade Credit</option>
-              <option>Autres</option>
+              <option>Infrastructure</option>
+              <option>Trade Credit</option>
+              <option>Venture Capital</option>
+              <option>CLO</option>
+              <option>OPS</option>
+              <option>Juridique</option>
+              <option>Finance</option>
+              <option>Back Office</option>
+              <option>Audit</option>
+              <option>RH</option>
             </select>
           </div>
           <div class="form-group full-width">
@@ -755,21 +763,24 @@ function goNew() {
             <select class="form-input" id="f-type">
               <option value="">Sélectionner un type...</option>
               <option>Validation documentation commerciale</option>
-              <option>Due diligence</option>
+              <option>Appel d'offre / DDQ</option>
               <option>Avis réglementaire</option>
               <option>Procédures</option>
               <option>AML/KYC</option>
-              <option>Formation</option>
-              <option>Déclaration / signalement</option>
-              <option>Autre</option>
+              <option>Marketing</option>
+              <option>Conflit d'intérêt</option>
+              <option>Déontologie</option>
             </select>
           </div>
           <div class="form-group full-width">
             <label class="form-label">Priorité *</label>
             <div class="prio-row">
-              <button class="prio-btn sel" onclick="setPrio('Normale',this)">Normale</button>
-              <button class="prio-btn"     onclick="setPrio('Urgente',this)">Urgente</button>
+              <button class="prio-btn sel" onclick="setPrio('Faible',this)">Faible</button>
+              <button class="prio-btn"     onclick="setPrio('Élevé',this)">Élevé</button>
               <button class="prio-btn"     onclick="setPrio('Critique',this)">Critique</button>
+            </div>
+            <div id="deadline-required-msg" style="display:none;font-size:11.5px;color:#C2410C;margin-top:4px">
+              ⚠ Une deadline est obligatoire pour cette priorité.
             </div>
           </div>
           <div class="form-group full-width">
@@ -782,7 +793,7 @@ function goNew() {
               placeholder="Décrivez votre demande en détail (contexte, enjeux, documents disponibles)..."></textarea>
           </div>
           <div class="form-group">
-            <label class="form-label">Deadline souhaitée <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
+            <label class="form-label" id="deadline-label">Deadline souhaitée <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
             <input type="date" class="form-input" id="f-deadline">
           </div>
           <div class="form-group full-width">
@@ -814,6 +825,13 @@ function setPrio(p, btn) {
   selPrio = p;
   document.querySelectorAll('.prio-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
+  const needsDeadline = ['Élevé','Critique'].includes(p);
+  const msg = document.getElementById('deadline-required-msg');
+  const lbl = document.getElementById('deadline-label');
+  if (msg) msg.style.display = needsDeadline ? 'block' : 'none';
+  if (lbl) lbl.innerHTML = needsDeadline
+    ? 'Deadline * <span style="color:#C2410C;font-weight:500">(obligatoire)</span>'
+    : 'Deadline souhaitée <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span>';
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -832,35 +850,32 @@ function updateFileList() {
 }
 
 async function uploadFile(ref, file) {
-  if (!spDriveId) return;
+  if (!spDriveId) return null;
   const encoded = encodeURIComponent(file.name);
   const basePath = `/sites/${spSiteId}/drives/${spDriveId}/items/root:/${ref}/${encoded}`;
 
   if (file.size <= 4 * 1024 * 1024) {
-    // Upload simple < 4 Mo
     const buf = await file.arrayBuffer();
-    await graphPut(`${basePath}:/content`, buf, file.type || 'application/octet-stream');
+    return await graphPut(`${basePath}:/content`, buf, file.type || 'application/octet-stream');
   } else {
-    // Upload session pour fichiers > 4 Mo
     const session = await graphPost(`${basePath}:/createUploadSession`, {
       item: { '@microsoft.graph.conflictBehavior': 'replace' }
     });
     const chunkSize = 3 * 1024 * 1024;
     const buf = await file.arrayBuffer();
-    let start = 0;
+    let start = 0; let result = null;
     while (start < file.size) {
-      const end   = Math.min(start + chunkSize, file.size);
+      const end = Math.min(start + chunkSize, file.size);
       const chunk = buf.slice(start, end);
-      await fetch(session.uploadUrl, {
-        method : 'PUT',
-        headers: {
-          'Content-Range' : `bytes ${start}-${end-1}/${file.size}`,
-          'Content-Length': String(end - start)
-        },
+      const res = await fetch(session.uploadUrl, {
+        method: 'PUT',
+        headers: { 'Content-Range': `bytes ${start}-${end-1}/${file.size}`, 'Content-Length': String(end - start) },
         body: chunk
       });
+      if (res.ok) result = await res.json().catch(() => null);
       start = end;
     }
+    return result;
   }
 }
 
@@ -874,17 +889,21 @@ async function loadFilesForDetail(ref) {
     if (!files.length) {
       container.innerHTML = '<p style="font-size:12.5px;color:var(--text-secondary)">Aucun fichier déposé.</p>';
     } else {
-      container.innerHTML = files.map(f => `
+      container.innerHTML = files.map(f => {
+        const uploader = f.createdBy?.user?.displayName || f.lastModifiedBy?.user?.displayName || '—';
+        const uploadDate = f.createdDateTime ? new Date(f.createdDateTime).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '';
+        return `
         <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid var(--border)">
           <div style="display:flex;align-items:center;gap:8px">
             ${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')}
             <div>
               <div style="font-size:12.5px;font-weight:500;color:#111827">${f.name}</div>
-              <div style="font-size:11px;color:var(--text-secondary)">${(f.size/1024).toFixed(0)} Ko</div>
+              <div style="font-size:10.5px;color:var(--text-secondary)">${(f.size/1024).toFixed(0)} Ko · ${uploader} · ${uploadDate}</div>
             </div>
           </div>
           <a href="${f.webUrl}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Ouvrir</a>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
   } catch(e) {
     container.innerHTML = '<p style="font-size:12px;color:var(--text-secondary)">Dossier introuvable sur SharePoint.</p>';
@@ -919,6 +938,10 @@ async function submitRequest() {
     alert('Veuillez remplir tous les champs obligatoires (*)');
     return;
   }
+  if (['Élevé','Critique'].includes(selPrio) && !deadline) {
+    alert('Une deadline est obligatoire pour les priorités Élevé et Critique.');
+    return;
+  }
 
   const btn = document.querySelector('[onclick="submitRequest()"]');
   btn.disabled = true;
@@ -935,13 +958,13 @@ async function submitRequest() {
         Objet                    : objet,
         Sujet                    : type,
         'Priorit_x00e9_'         : selPrio,
-        Statut                   : 'Soumis',
+        Statut                   : 'À traiter',
         Description              : desc,
         Demandeur                : currentUser.name,
         DemandeurEmail           : currentUser.email,
         DemandeurDept            : dept,
         DateSoumission           : now.toISOString(),
-        HistoriqueStatuts        : JSON.stringify([{ date: now.toISOString(), statut: 'Soumis', par: currentUser.name }]),
+        HistoriqueStatuts        : JSON.stringify([{ date: now.toISOString(), statut: 'À traiter', par: currentUser.name }]),
         ...(deadline ? { Deadline: deadline } : {})
       }
     };
@@ -997,7 +1020,7 @@ async function submitRequest() {
         </div>`;
       await graphPost('/me/sendMail', {
         message: {
-          subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Urgente' ? '🟡' : ''} — ${objet} (${ref})`,
+          subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Élevé' ? '🟡' : ''} — ${objet} (${ref})`,
           body: { contentType: 'HTML', content: mailBody },
           toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
         },
@@ -1031,7 +1054,7 @@ function openDetail(ref) {
     'Soumis'                   : '#2563EB',
     "En cours d'analyse"       : '#EA580C',
     "En attente d'informations": '#B45309',
-    'Résolu'                   : '#15803D',
+    'Traité'                   : '#15803D',
     'Clôturé'                  : '#065F46',
     'Rejeté'                   : '#DC2626'
   };
@@ -1065,7 +1088,7 @@ function openDetail(ref) {
           <option value="">Sélectionner un statut...</option>
           <option value="En cours d_analyse">En cours d'analyse</option>
           <option value="En attente d_informations">En attente d'informations</option>
-          <option value="Résolu">Résolu</option>
+          <option value="Traité">Traité</option>
           <option value="Rejeté">Rejeté</option>
           <option value="Clôturé">Clôturé</option>
         </select>
@@ -1146,11 +1169,19 @@ function openDetail(ref) {
           <div id="comments-container"><span style="font-size:12px;color:var(--text-secondary)">Chargement...</span></div>
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
             <textarea class="form-input form-textarea" id="comment-input" rows="2" placeholder="Ajouter un commentaire..."></textarea>
-            ${isCPL ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#B45309;margin:6px 0;cursor:pointer">
-              <input type="checkbox" id="comment-interne" style="width:14px;height:14px">
-              Note interne (visible Compliance uniquement)
-            </label>` : ''}
-            <div style="display:flex;justify-content:flex-end;margin-top:6px">
+            <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+              <div style="flex:1;display:flex;align-items:center;gap:6px">
+                <label style="font-size:12px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px">
+                  ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>')}
+                  Joindre
+                  <input type="file" id="comment-file-input" style="display:none" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg" onchange="showCommentFile()">
+                </label>
+                <span id="comment-file-name" style="font-size:11.5px;color:#374151"></span>
+              </div>
+              ${isCPL ? `<label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#B45309;cursor:pointer">
+                <input type="checkbox" id="comment-interne" style="width:14px;height:14px">
+                Note interne (Compliance uniquement)
+              </label>` : ''}
               <button class="btn-primary" id="send-comment-btn" onclick="sendComment()">Envoyer</button>
             </div>
           </div>
@@ -1192,8 +1223,8 @@ async function loadComments(ref) {
         const f = item.fields;
         return {
           auteur  : f.NomAuteur || (item.createdBy?.user?.displayName) || '',
-          texte   : f.Texte  || '',
-          interne : f.EstInterne === true || f.EstInterne === 'true' || f.EstInterne === 1 || f.EstInterne === '1' || f.EstInterne === 'Yes' || f.EstInterne === 'Oui',
+          texte   : (f.Texte || '').replace(/^\[INTERNE\]/, ''),
+          interne : (f.Texte || '').startsWith('[INTERNE]'),
           date    : item.createdDateTime ? new Date(item.createdDateTime).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : '',
           _ts     : item.createdDateTime ? new Date(item.createdDateTime).getTime() : 0
         };
@@ -1221,6 +1252,12 @@ async function loadComments(ref) {
   }
 }
 
+function showCommentFile() {
+  const input = document.getElementById('comment-file-input');
+  const label = document.getElementById('comment-file-name');
+  if (label) label.textContent = input?.files[0]?.name || '';
+}
+
 async function sendComment() {
   const texte   = document.getElementById('comment-input')?.value.trim();
   const interne = document.getElementById('comment-interne')?.checked || false;
@@ -1233,21 +1270,24 @@ async function sendComment() {
 
   try {
     // Étape 1 : créer le commentaire sans EstInterne
+    // Upload fichier joint au commentaire
+    const commentFile = document.getElementById('comment-file-input')?.files[0];
+    let fileLink = '';
+    if (commentFile && spDriveId) {
+      try {
+        const uploaded = await uploadFile(selectedReq.ref, commentFile);
+        fileLink = uploaded?.webUrl ? ` 📎 [${commentFile.name}](${uploaded.webUrl})` : ` 📎 ${commentFile.name}`;
+      } catch(e) { console.warn('Upload fichier commentaire échoué:', e); }
+    }
+
+    const texteStored = interne ? '[INTERNE]' + texte + fileLink : texte + fileLink;
     const fields = {
       Title : selectedReq.ref,
-      Texte : texte
+      Texte : texteStored
     };
     const created = await graphPost(`/sites/${spSiteId}/lists/${spCommListId}/items`, { fields });
 
-    // Étape 2 : si note interne, PATCH séparé pour EstInterne
-    if (interne && created?.id) {
-      try {
-        await graphPatch(
-          `/sites/${spSiteId}/lists/${spCommListId}/items/${created.id}/fields`,
-          { EstInterne: true }
-        );
-      } catch(e) { console.warn('EstInterne PATCH failed:', e.message); }
-    }
+    // Note interne stockée via préfixe [INTERNE] dans le champ Texte
 
     // Notification email
     if (!isCPL) {
@@ -1299,6 +1339,10 @@ async function sendComment() {
     document.getElementById('comment-input').value = '';
     const cb = document.getElementById('comment-interne');
     if (cb) cb.checked = false;
+    const fi = document.getElementById('comment-file-input');
+    if (fi) fi.value = '';
+    const fn = document.getElementById('comment-file-name');
+    if (fn) fn.textContent = '';
     await loadComments(selectedReq.ref);
   } catch(e) {
     console.error('Erreur envoi commentaire:', e);
@@ -1317,7 +1361,7 @@ async function sendComment() {
 const STATUS_MAP = {
   "En cours d_analyse"       : "En cours d'analyse",
   "En attente d_informations": "En attente d'informations",
-  "Résolu"                   : "Résolu",
+  "Traité"                    : "Traité",
   "Rejeté"                   : "Rejeté",
   "Clôturé"                  : "Clôturé"
 };
@@ -1354,7 +1398,7 @@ async function changeStatus() {
     const subjects = {
       "En cours d'analyse"        : `[Tracker CPL] Votre demande ${selectedReq.ref} est en cours de traitement`,
       "En attente d'informations" : `[Tracker CPL] Action requise : complément d'information — ${selectedReq.ref}`,
-      "Résolu"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été résolue`,
+      "Traité"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été résolue`,
       "Rejeté"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été rejetée`,
       "Clôturé"                   : null   // pas de notification pour clôture
     };
@@ -1370,7 +1414,7 @@ async function changeStatus() {
           <p>Bonjour ${selectedReq.from},</p>
           <p>⚠️ L'équipe Compliance a besoin d'un complément d'information pour traiter votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em>.</p>
           <p>Merci de revenir sur le <a href="${window.location.href}">Tracker CPL</a> pour apporter les informations complémentaires.</p>`,
-        "Résolu": `
+        "Traité": `
           <p>Bonjour ${selectedReq.from},</p>
           <p>✅ Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été résolue par l'équipe Compliance.</p>
           <p>Connectez-vous au <a href="${window.location.href}">Tracker CPL</a> pour consulter la réponse.</p>`,
@@ -1420,10 +1464,10 @@ async function changeStatus() {
 async function reopenRequest() {
   if (!confirm('Rouvrir cette demande ?')) return;
   try {
-    const history = [...(selectedReq.historique || []), { date: new Date().toISOString(), statut: 'Soumis', par: currentUser.name }];
+    const history = [...(selectedReq.historique || []), { date: new Date().toISOString(), statut: 'À traiter', par: currentUser.name }];
     await graphPatch(
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
-      { Statut: 'Soumis', HistoriqueStatuts: JSON.stringify(history) }
+      { Statut: 'À traiter', HistoriqueStatuts: JSON.stringify(history) }
     );
     alert('✅ Demande rouverte — statut repassé à Soumis.');
     await loadRequests();
