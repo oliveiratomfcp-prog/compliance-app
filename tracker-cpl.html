@@ -1236,7 +1236,17 @@ async function loadComments(ref) {
       container.innerHTML = '<p style="font-size:12.5px;color:var(--text-secondary)">Aucun commentaire.</p>';
       return;
     }
-    container.innerHTML = all.map(c => `
+    container.innerHTML = all.map(c => {
+      // Transformer le lien markdown 📎 [nom](url) en bouton Ouvrir
+      const texteRendu = c.texte.replace(
+        /📎 \[([^\]]+)\]\(([^)]+)\)/g,
+        (_, nom, url) => `<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:4px 10px;background:#F4F5F8;border:1px solid var(--border);border-radius:6px;font-size:11.5px">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span style="color:#374151;font-weight:500">${nom}</span>
+          <a href="${url}" target="_blank" style="color:var(--navy);font-weight:600;text-decoration:none;margin-left:4px">Ouvrir →</a>
+        </span>`
+      );
+      return `
       <div class="comment ${c.interne ? 'comment-internal' : 'comment-normal'}" style="margin-bottom:8px">
         <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;flex-wrap:wrap">
           ${c.interne ? '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#B45309" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>' : ''}
@@ -1244,8 +1254,9 @@ async function loadComments(ref) {
           <span style="color:#9CA3AF;font-size:11px">${c.date}</span>
           ${c.interne ? '<span class="internal-lbl">Note interne</span>' : ''}
         </div>
-        <div style="color:${c.interne ? '#713F12' : '#374151'};line-height:1.5;font-size:13px">${c.texte}</div>
-      </div>`).join('');
+        <div style="color:${c.interne ? '#713F12' : '#374151'};line-height:1.5;font-size:13px">${texteRendu}</div>
+      </div>`;
+    }).join('');
   } catch(e) {
     console.error('Erreur chargement commentaires:', e);
     container.innerHTML = '<p style="font-size:12px;color:#DC2626">Erreur de chargement des commentaires.</p>';
@@ -1344,6 +1355,8 @@ async function sendComment() {
     const fn = document.getElementById('comment-file-name');
     if (fn) fn.textContent = '';
     await loadComments(selectedReq.ref);
+    // Recharger les pièces jointes si un fichier a été joint
+    if (commentFile) await loadFilesForDetail(selectedReq.ref);
   } catch(e) {
     console.error('Erreur envoi commentaire:', e);
     alert(`Erreur : ${e.message}`);
