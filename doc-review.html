@@ -698,10 +698,6 @@ JSON brut uniquement — uniquement les points non déjà couverts :
       alert('Veuillez fournir un document ou du texte à analyser.\n\nUtilisez "Charger un exemple" pour tester.');
       return;
     }
-const apiKey = '***REMOVED***';    if (!apiKey || apiKey.startsWith('sk-VOTRE')) {
-      alert('Clé API OpenAI non configurée.\nOuvrez config.js et remplacez sk-VOTRE_CLE_ICI par votre vraie clé.');
-      return;
-    }
     const docType = document.getElementById('docType').value;
     const btn = document.getElementById('analyzeBtn');
     btn.disabled = true;
@@ -718,9 +714,9 @@ const apiKey = '***REMOVED***';    if (!apiKey || apiKey.startsWith('sk-VOTRE'))
     ]);
 
     try {
-      const res1 = await fetch('https://api.openai.com/v1/chat/completions', {
+      const res1 = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           model: typeof APP_CONFIG !== 'undefined' ? (APP_CONFIG.OPENAI_MODEL || 'gpt-4o') : 'gpt-4o',
           messages: [{ role: 'user', content: buildMainPrompt(content, docType, selectedMarket) }],
@@ -737,9 +733,9 @@ const apiKey = '***REMOVED***';    if (!apiKey || apiKey.startsWith('sk-VOTRE'))
 
       let challenger = null;
       try {
-        const res2 = await fetch('https://api.openai.com/v1/chat/completions', {
+        const res2 = await fetch('/api/analyze', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: buildChallengerPrompt(content, docType, selectedMarket, result) }],
