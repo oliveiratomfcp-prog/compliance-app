@@ -388,7 +388,7 @@ async function loadRequests() {
   setListLoading(true);
   try {
     const data = await graphGet(
-      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$top=200`
+      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$top=9999`
     );
     requests = data.value.map(item => {
       const f = item.fields;
@@ -768,7 +768,7 @@ function goNew() {
               <option>Procédures</option>
               <option>AML/KYC</option>
               <option>Marketing</option>
-              <option>Conflit d'intérêt</option>
+              <option>Conflit d'intérêts</option>
               <option>Déontologie</option>
             </select>
           </div>
