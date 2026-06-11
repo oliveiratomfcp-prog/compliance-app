@@ -238,6 +238,22 @@ function sortBy(col) {
   renderList();
 }
 
+function workingDays(startTs) {
+  if (!startTs) return 0;
+  const start = new Date(startTs);
+  const end   = new Date();
+  start.setHours(0, 0, 0, 0);
+  end.setHours(0, 0, 0, 0);
+  let count = 0;
+  const d = new Date(start);
+  while (d < end) {
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) count++;
+    d.setDate(d.getDate() + 1);
+  }
+  return count;
+}
+
 
 
 // ═══════════════════════════════════════════════════════════
@@ -406,7 +422,7 @@ async function loadRequests() {
         dept   : f.DemandeurDept  || '',
         desc   : f.Description  || '',
         deadline: f.Deadline    || '',
-        sla           : 0,
+        sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
         responsable   : f.ResponsableCPL || '',
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
@@ -515,8 +531,8 @@ function renderList() {
   const cols   = isCPL ? 9 : 6;
 
   const rows = sortedFiltered.map(req => {
-    const over = isCPL && req.sla > 5 && ['En cours','En attente','Soumis'].includes(req.statut);
-    const near = isCPL && req.sla >= 4 && req.sla <= 5 && ['En cours','Soumis'].includes(req.statut);
+    const over = isCPL && req.sla > 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
+    const near = isCPL && req.sla >= 4 && req.sla <= 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
     const cplTd = isCPL ? `<td class="td-muted" style="color:#374151">${req.from}</td><td class="td-muted">${req.dept}</td>` : '';
     const cplTdR = isCPL ? `<td class="td-muted" style="white-space:nowrap">${req.responsable || '—'}</td>` : '';
     return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">
