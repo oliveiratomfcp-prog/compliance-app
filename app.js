@@ -94,7 +94,6 @@ async function onLoggedIn() {
 
   showScreen("app");
   loadRestrictedList();
-  loadHistory();
 }
 
 document.querySelectorAll(".nav-tab").forEach(tab => {
@@ -839,6 +838,13 @@ function saveToLocalStorage(data, type) {
   const existing = JSON.parse(localStorage.getItem(key) || "[]");
   existing.unshift({ ...data, type_entree: type, dateDeclaration: new Date().toISOString(), id: Date.now() });
   localStorage.setItem(key, JSON.stringify(existing));
+}
+
+function toggleHistory() {
+  const container = document.getElementById("history-container");
+  const isHidden = container.classList.contains("hidden");
+  container.classList.toggle("hidden");
+  if (isHidden) loadHistory();
 }
 
 let historyCache = null;

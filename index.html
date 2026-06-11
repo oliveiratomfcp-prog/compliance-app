@@ -45,10 +45,6 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
         <span id="nav-declare-el">Déclarer</span>
       </button>
-      <button class="nav-tab" data-tab="history">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        <span id="nav-history-el">Historique</span>
-      </button>
       <a class="nav-tab" href="doc-review.html" style="text-decoration:none;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         <span>Doc Review</span>
@@ -88,6 +84,10 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
             <span id="restricted-bulk-btn-el">Vérification en masse</span>
           </button>
+          <button id="btn-toggle-history" class="btn-secondary" onclick="toggleHistory()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            <span id="nav-history-el">Mon historique</span>
+          </button>
           <button id="btn-export-excel" class="btn-secondary">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
             <span id="restricted-excel-btn-el">Exporter Excel</span>
@@ -117,6 +117,55 @@
             </button>
           </div>
           <div id="bulk-results" class="hidden" style="margin-top:16px"></div>
+        </div>
+      </div>
+
+      <!-- HISTORIQUE PANEL -->
+      <div id="history-container" class="hidden" style="margin-bottom:20px">
+        <div class="form-card">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+            <div>
+              <h3 style="font-size:15px;font-weight:700;color:var(--navy)" id="history-title-el">Mon historique</h3>
+              <p style="font-size:13px;color:var(--text-secondary);margin-top:3px" id="history-desc-el">Vos déclarations et consultations passées</p>
+            </div>
+            <div style="display:flex;gap:8px;align-items:center">
+              <button class="btn-secondary" onclick="refreshHistory()" style="padding:6px 12px;font-size:13px">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                <span id="history-refresh-el">Rafraîchir</span>
+              </button>
+              <button onclick="toggleHistory()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:20px;line-height:1">✕</button>
+            </div>
+          </div>
+          <div class="search-bar-container" style="margin-bottom:12px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="search-history" class="search-input" placeholder="Rechercher par nom de titre..." />
+          </div>
+          <div id="history-loading" class="loading-state">
+            <div class="spinner"></div>
+            <p id="history-loading-el">Chargement de l'historique...</p>
+          </div>
+          <div id="history-empty" class="empty-state hidden">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <p id="history-empty-el">Aucune déclaration pour l'instant</p>
+          </div>
+          <div id="history-table-container" class="hidden">
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th id="col-h-titre-el">Titre</th>
+                    <th id="col-h-type-el">Type</th>
+                    <th id="col-h-qty-el">Quantité / Statut</th>
+                    <th id="col-h-price-el">Prix</th>
+                    <th id="col-h-date-tx-el">Date transaction</th>
+                    <th id="col-h-date-decl-el">Date</th>
+                    <th id="col-h-pdf-el">Attestation</th>
+                  </tr>
+                </thead>
+                <tbody id="history-tbody"></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -342,49 +391,6 @@
       </div>
     </section>
 
-    <!-- ===== ONGLET 3 : HISTORIQUE ===== -->
-    <section id="tab-history" class="tab-content">
-      <div class="section-header">
-        <div>
-          <h2 class="section-title" id="history-title-el">Mon historique</h2>
-          <p class="section-desc" id="history-desc-el">Vos déclarations et consultations passées</p>
-        </div>
-        <button class="btn-primary" onclick="refreshHistory()">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-          <span id="history-refresh-el">Rafraîchir</span>
-        </button>
-      </div>
-      <div class="search-bar-container">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input type="text" id="search-history" class="search-input" placeholder="Rechercher par nom de titre..." />
-      </div>
-      <div id="history-loading" class="loading-state">
-        <div class="spinner"></div>
-        <p id="history-loading-el">Chargement de l'historique...</p>
-      </div>
-      <div id="history-empty" class="empty-state hidden">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <p id="history-empty-el">Aucune déclaration pour l'instant</p>
-      </div>
-      <div id="history-table-container" class="hidden">
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th id="col-h-titre-el">Titre</th>
-                <th id="col-h-type-el">Type</th>
-                <th id="col-h-qty-el">Quantité / Statut</th>
-                <th id="col-h-price-el">Prix</th>
-                <th id="col-h-date-tx-el">Date transaction</th>
-                <th id="col-h-date-decl-el">Date</th>
-                <th id="col-h-pdf-el">Attestation</th>
-              </tr>
-            </thead>
-            <tbody id="history-tbody"></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
 
   </main>
 </div>
