@@ -420,6 +420,7 @@ async function loadRequests() {
         deadline: f.Deadline    || '',
         sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
         responsable   : f.ResponsableCPL || '',
+        followers     : f.Followers || '',
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
@@ -799,6 +800,15 @@ function goNew() {
             <label class="form-label">Objet * <span style="color:var(--text-secondary);font-weight:400">— 150 car. max</span></label>
             <input type="text" class="form-input" id="f-objet" placeholder="Titre court et descriptif..." maxlength="150">
           </div>
+          <div class="form-group full-width" style="position:relative">
+            <label class="form-label">Personnes en copie <span style="font-weight:400;color:var(--text-secondary)">(optionnel)</span></label>
+            <div id="followers-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+            <input type="text" class="form-input" id="f-followers-input"
+              placeholder="Tapez un nom pour rechercher..."
+              autocomplete="off" oninput="searchFollowers(this.value)">
+            <div id="followers-suggestions" style="display:none;position:absolute;background:white;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:200px;overflow-y:auto;width:300px"></div>
+            <input type="hidden" id="f-followers-value">
+          </div>
           <div class="form-group full-width">
             <label class="form-label">Description *</label>
             <textarea class="form-input form-textarea" id="f-desc" rows="5"
@@ -815,7 +825,7 @@ function goNew() {
               Cliquez ou déposez vos fichiers ici
               <div style="font-size:11px;margin-top:3px;color:#9CA3AF">PDF, Word, Excel, images — plusieurs fichiers acceptés</div>
             </div>
-            <input type="file" id="f-files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg" style="display:none" onchange="updateFileList()">
+            <input type="file" id="f-files" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.eml,.msg" style="display:none" onchange="updateFileList()">
             <div id="file-list" style="margin-top:6px"></div>
           </div>
         </div>
@@ -939,6 +949,68 @@ async function uploadFromDetail() {
   await loadFilesForDetail(ref);
 }
 
+let followersSelected = [];
+
+async function searchFollowers(query) {
+  if (query.length < 2) {
+    document.getElementById('followers-suggestions').style.display = 'none';
+    return;
+  }
+  try {
+    const token = await getToken(GRAPH_SCOPES_LOGIN);
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users?$search="displayName:${query}"&$select=displayName,mail,userPrincipalName&$top=8`,
+      { headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: 'eventual' } }
+    );
+    const data = await res.json();
+    const box = document.getElementById('followers-suggestions');
+    if (!data.value?.length) { box.style.display = 'none'; return; }
+    box.innerHTML = data.value
+      .filter(u => u.mail || u.userPrincipalName)
+      .map(u => {
+        const email = u.mail || u.userPrincipalName;
+        return `<div onclick="addFollower('${u.displayName.replace(/'/g,"\\'")}','${email}')"
+          style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+          onmouseover="this.style.background='#F4F5F8'"
+          onmouseout="this.style.background='white'">
+          <div style="font-weight:500">${u.displayName}</div>
+          <div style="font-size:11px;color:var(--text-secondary)">${email}</div>
+        </div>`;
+      }).join('');
+    box.style.display = 'block';
+  } catch(e) { console.warn('Recherche followers:', e); }
+}
+
+function addFollower(name, email) {
+  if (followersSelected.find(f => f.email === email)) return;
+  followersSelected.push({ name, email });
+  renderFollowerTags();
+  document.getElementById('f-followers-input').value = '';
+  document.getElementById('followers-suggestions').style.display = 'none';
+  document.getElementById('f-followers-value').value = followersSelected.map(f => f.email).join(',');
+}
+
+function removeFollower(email) {
+  followersSelected = followersSelected.filter(f => f.email !== email);
+  renderFollowerTags();
+  document.getElementById('f-followers-value').value = followersSelected.map(f => f.email).join(',');
+}
+
+function renderFollowerTags() {
+  document.getElementById('followers-tags').innerHTML = followersSelected.map(f => `
+    <span style="display:inline-flex;align-items:center;gap:4px;background:#EFF6FF;color:#2563EB;border:1px solid #BFDBFE;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:500">
+      ${f.name}
+      <span onclick="removeFollower('${f.email}')" style="cursor:pointer;margin-left:2px;opacity:.6;font-size:14px">×</span>
+    </span>`).join('');
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('#f-followers-input') && !e.target.closest('#followers-suggestions')) {
+    const box = document.getElementById('followers-suggestions');
+    if (box) box.style.display = 'none';
+  }
+});
+
 async function submitRequest() {
   const dept     = document.getElementById('f-dept').value;
   const type     = document.getElementById('f-type').value;
@@ -977,7 +1049,8 @@ async function submitRequest() {
         DemandeurDept            : dept,
         DateSoumission           : now.toISOString(),
         HistoriqueStatuts        : JSON.stringify([{ date: now.toISOString(), statut: 'À traiter', par: currentUser.name }]),
-        ...(deadline ? { Deadline: deadline } : {})
+        ...(deadline ? { Deadline: deadline } : {}),
+        ...(followersSelected.length ? { Followers: followersSelected.map(f => f.email).join(',') } : {})
       }
     };
     const created = await graphPost(`/sites/${spSiteId}/lists/${spListId}/items`, itemBody);
@@ -1042,6 +1115,7 @@ async function submitRequest() {
       console.warn('Mail non envoyé (permission Mail.Send en attente) :', mailErr.message);
     }
 
+    followersSelected = [];
     alert(`✅ Demande ${ref} soumise avec succès.`);
     await loadRequests();
     goList();
@@ -1109,8 +1183,6 @@ function openDetail(ref) {
           <textarea class="form-input" id="cpl-motif" rows="3"
             placeholder="Expliquez la raison du rejet..."></textarea>
         </div>
-        <textarea class="form-input internal-ta" id="cpl-note" rows="2"
-          placeholder="Note interne (visible Compliance uniquement)..."></textarea>
         <button class="btn-primary" id="cpl-apply-btn" style="width:100%;justify-content:center" onclick="changeStatus()">
           ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
           Appliquer
@@ -1162,6 +1234,7 @@ function openDetail(ref) {
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Soumis :</strong> ${selectedReq.date}</div>
             ${selectedReq.deadline ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Deadline :</strong> ${new Date(selectedReq.deadline).toLocaleDateString('fr-FR')}</div>` : ''}
             ${selectedReq.responsable ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Responsable CPL :</strong> ${selectedReq.responsable}</div>` : ''}
+            ${selectedReq.followers ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">En copie :</strong> ${selectedReq.followers}</div>` : ''}
           </div>
         </div>
 
@@ -1170,7 +1243,7 @@ function openDetail(ref) {
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Pièces jointes</div>
           <div id="files-container"><span style="font-size:12px;color:var(--text-secondary)">Chargement...</span></div>
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center">
-            <input type="file" id="detail-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg"
+            <input type="file" id="detail-file-input" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.eml,.msg"
               style="font-size:12px;flex:1;border:1px solid var(--border);border-radius:6px;padding:5px 8px">
             <button id="detail-upload-btn" class="btn-secondary" onclick="uploadFromDetail()" style="white-space:nowrap">Déposer</button>
           </div>
@@ -1179,14 +1252,14 @@ function openDetail(ref) {
         <div class="form-card">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Commentaires</div>
           <div id="comments-container"><span style="font-size:12px;color:var(--text-secondary)">Chargement...</span></div>
-          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
-            <textarea class="form-input form-textarea" id="comment-input" rows="2" placeholder="Ajouter un commentaire..."></textarea>
+          <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);width:100%">
+            <textarea class="form-input form-textarea" id="comment-input" rows="5" placeholder="Ajouter un commentaire..." style="min-height:120px;resize:vertical;width:100%;box-sizing:border-box"></textarea>
             <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
               <div style="flex:1;display:flex;align-items:center;gap:6px">
                 <label style="font-size:12px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px">
                   ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>')}
                   Joindre
-                  <input type="file" id="comment-file-input" style="display:none" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg" onchange="showCommentFile()">
+                  <input type="file" id="comment-file-input" style="display:none" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg,.eml,.msg" onchange="showCommentFile()">
                 </label>
                 <span id="comment-file-name" style="font-size:11.5px;color:#374151"></span>
               </div>
@@ -1313,6 +1386,7 @@ async function sendComment() {
     // Note interne stockée via préfixe [INTERNE] dans le champ Texte
 
     // Notification email
+    const followerEmails = (selectedReq.followers || '').split(',').map(e => e.trim()).filter(Boolean);
     if (!isCPL) {
       // Demandeur a commenté → notifier CPL
       try {
@@ -1330,7 +1404,8 @@ async function sendComment() {
                 <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
               </div>`
             },
-            toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
+            toRecipients: [{ emailAddress: { address: CPL_MAIL } }],
+            ...(followerEmails.length ? { ccRecipients: followerEmails.map(e => ({ emailAddress: { address: e } })) } : {})
           },
           saveToSentItems: true
         }, GRAPH_SCOPES_MAIL);
@@ -1352,7 +1427,8 @@ async function sendComment() {
                 <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
               </div>`
             },
-            toRecipients: [{ emailAddress: { address: selectedReq.email } }]
+            toRecipients: [{ emailAddress: { address: selectedReq.email } }],
+            ...(followerEmails.length ? { ccRecipients: followerEmails.map(e => ({ emailAddress: { address: e } })) } : {})
           },
           saveToSentItems: true
         }, GRAPH_SCOPES_MAIL);
@@ -1453,6 +1529,7 @@ async function changeStatus() {
       const body = bodyContent[newStatus] || '';
 
       try {
+        const followerEmails = (selectedReq.followers || '').split(',').map(e => e.trim()).filter(Boolean);
         await graphPost('/me/sendMail', {
           message: {
             subject,
@@ -1464,7 +1541,8 @@ async function changeStatus() {
                 <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
               </div>`
             },
-            toRecipients: [{ emailAddress: { address: selectedReq.email } }]
+            toRecipients: [{ emailAddress: { address: selectedReq.email } }],
+            ...(followerEmails.length ? { ccRecipients: followerEmails.map(e => ({ emailAddress: { address: e } })) } : {})
           },
           saveToSentItems: true
         }, GRAPH_SCOPES_MAIL);
