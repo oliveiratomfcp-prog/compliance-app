@@ -420,7 +420,7 @@ async function loadRequests() {
         deadline: f.Deadline    || '',
         sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
         responsable   : f.ResponsableCPL || '',
-        followers     : f.Followers || '',
+        followers     : f.Followers || f.followers || f.Follow || '',
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
@@ -1052,8 +1052,7 @@ async function submitRequest() {
         DemandeurDept            : dept,
         DateSoumission           : now.toISOString(),
         HistoriqueStatuts        : JSON.stringify([{ date: now.toISOString(), statut: 'À traiter', par: currentUser.name }]),
-        ...(deadline ? { Deadline: deadline } : {}),
-        ...(followersSelected.length ? { Followers: followersSelected.map(f => f.email).join(',') } : {})
+        ...(deadline ? { Deadline: deadline } : {})
       }
     };
     const created = await graphPost(`/sites/${spSiteId}/lists/${spListId}/items`, itemBody);
@@ -1062,6 +1061,14 @@ async function submitRequest() {
     // 2. Générer la référence CPL et mettre à jour le titre
     const ref = `CPL-${year}-${String(spItemId).padStart(4, '0')}`;
     await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { Title: ref });
+
+    // 2b. Patch séparé pour Followers (colonne parfois rejetée dans le POST initial)
+    const followersValue = followersSelected.map(f => f.email).join(',');
+    if (followersValue) {
+      try {
+        await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { Followers: followersValue });
+      } catch(e) { console.warn('Followers non enregistrés:', e.message); }
+    }
 
     // 3. Créer le dossier dans la bibliothèque CPL-Tracker
     if (spDriveId) {
