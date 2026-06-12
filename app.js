@@ -19,15 +19,6 @@ const CONFIG = {
   }
 };
 
-const msalConfig = {
-  auth: {
-    clientId: CONFIG.clientId,
-    authority: `https://login.microsoftonline.com/${CONFIG.tenantId}`,
-    redirectUri: CONFIG.redirectUri
-  },
-  cache: { cacheLocation: "sessionStorage" }
-};
-
 const msalInstance = new msal.PublicClientApplication(msalConfig);
 const graphScopes = { scopes: ["User.Read", "Sites.Read.All", "Sites.ReadWrite.All"] };
 

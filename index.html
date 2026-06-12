@@ -8,6 +8,16 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="translations.js"></script>
+<script>
+const msalConfig = {
+  auth: {
+    clientId: "56c83db2-7fc6-4826-8073-82077e91ae27",
+    authority: "https://login.microsoftonline.com/eb5288b6-5ccb-4f5d-88fb-346db1317a4f",
+    redirectUri: window.location.origin
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+</script>
 </head>
 <body>
 
