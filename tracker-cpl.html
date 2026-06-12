@@ -420,7 +420,7 @@ async function loadRequests() {
         deadline: f.Deadline    || '',
         sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
         responsable   : f.ResponsableCPL || '',
-        followers     : f.Followers || f.followers || f.Follow || '',
+        followers     : f.Copies || '',
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
@@ -1062,28 +1062,15 @@ async function submitRequest() {
     const ref = `CPL-${year}-${String(spItemId).padStart(4, '0')}`;
     await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { Title: ref });
 
-    // 2b. Patch séparé pour Followers (colonne parfois rejetée dans le POST initial)
+    // 2b. Patch séparé pour Copies (colonne parfois rejetée dans le POST initial)
     const followersValue = followersSelected.map(f => f.email).join(',');
     if (followersValue) {
       try {
-        const itemCheck = await graphGet(
-          `/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`
+        await graphPatch(
+          `/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`,
+          { Copies: followersValue }
         );
-        console.log('Champs disponibles SP:', Object.keys(itemCheck));
-        const fieldsKeys = Object.keys(itemCheck);
-        const followersKey = fieldsKeys.find(k =>
-          k.toLowerCase().includes('follow')
-        );
-        console.log('Clé Followers trouvée:', followersKey);
-        if (followersKey && followersValue) {
-          const followersPatch = {};
-          followersPatch[followersKey] = followersValue;
-          await graphPatch(
-            `/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`,
-            followersPatch
-          );
-        }
-      } catch(e) { console.warn('Followers non enregistrés:', e.message); }
+      } catch(e) { console.warn('Copies non enregistrées:', e.message); }
     }
 
     // 3. Créer le dossier dans la bibliothèque CPL-Tracker
