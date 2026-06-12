@@ -1399,7 +1399,7 @@ async function sendComment() {
                 <p>Bonjour,</p>
                 <p><strong>${currentUser.name}</strong> a ajouté un commentaire sur la demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> :</p>
                 <blockquote style="border-left:3px solid #D18F41;margin:12px 0;padding:8px 16px;background:#FFF7ED;color:#374151">${texte}</blockquote>
-                <p><a href="${window.location.origin}/tracker-cpl.html" style="color:#00143B;font-weight:600">Accéder au Tracker CPL →</a></p>
+                <p><a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html" style="color:#00143B;font-weight:600">Accéder au Tracker CPL →</a></p>
                 <hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
                 <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
               </div>`
@@ -1422,7 +1422,7 @@ async function sendComment() {
                 <p>Bonjour ${selectedReq.from},</p>
                 <p>L'équipe Compliance a répondu à votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> :</p>
                 <blockquote style="border-left:3px solid #00143B;margin:12px 0;padding:8px 16px;background:#F4F5F8;color:#374151">${texte}</blockquote>
-                <p><a href="${window.location.origin}/tracker-cpl.html" style="color:#00143B;font-weight:600">Consulter ma demande →</a></p>
+                <p><a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html" style="color:#00143B;font-weight:600">Consulter ma demande →</a></p>
                 <hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
                 <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
               </div>`
@@ -1514,11 +1514,11 @@ async function changeStatus() {
         "En attente d'informations": `
           <p>Bonjour ${selectedReq.from},</p>
           <p>⚠️ L'équipe Compliance a besoin d'un complément d'information pour traiter votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em>.</p>
-          <p>Merci de revenir sur le <a href="${window.location.href}">Tracker CPL</a> pour apporter les informations complémentaires.</p>`,
+          <p>Merci de revenir sur le <a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html">Tracker CPL</a> pour apporter les informations complémentaires.</p>`,
         "Traité": `
           <p>Bonjour ${selectedReq.from},</p>
           <p>✅ Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été résolue par l'équipe Compliance.</p>
-          <p>Connectez-vous au <a href="${window.location.href}">Tracker CPL</a> pour consulter la réponse.</p>`,
+          <p>Connectez-vous au <a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html">Tracker CPL</a> pour consulter la réponse.</p>`,
         "Rejeté": `
           <p>Bonjour ${selectedReq.from},</p>
           <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été rejetée par l'équipe Compliance.</p>
