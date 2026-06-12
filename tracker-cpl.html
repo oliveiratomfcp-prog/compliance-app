@@ -488,7 +488,13 @@ function svgIcon(path, extras) {
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
 function renderList() {
-  const all      = isCPL ? requests : requests.filter(r => r.email === currentUser.email);
+  const all      = isCPL ? requests : requests.filter(r =>
+    r.email === currentUser.email ||
+    (r.followers || '').toLowerCase()
+      .split(',')
+      .map(e => e.trim())
+      .includes(currentUser.email.toLowerCase())
+  );
   const filtered = statusFilter === 'all' ? all : all.filter(r => r.statut === statusFilter);
   const open     = all.filter(r => ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
   const awaiting = all.filter(r => r.statut === "En attente d'informations").length;
