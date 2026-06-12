@@ -1066,7 +1066,23 @@ async function submitRequest() {
     const followersValue = followersSelected.map(f => f.email).join(',');
     if (followersValue) {
       try {
-        await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { Followers: followersValue });
+        const itemCheck = await graphGet(
+          `/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`
+        );
+        console.log('Champs disponibles SP:', Object.keys(itemCheck));
+        const fieldsKeys = Object.keys(itemCheck);
+        const followersKey = fieldsKeys.find(k =>
+          k.toLowerCase().includes('follow')
+        );
+        console.log('Clé Followers trouvée:', followersKey);
+        if (followersKey && followersValue) {
+          const followersPatch = {};
+          followersPatch[followersKey] = followersValue;
+          await graphPatch(
+            `/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`,
+            followersPatch
+          );
+        }
       } catch(e) { console.warn('Followers non enregistrés:', e.message); }
     }
 
