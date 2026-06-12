@@ -1126,7 +1126,12 @@ async function submitRequest() {
         message: {
           subject: `[Tracker CPL] Nouvelle demande ${selPrio === 'Critique' ? '🔴' : selPrio === 'Élevé' ? '🟡' : ''} — ${objet} (${ref})`,
           body: { contentType: 'HTML', content: mailBody },
-          toRecipients: [{ emailAddress: { address: CPL_MAIL } }]
+          toRecipients: [{ emailAddress: { address: CPL_MAIL } }],
+          ccRecipients: (document.getElementById('f-followers-value')?.value || '')
+            .split(',')
+            .map(e => e.trim())
+            .filter(Boolean)
+            .map(e => ({ emailAddress: { address: e } }))
         },
         saveToSentItems: true
       }, GRAPH_SCOPES_MAIL);
