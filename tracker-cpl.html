@@ -929,7 +929,10 @@ async function loadFilesForDetail(ref) {
               <div style="font-size:10.5px;color:var(--text-secondary)">${(f.size/1024).toFixed(0)} Ko · ${uploader} · ${uploadDate}</div>
             </div>
           </div>
-          <a href="${f.webUrl}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Ouvrir</a>
+          ${/\.(msg|eml)$/i.test(f.name)
+            ? `<a href="${f.webUrl}?download=1" download class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Télécharger</a>`
+            : `<a href="${f.webUrl}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Ouvrir</a>`
+          }
         </div>`;
       }).join('');
     }
@@ -1346,14 +1349,22 @@ async function loadComments(ref) {
       return;
     }
     container.innerHTML = all.map(c => {
-      // Transformer le lien markdown 📎 [nom](url) en bouton Ouvrir
+      // Transformer le lien markdown 📎 [nom](url) en bouton Ouvrir/Télécharger
       const texteRendu = c.texte.replace(
         /📎 \[([^\]]+)\]\(([^)]+)\)/g,
-        (_, nom, url) => `<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:4px 10px;background:#F4F5F8;border:1px solid var(--border);border-radius:6px;font-size:11.5px">
+        (_, nom, url) => {
+          const isEmailFile = /\.(msg|eml)$/i.test(nom);
+          const href = isEmailFile ? url + '?download=1' : url;
+          const linkAttrs = isEmailFile
+            ? `href="${href}" download style="color:var(--navy);font-weight:600;text-decoration:none;margin-left:4px"`
+            : `href="${href}" target="_blank" style="color:var(--navy);font-weight:600;text-decoration:none;margin-left:4px"`;
+          const label = isEmailFile ? 'Télécharger →' : 'Ouvrir →';
+          return `<span style="display:inline-flex;align-items:center;gap:6px;margin-top:4px;padding:4px 10px;background:#F4F5F8;border:1px solid var(--border);border-radius:6px;font-size:11.5px">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <span style="color:#374151;font-weight:500">${nom}</span>
-          <a href="${url}" target="_blank" style="color:var(--navy);font-weight:600;text-decoration:none;margin-left:4px">Ouvrir →</a>
-        </span>`
+          <a ${linkAttrs}>${label}</a>
+        </span>`;
+        }
       );
       return `
       <div class="comment ${c.interne ? 'comment-internal' : 'comment-normal'}" style="margin-bottom:8px">
