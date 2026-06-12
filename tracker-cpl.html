@@ -338,7 +338,7 @@ async function graphPost(path, body, scopes) {
     body: JSON.stringify(body)
   });
   if (!res.ok) { const e = await res.text(); throw new Error(`Graph POST ${path} → ${res.status}: ${e}`); }
-  return res.status === 204 ? null : res.json();
+  return (res.status === 204 || res.status === 202) ? null : res.json();
 }
 
 async function graphPatch(path, body) {
@@ -349,7 +349,7 @@ async function graphPatch(path, body) {
     body: JSON.stringify(body)
   });
   if (!res.ok) throw new Error(`Graph PATCH ${path} → ${res.status}`);
-  return res.status === 204 ? null : res.json();
+  return (res.status === 204 || res.status === 202) ? null : res.json();
 }
 
 async function graphPut(path, data, contentType) {
