@@ -826,7 +826,10 @@ function goNew() {
           </div>
           <div class="form-group full-width">
             <label class="form-label">Pièces jointes <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
-            <div class="upload-zone" onclick="document.getElementById('f-files').click()" style="cursor:pointer">
+            <div class="upload-zone" onclick="document.getElementById('f-files').click()" style="cursor:pointer"
+              ondragover="event.preventDefault();this.style.borderColor='var(--navy)';this.style.background='#F0F4FF'"
+              ondragleave="this.style.borderColor='';this.style.background=''"
+              ondrop="event.preventDefault();this.style.borderColor='';this.style.background='';addFilesToList(event.dataTransfer.files)">
               ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>')}
               Cliquez ou déposez vos fichiers ici
               <div style="font-size:11px;margin-top:3px;color:#9CA3AF">PDF, Word, Excel, images — plusieurs fichiers acceptés</div>
@@ -865,16 +868,44 @@ function setPrio(p, btn) {
 // ═══════════════════════════════════════════════════════════
 // UPLOAD FICHIERS
 // ═══════════════════════════════════════════════════════════
+function addFilesToList(newFiles) {
+  for (const f of newFiles) {
+    if (!allSelectedFiles.find(x => x.name === f.name && x.size === f.size))
+      allSelectedFiles.push(f);
+  }
+  renderFileList();
+}
+
+function removeFile(index) {
+  allSelectedFiles.splice(index, 1);
+  renderFileList();
+}
+
+function renderFileList() {
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  if (!allSelectedFiles.length) { list.innerHTML = ''; return; }
+  list.innerHTML = allSelectedFiles.map((f, i) => {
+    const ext = f.name.split('.').pop().toLowerCase();
+    const color = ext === 'pdf' ? '#DC2626'
+      : ['xls','xlsx'].includes(ext) ? '#16A34A'
+      : ['doc','docx'].includes(ext) ? '#2563EB'
+      : '#6B7280';
+    const size = f.size >= 1024*1024
+      ? (f.size/(1024*1024)).toFixed(1)+' Mo'
+      : (f.size/1024).toFixed(0)+' Ko';
+    return `<div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;padding:3px 0">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span style="flex:1">${f.name}</span>
+      <span style="color:#9CA3AF">${size}</span>
+      <button onclick="removeFile(${i})" style="background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:16px;line-height:1;padding:0 2px" title="Retirer">×</button>
+    </div>`;
+  }).join('');
+}
+
 function updateFileList() {
-  const files = document.getElementById('f-files').files;
-  const list  = document.getElementById('file-list');
-  if (!files.length) { list.innerHTML = ''; return; }
-  list.innerHTML = Array.from(files).map(f => `
-    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;padding:3px 0">
-      ${svgIcon('<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>')}
-      <span>${f.name}</span>
-      <span style="color:#9CA3AF">(${(f.size/1024).toFixed(0)} Ko)</span>
-    </div>`).join('');
+  const input = document.getElementById('f-files');
+  if (input?.files.length) addFilesToList(input.files);
 }
 
 async function uploadFile(ref, file) {
@@ -958,7 +989,8 @@ async function uploadFromDetail() {
   await loadFilesForDetail(ref);
 }
 
-let followersSelected = [];
+let followersSelected  = [];
+let allSelectedFiles   = [];
 
 async function searchFollowers(query) {
   if (query.length < 2) {
@@ -1094,15 +1126,14 @@ async function submitRequest() {
     }
 
     // 4. Upload des pièces jointes
-    const fileInput = document.getElementById('f-files');
-    if (fileInput?.files.length && spDriveId) {
-      btn.textContent = `Upload des fichiers (0/${fileInput.files.length})...`;
+    if (allSelectedFiles.length && spDriveId) {
+      btn.textContent = `Upload des fichiers (0/${allSelectedFiles.length})...`;
       let i = 0;
-      for (const file of fileInput.files) {
+      for (const file of allSelectedFiles) {
         try {
           await uploadFile(ref, file);
           i++;
-          btn.textContent = `Upload des fichiers (${i}/${fileInput.files.length})...`;
+          btn.textContent = `Upload des fichiers (${i}/${allSelectedFiles.length})...`;
         } catch(e) { console.warn(`Erreur upload ${file.name}:`, e); }
       }
     }
@@ -1143,6 +1174,7 @@ async function submitRequest() {
     }
 
     followersSelected = [];
+    allSelectedFiles  = [];
     alert(`✅ Demande ${ref} soumise avec succès.`);
     await loadRequests();
     goList();
