@@ -420,7 +420,7 @@ async function loadRequests() {
         deadline: f.Deadline    || '',
         sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
         responsable   : f.ResponsableCPL || '',
-        followers     : f.Copies || '',
+        followers     : f.CCEmails || '',
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
@@ -1068,15 +1068,15 @@ async function submitRequest() {
     const ref = `CPL-${year}-${String(spItemId).padStart(4, '0')}`;
     await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { Title: ref });
 
-    // 2b. Patch séparé pour Copies (colonne parfois rejetée dans le POST initial)
+    // 2b. Patch séparé pour CCEmails (colonne parfois rejetée dans le POST initial)
     const followersValue = followersSelected.map(f => f.email).join(',');
     if (followersValue) {
       try {
         await graphPatch(
           `/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`,
-          { Copies: followersValue }
+          { CCEmails: followersValue }
         );
-      } catch(e) { console.warn('Copies non enregistrées:', e.message); }
+      } catch(e) {}
     }
 
     // 3. Créer le dossier dans la bibliothèque CPL-Tracker
