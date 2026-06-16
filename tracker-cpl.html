@@ -96,6 +96,7 @@
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
   .charts-row{grid-template-columns:1fr}
 }
+[contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:#9CA3AF;pointer-events:none}
 </style>
 </head>
 <body>
@@ -824,8 +825,15 @@ function goNew() {
           </div>
           <div class="form-group full-width">
             <label class="form-label">Description *</label>
-            <textarea class="form-input form-textarea" id="f-desc" rows="5"
-              placeholder="Décrivez votre demande en détail (contexte, enjeux, documents disponibles)..."></textarea>
+            <div style="border:1px solid #D9DCE3;border-radius:6px;overflow:hidden">
+              <div style="background:#F4F5F8;border-bottom:1px solid #D9DCE3;padding:4px 8px;display:flex;gap:4px">
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('bold')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px"><b>G</b></button>
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('italic')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px"><i>I</i></button>
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('underline')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px"><u>S</u></button>
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px">•</button>
+              </div>
+              <div id="f-desc-editor" contenteditable="true" data-placeholder="Décrivez votre demande en détail (contexte, enjeux, documents disponibles)..." style="padding:8px 12px;min-height:120px;font-size:13px;color:#111827;font-family:inherit;outline:none;line-height:1.6;width:100%;box-sizing:border-box"></div>
+            </div>
           </div>
           <div class="form-group">
             <label class="form-label" id="deadline-label">Deadline souhaitée <span style="color:var(--text-secondary);font-weight:400">(optionnel)</span></label>
@@ -1066,10 +1074,11 @@ async function submitRequest() {
   const dept     = document.getElementById('f-dept').value;
   const type     = document.getElementById('f-type').value;
   const objet    = document.getElementById('f-objet').value.trim();
-  const desc     = document.getElementById('f-desc').value.trim();
+  const desc     = document.getElementById('f-desc-editor')?.innerHTML || '';
+  const descText = desc.replace(/<[^>]*>/g, '').trim();
   const deadline = document.getElementById('f-deadline').value;
 
-  if (!dept || !type || !objet || !desc) {
+  if (!dept || !type || !objet || !descText) {
     alert('Veuillez remplir tous les champs obligatoires (*)');
     return;
   }
@@ -1338,7 +1347,15 @@ function openDetail(ref) {
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Commentaires</div>
           <div id="comments-container"><span style="font-size:12px;color:var(--text-secondary)">Chargement...</span></div>
           <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);width:100%">
-            <textarea class="form-input form-textarea" id="comment-input" rows="5" placeholder="Ajouter un commentaire..." style="min-height:120px;resize:vertical;width:100%;box-sizing:border-box"></textarea>
+            <div style="border:1px solid #D9DCE3;border-radius:6px;overflow:hidden">
+              <div style="background:#F4F5F8;border-bottom:1px solid #D9DCE3;padding:4px 8px;display:flex;gap:4px">
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('bold')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px"><b>G</b></button>
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('italic')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px"><i>I</i></button>
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('underline')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px"><u>S</u></button>
+                <button type="button" onmousedown="event.preventDefault();document.execCommand('insertUnorderedList')" onmouseover="this.style.background='#E5E7EB'" onmouseout="this.style.background='white'" style="padding:3px 8px;border:1px solid #D9DCE3;border-radius:4px;background:white;cursor:pointer;font-size:12px">•</button>
+              </div>
+              <div id="comment-editor" contenteditable="true" data-placeholder="Ajouter un commentaire..." style="padding:8px 12px;min-height:120px;font-size:13px;color:#111827;font-family:inherit;outline:none;line-height:1.6;width:100%;box-sizing:border-box"></div>
+            </div>
             <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
               <div style="flex:1;display:flex;align-items:center;gap:6px">
                 <label style="font-size:12px;color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;gap:4px">
@@ -1408,7 +1425,7 @@ async function loadComments(ref) {
     }
     container.innerHTML = all.map(c => {
       // Transformer le lien markdown 📎 [nom](url) en bouton Ouvrir/Télécharger
-      const texteRendu = c.texte.replace(
+      const texteRendu = formatDescription(c.texte).replace(
         /📎 \[([^\]]+)\]\(([^)]+)\)/g,
         (_, nom, url) => {
           const isEmailFile = /\.(msg|eml)$/i.test(nom);
@@ -1448,7 +1465,7 @@ function showCommentFile() {
 }
 
 async function sendComment() {
-  const texte   = document.getElementById('comment-input')?.value.trim();
+  const texte   = document.getElementById('comment-editor')?.innerHTML.replace(/<[^>]*>/g,'').trim() ? document.getElementById('comment-editor').innerHTML : '';
   const interne = document.getElementById('comment-interne')?.checked || false;
   if (!texte) { alert('Veuillez saisir un commentaire.'); return; }
   if (!spCommListId) { alert('Liste commentaires non configurée.'); return; }
@@ -1528,7 +1545,7 @@ async function sendComment() {
       } catch(mailErr) { console.warn('Notification demandeur non envoyée:', mailErr.message); }
     }
 
-    document.getElementById('comment-input').value = '';
+    document.getElementById('comment-editor').innerHTML = '';
     const cb = document.getElementById('comment-interne');
     if (cb) cb.checked = false;
     const fi = document.getElementById('comment-file-input');
