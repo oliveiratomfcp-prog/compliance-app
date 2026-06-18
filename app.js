@@ -135,6 +135,10 @@ async function loadRestrictedList() {
       getAllListItems(siteId, CONFIG.sharepoint.listInfoPriv)
     ]);
 
+    if (ndaRaw && ndaRaw.length > 0) {
+      console.log('CHAMPS SP NDA:', JSON.stringify(ndaRaw[0].fields, null, 2));
+    }
+
     const ndaItems = (ndaRaw || []).map(item => {
       const f = item.fields || {};
       return {
