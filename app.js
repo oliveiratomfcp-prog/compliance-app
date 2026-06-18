@@ -133,20 +133,38 @@ async function loadRestrictedList() {
   hideElement("restricted-error");
 
   try {
+    // Résolution des IDs utilisateurs SharePoint
+    let userMap = {};
+    try {
+      const userListData = await callGraphAPI(
+        `/sites/${siteId}/lists('User Information List')/items` +
+        `?$expand=fields($select=Title,EMail,Id)&$top=500`
+      );
+      (userListData.value || []).forEach(item => {
+        if (item.fields?.Id && item.fields?.Title) {
+          userMap[String(item.fields.Id)] = item.fields.Title;
+        }
+      });
+    } catch (e) {
+      console.warn("User Information List inaccessible:", e.message);
+    }
+
     const [ndaRaw, infoPrivRaw] = await Promise.all([
-      getAllListItems(siteId, CONFIG.sharepoint.listNDA, "Nomdusgnataire"),
+      getAllListItems(siteId, CONFIG.sharepoint.listNDA),
       getAllListItems(siteId, CONFIG.sharepoint.listInfoPriv)
     ]);
 
     const ndaItems = (ndaRaw || []).map(item => {
       const f = item.fields || {};
+      const sigId = String(f['NomdusignataireLookupId'] || '');
+      const sigName = sigId && userMap[sigId] ? userMap[sigId] : '—';
       return {
         nom: f.Title || "—",
         isin: f.ISIN || f.CodeISIN || "—",
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: "—",
-        signataire: resolvePersonField(f['Nomdusgnataire']) || f['NomdusignataireLookupId'] || "—",
+        signataire: sigName,
         type: "NDA",
         source: "NDA List"
       };
