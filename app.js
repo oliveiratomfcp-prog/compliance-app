@@ -136,6 +136,7 @@ async function loadRestrictedList() {
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: "—",
+        signataire: f.Signataire || f.NomSignataire || f.SignataireName || f.Signatory || "—",
         type: "NDA",
         source: "NDA List"
       };
@@ -149,6 +150,7 @@ async function loadRestrictedList() {
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: f.Equipe || "—",
+        signataire: f.Signataire || f.NomSignataire || f.SignataireName || f.Signatory || "—",
         type: "Information privil\u00e9gi\u00e9e",
         source: "Info Priv"
       };
@@ -173,7 +175,7 @@ function renderRestrictedTable(items) {
   tbody.innerHTML = "";
 
   if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
     return;
   }
 
@@ -186,6 +188,7 @@ function renderRestrictedTable(items) {
       <td style="font-family:monospace;font-size:13px">${item.isin}</td>
       <td><span class="badge ${badgeClass}">${item.type}</span></td>
       <td>${item.equipe && item.equipe !== "\u2014" ? `<span class="badge badge-active">${item.equipe}</span>` : "\u2014"}</td>
+      <td>${item.signataire !== "\u2014" ? item.signataire : "\u2014"}</td>
       <td>${formatDate(item.dateDebut)}</td>
       <td>${formatDate(item.dateFin)}</td>`;
     fragment.appendChild(tr);
@@ -203,7 +206,7 @@ function sortTable(col) {
     currentSort.dir = 1;
   }
 
-  ["nom", "type", "dateDebut", "dateFin"].forEach(c => {
+  ["nom", "isin", "type", "equipe", "signataire", "dateDebut", "dateFin"].forEach(c => {
     const el = document.getElementById(`sort-${c}`);
     const th = el ? el.parentElement : null;
     if (el) el.textContent = "\u2195";
@@ -243,7 +246,7 @@ document.getElementById("search-restricted").addEventListener("input", function 
   const query = this.value.toLowerCase().trim();
   searchTimeout = setTimeout(() => {
     currentSort = { col: null, dir: 1 };
-    ["nom", "type", "dateDebut", "dateFin"].forEach(c => {
+    ["nom", "isin", "type", "equipe", "signataire", "dateDebut", "dateFin"].forEach(c => {
       const el = document.getElementById(`sort-${c}`);
       if (el) { el.textContent = "\u2195"; el.parentElement.classList.remove("sort-asc", "sort-desc"); }
     });

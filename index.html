@@ -202,9 +202,10 @@ const msalConfig = {
             <thead>
               <tr>
                 <th class="sortable" onclick="sortTable('nom')"><span id="col-company-el">Société / Titre</span> <span id="sort-nom">↕</span></th>
-                <th><span id="col-isin-el">Code ISIN</span></th>
+                <th class="sortable" onclick="sortTable('isin')"><span id="col-isin-el">Code ISIN</span> <span id="sort-isin">↕</span></th>
                 <th class="sortable" onclick="sortTable('type')"><span id="col-type-el">Type de restriction</span> <span id="sort-type">↕</span></th>
-                <th><span id="col-team-el">Équipe</span></th>
+                <th class="sortable" onclick="sortTable('equipe')"><span id="col-team-el">Équipe</span> <span id="sort-equipe">↕</span></th>
+                <th class="sortable" onclick="sortTable('signataire')">Nom du signataire <span id="sort-signataire">↕</span></th>
                 <th class="sortable" onclick="sortTable('dateDebut')"><span id="col-start-el">Date de début</span> <span id="sort-dateDebut">↕</span></th>
                 <th class="sortable" onclick="sortTable('dateFin')"><span id="col-end-el">Date de fin</span> <span id="sort-dateFin">↕</span></th>
               </tr>
