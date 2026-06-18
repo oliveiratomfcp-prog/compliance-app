@@ -98,9 +98,12 @@ document.querySelectorAll(".nav-tab").forEach(tab => {
 });
 
 // Charge tous les items d'une liste avec pagination
-async function getAllListItems(siteId, listName) {
+async function getAllListItems(siteId, listName, fieldsExpand) {
   let items = [];
-  let url = `/sites/${siteId}/lists/${encodeURIComponent(listName)}/items?expand=fields&$top=500`;
+  const expandParam = fieldsExpand
+    ? `fields($expand=${fieldsExpand})`
+    : "fields";
+  let url = `/sites/${siteId}/lists/${encodeURIComponent(listName)}/items?$expand=${expandParam}&$top=500`;
   while (url) {
     const data = await callGraphAPI(url);
     items = items.concat(data.value || []);
@@ -131,13 +134,9 @@ async function loadRestrictedList() {
 
   try {
     const [ndaRaw, infoPrivRaw] = await Promise.all([
-      getAllListItems(siteId, CONFIG.sharepoint.listNDA),
+      getAllListItems(siteId, CONFIG.sharepoint.listNDA, "Nomdusgnataire"),
       getAllListItems(siteId, CONFIG.sharepoint.listInfoPriv)
     ]);
-
-    if (ndaRaw && ndaRaw.length > 0) {
-      console.log('CHAMPS SP NDA:', JSON.stringify(ndaRaw[0].fields, null, 2));
-    }
 
     const ndaItems = (ndaRaw || []).map(item => {
       const f = item.fields || {};
@@ -147,7 +146,7 @@ async function loadRestrictedList() {
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: "—",
-        signataire: resolvePersonField(f['Nom_x0020_du_x0020_signataire']),
+        signataire: resolvePersonField(f['Nomdusgnataire']) || f['NomdusignataireLookupId'] || "—",
         type: "NDA",
         source: "NDA List"
       };
@@ -161,7 +160,7 @@ async function loadRestrictedList() {
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: f.Equipe || "—",
-        signataire: resolvePersonField(f['Nom_x0020_du_x0020_signataire']),
+        signataire: "—",
         type: "Information privil\u00e9gi\u00e9e",
         source: "Info Priv"
       };
