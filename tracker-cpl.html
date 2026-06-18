@@ -1145,7 +1145,7 @@ async function updateFollowers() {
   try {
     await graphPatch(
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
-      { Copies: newVal }
+      { CCEmails: newVal }
     );
     selectedReq.followers = newVal;
     const msg = document.getElementById('detail-followers-msg');
