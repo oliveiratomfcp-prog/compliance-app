@@ -117,6 +117,13 @@ function isExpired(dateFin) {
   return new Date(dateFin) < new Date();
 }
 
+function resolvePersonField(val) {
+  if (!val) return "—";
+  if (typeof val === "object") return val.LookupValue || val.displayName || val.title || "—";
+  if (typeof val === "string" && val.trim()) return val.trim();
+  return "—";
+}
+
 async function loadRestrictedList() {
   showElement("restricted-loading");
   hideElement("restricted-table-container");
@@ -136,7 +143,7 @@ async function loadRestrictedList() {
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: "—",
-        signataire: f.Signataire || f.NomSignataire || f.SignataireName || f.Signatory || "—",
+        signataire: resolvePersonField(f['Nom_x0020_du_x0020_signataire']),
         type: "NDA",
         source: "NDA List"
       };
@@ -150,7 +157,7 @@ async function loadRestrictedList() {
         dateDebut: f.Dateded_x00e9_but || "—",
         dateFin: f.Datedefin || "—",
         equipe: f.Equipe || "—",
-        signataire: f.Signataire || f.NomSignataire || f.SignataireName || f.Signatory || "—",
+        signataire: resolvePersonField(f['Nom_x0020_du_x0020_signataire']),
         type: "Information privil\u00e9gi\u00e9e",
         source: "Info Priv"
       };
