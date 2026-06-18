@@ -478,7 +478,7 @@ function setCplTab(t) { cplTab = t; renderList(); }
 // HELPERS
 // ═══════════════════════════════════════════════════════════
 const SC = {
-  'Brouillon':'bdg-brouillon','À traiter':'bdg-soumis',
+  'À traiter':'bdg-soumis',
   "En cours d'analyse":'bdg-en-cours',"En attente d'informations":'bdg-en-attente',
   'Traité':'bdg-resolu','Clôturé':'bdg-cloture','Rejeté':'bdg-rejete'
 };
@@ -856,8 +856,7 @@ function goNew() {
         </div>
         <div class="form-actions">
           <div style="display:flex;gap:8px;width:100%">
-            <button class="btn-secondary" onclick="goList()" style="flex:1">Sauvegarder en brouillon</button>
-            <button class="btn-primary" onclick="submitRequest()" style="flex:2">
+            <button class="btn-primary" onclick="submitRequest()" style="flex:1">
               ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
               Soumettre la demande
             </button>
@@ -1069,7 +1068,93 @@ document.addEventListener('click', e => {
     const box = document.getElementById('followers-suggestions');
     if (box) box.style.display = 'none';
   }
+  if (!e.target.closest('#detail-followers-input') && !e.target.closest('#detail-followers-suggestions')) {
+    const box = document.getElementById('detail-followers-suggestions');
+    if (box) box.style.display = 'none';
+  }
 });
+
+// ── Followers vue détail ──────────────────────────────────
+let detailFollowersSelected = [];
+
+function initDetailFollowers() {
+  detailFollowersSelected = (selectedReq.followers || '')
+    .split(',').map(e => e.trim()).filter(Boolean)
+    .map(email => ({ name: email, email }));
+  renderDetailFollowerTags();
+  const hid = document.getElementById('detail-followers-value');
+  if (hid) hid.value = detailFollowersSelected.map(f => f.email).join(',');
+}
+
+async function searchDetailFollowers(query) {
+  if (query.length < 2) {
+    document.getElementById('detail-followers-suggestions').style.display = 'none';
+    return;
+  }
+  try {
+    const token = await getToken(GRAPH_SCOPES_LOGIN);
+    const res = await fetch(
+      `https://graph.microsoft.com/v1.0/users?$search="displayName:${query}"&$select=displayName,mail,userPrincipalName&$top=8`,
+      { headers: { Authorization: `Bearer ${token}`, ConsistencyLevel: 'eventual' } }
+    );
+    const data = await res.json();
+    const box = document.getElementById('detail-followers-suggestions');
+    if (!data.value?.length) { box.style.display = 'none'; return; }
+    box.innerHTML = data.value
+      .filter(u => (u.mail || u.userPrincipalName || '').toLowerCase().endsWith('@eiffel-ig.com'))
+      .map(u => {
+        const email = u.mail || u.userPrincipalName;
+        return `<div onclick="addDetailFollower('${u.displayName.replace(/'/g,"\\'")}','${email}')"
+          style="padding:8px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--border)"
+          onmouseover="this.style.background='#F4F5F8'" onmouseout="this.style.background='white'">
+          <div style="font-weight:500">${u.displayName}</div>
+          <div style="font-size:11px;color:var(--text-secondary)">${email}</div>
+        </div>`;
+      }).join('');
+    box.style.display = 'block';
+  } catch(e) { console.warn('Recherche detail followers:', e); }
+}
+
+function addDetailFollower(name, email) {
+  if (detailFollowersSelected.find(f => f.email === email)) return;
+  detailFollowersSelected.push({ name, email });
+  renderDetailFollowerTags();
+  document.getElementById('detail-followers-input').value = '';
+  document.getElementById('detail-followers-suggestions').style.display = 'none';
+  document.getElementById('detail-followers-value').value = detailFollowersSelected.map(f => f.email).join(',');
+}
+
+function removeDetailFollower(email) {
+  detailFollowersSelected = detailFollowersSelected.filter(f => f.email !== email);
+  renderDetailFollowerTags();
+  document.getElementById('detail-followers-value').value = detailFollowersSelected.map(f => f.email).join(',');
+}
+
+function renderDetailFollowerTags() {
+  const container = document.getElementById('detail-followers-tags');
+  if (!container) return;
+  container.innerHTML = detailFollowersSelected.map(f => `
+    <span style="display:inline-flex;align-items:center;gap:4px;background:#EFF6FF;color:#2563EB;border:1px solid #BFDBFE;border-radius:20px;padding:2px 10px;font-size:12px;font-weight:500">
+      ${f.name}
+      <span onclick="removeDetailFollower('${f.email}')" style="cursor:pointer;margin-left:2px;opacity:.6;font-size:14px">×</span>
+    </span>`).join('');
+}
+
+async function updateFollowers() {
+  const newVal = document.getElementById('detail-followers-value')?.value || '';
+  try {
+    await graphPatch(
+      `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+      { Copies: newVal }
+    );
+    selectedReq.followers = newVal;
+    const msg = document.getElementById('detail-followers-msg');
+    if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
+  } catch(e) {
+    console.warn('Mise à jour copies:', e);
+    alert(`Erreur : ${e.message}`);
+  }
+}
 
 async function submitRequest() {
   const dept     = document.getElementById('f-dept').value;
@@ -1329,7 +1414,21 @@ function openDetail(ref) {
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Soumis :</strong> ${selectedReq.date}</div>
             ${selectedReq.deadline ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Deadline :</strong> ${new Date(selectedReq.deadline).toLocaleDateString('fr-FR')}</div>` : ''}
             ${selectedReq.responsable ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Responsable CPL :</strong> ${selectedReq.responsable}</div>` : ''}
-            ${selectedReq.followers ? `<div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">En copie :</strong> ${selectedReq.followers}</div>` : ''}
+          </div>
+          <div style="border-top:1px solid var(--border);padding-top:10px;margin-top:10px">
+            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:8px">Personnes en copie</div>
+            <div id="detail-followers-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+            <div style="position:relative">
+              <input type="text" class="form-input" id="detail-followers-input"
+                placeholder="Ajouter une personne en copie..." style="width:100%;font-size:12px"
+                autocomplete="off" oninput="searchDetailFollowers(this.value)">
+              <div id="detail-followers-suggestions" style="display:none;position:absolute;background:white;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.1);z-index:100;max-height:200px;overflow-y:auto;width:100%"></div>
+            </div>
+            <input type="hidden" id="detail-followers-value">
+            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;justify-content:flex-end">
+              <span id="detail-followers-msg" style="font-size:11.5px;color:#15803D;display:none">Enregistré.</span>
+              <button class="btn-secondary" onclick="updateFollowers()" style="font-size:12px">Mettre à jour</button>
+            </div>
           </div>
         </div>
 
@@ -1388,6 +1487,7 @@ function openDetail(ref) {
   window.scrollTo({top:0, behavior:'smooth'});
   loadFilesForDetail(selectedReq.ref);
   loadComments(selectedReq.ref);
+  initDetailFollowers();
 }
 
 // ═══════════════════════════════════════════════════════════
