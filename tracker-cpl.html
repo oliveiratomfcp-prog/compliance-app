@@ -432,9 +432,15 @@ async function loadRequests() {
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
+        lastComment   : f.DernierCommentaire ? new Date(f.DernierCommentaire).getTime() : 0,
         comments: []
       };
-    }).sort((a, b) => b._ts - a._ts); // tri par date décroissante côté client
+    }).sort((a, b) => b._ts - a._ts);
+    // Initialiser lastSeen pour les demandes jamais ouvertes
+    requests.forEach(r => {
+      const key = `lastSeen_${r.ref}`;
+      if (!localStorage.getItem(key)) localStorage.setItem(key, Date.now().toString());
+    });
     setListLoading(false);
     renderList();
   } catch(e) {
@@ -546,8 +552,11 @@ function renderList() {
     const near = isCPL && req.sla >= 4 && req.sla <= 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
     const cplTd = isCPL ? `<td class="td-muted" style="color:#374151">${req.from}</td><td class="td-muted">${req.dept}</td>` : '';
     const cplTdR = isCPL ? `<td class="td-muted" style="white-space:nowrap">${req.responsable || '—'}</td>` : '';
+    const lastSeen = parseInt(localStorage.getItem(`lastSeen_${req.ref}`) || '0');
+    const hasNew = req.lastComment > 0 && req.lastComment > lastSeen && req.lastComment > req._ts;
+    const badge = hasNew ? `<span style="display:inline-flex;align-items:center;justify-content:center;background:#DC2626;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;margin-left:6px">!</span>` : '';
     return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">
-      <td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}</td>
+      <td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}${badge}</td>
       <td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>
       ${cplTd}
       <td>${bdg(req.prio, PC[req.prio]||'bdg-normale')}</td>
@@ -1331,6 +1340,7 @@ function formatDescription(text) {
 function openDetail(ref) {
   selectedReq = requests.find(r => r.ref === ref);
   if (!selectedReq) return;
+  localStorage.setItem(`lastSeen_${selectedReq.ref}`, Date.now().toString());
 
   // ── Timeline depuis l'historique réel SharePoint ──────────
   const STATUS_COLORS = {
@@ -1662,6 +1672,13 @@ async function sendComment() {
         }, GRAPH_SCOPES_MAIL);
       } catch(mailErr) { console.warn('Notification demandeur non envoyée:', mailErr.message); }
     }
+
+    try {
+      await graphPatch(
+        `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+        { DernierCommentaire: new Date().toISOString() }
+      );
+    } catch(e) { console.warn('DernierCommentaire non mis à jour:', e); }
 
     document.getElementById('comment-editor').innerHTML = '';
     const cb = document.getElementById('comment-interne');
