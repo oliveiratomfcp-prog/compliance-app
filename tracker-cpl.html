@@ -642,7 +642,7 @@ function renderDashboard() {
   const total   = requests.length;
 
   // Délai moyen de traitement (demandes traitées)
-  const resolvedReqs = requests.filter(r => r.statut === 'Traité');
+  const resolvedReqs = requests.filter(r => r.statut === 'Traité' || r.statut === 'Clôturé');
 
   const avgDays = (() => {
     if (!resolvedReqs.length) return '—';
@@ -652,7 +652,7 @@ function renderDashboard() {
       if (!start) return;
       let end = 0;
       if (r.historique && r.historique.length) {
-        const traitéEntry = [...r.historique].reverse().find(h => h.statut === 'Traité');
+        const traitéEntry = [...r.historique].reverse().find(h => h.statut === 'Traité' || h.statut === 'Clôturé');
         if (traitéEntry?.date) end = new Date(traitéEntry.date).getTime();
       }
       if (!end) end = r._lastModified || 0;
