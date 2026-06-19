@@ -641,11 +641,28 @@ function renderDashboard() {
   const rejected= requests.filter(r => r.statut === 'Rejeté').length;
   const total   = requests.length;
 
-  // Délai moyen de traitement (demandes résolues/clôturées)
-  const resolvedReqs = requests.filter(r => r.statut === 'Traité' && r._ts && r._lastModified);
-  const avgDays = resolvedReqs.length
-    ? (resolvedReqs.reduce((sum,r) => sum + (r._lastModified - r._ts), 0) / resolvedReqs.length / (1000*60*60*24)).toFixed(1)
-    : '—';
+  // Délai moyen de traitement (demandes traitées)
+  const resolvedReqs = requests.filter(r => r.statut === 'Traité');
+
+  const avgDays = (() => {
+    if (!resolvedReqs.length) return '—';
+    let total = 0, count = 0;
+    resolvedReqs.forEach(r => {
+      const start = r._ts || 0;
+      if (!start) return;
+      let end = 0;
+      if (r.historique && r.historique.length) {
+        const traitéEntry = [...r.historique].reverse().find(h => h.statut === 'Traité');
+        if (traitéEntry?.date) end = new Date(traitéEntry.date).getTime();
+      }
+      if (!end) end = r._lastModified || 0;
+      if (!end || end <= start) return;
+      total += (end - start);
+      count++;
+    });
+    if (!count) return '—';
+    return (total / count / (1000*60*60*24)).toFixed(1);
+  })();
 
   // Volume par mois (6 derniers mois)
   const now = new Date();
