@@ -1554,7 +1554,7 @@ async function loadComments(ref) {
     container.innerHTML = all.map(c => {
       // Transformer le lien markdown 📎 [nom](url) en bouton Ouvrir/Télécharger
       const texteRendu = formatDescription(c.texte).replace(
-        /📎 \[([^\]]+)\]\(([^)]+)\)/g,
+        /📎 \[([^\]]+)\]\((https[^"'\s]+)\)/g,
         (_, nom, url) => {
           const isEmailFile = /\.(msg|eml)$/i.test(nom);
           const href = isEmailFile ? url + '?download=1' : url;
@@ -1610,7 +1610,12 @@ async function sendComment() {
     if (commentFile && spDriveId) {
       try {
         const uploaded = await uploadFile(selectedReq.ref, commentFile);
-        fileLink = uploaded?.webUrl ? ` 📎 [${commentFile.name}](${uploaded.webUrl})` : ` 📎 ${commentFile.name}`;
+        if (uploaded?.webUrl) {
+          const safeUrl = uploaded.webUrl.replace(/\(/g, '%28').replace(/\)/g, '%29');
+          fileLink = ` 📎 [${commentFile.name}](${safeUrl})`;
+        } else {
+          fileLink = ` 📎 ${commentFile.name}`;
+        }
       } catch(e) { console.warn('Upload fichier commentaire échoué:', e); }
     }
 
