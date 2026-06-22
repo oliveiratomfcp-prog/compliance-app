@@ -1320,21 +1320,15 @@ async function submitRequest() {
 // ═══════════════════════════════════════════════════════════
 function formatDescription(text) {
   if (!text) return '';
-  const lines = text.split('\n');
-  let html = '';
-  let inList = false;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (/^[•\-\*]\s*\S/.test(trimmed)) {
-      if (!inList) { html += '<ul style="margin:8px 0;padding-left:20px">'; inList = true; }
-      html += `<li>${trimmed.replace(/^[•\-\*]\s*/, '')}</li>`;
-    } else {
-      if (inList) { html += '</ul>'; inList = false; }
-      html += (trimmed === '' ? '' : line) + '<br>';
-    }
-  }
-  if (inList) html += '</ul>';
-  return html.replace(/<br>$/, '');
+  if (text.includes('<') && text.includes('>')) return text;
+  return '<p style="margin:4px 0">' +
+    text
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/\n\n/g, '</p><p style="margin:4px 0">')
+      .replace(/\n/g, '<br>')
+      .replace(/^[•\-\*] (.+)$/gm, '<li style="margin:2px 0">$1</li>')
+      .replace(/(<li[^>]*>.*<\/li>\n?)+/g, '<ul style="margin:6px 0;padding-left:20px">$&</ul>')
+    + '</p>';
 }
 
 function openDetail(ref) {
