@@ -26,7 +26,7 @@
 .cpl-table tbody tr.sla-over:hover{background:#FEE2E2}
 .td-ref{font-family:monospace;font-size:11.5px;font-weight:600;color:var(--navy);white-space:nowrap}
 .td-objet-main{font-size:13px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
-.main-content{max-width:1400px !important}
+.main-content{max-width:1600px !important;padding-left:16px !important;padding-right:16px !important}
 .td-objet-sub{font-size:11px;color:var(--text-secondary);margin-top:1px}
 .td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
 .action-req{font-size:10px;color:#B45309;margin-top:2px}
@@ -585,10 +585,10 @@ function renderList() {
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
     <div class="cpl-filters">${filterBtns}${searchBox}</div>
-    <div class="table-wrapper">
-      <table class="data-table cpl-table" style="width:100%;table-layout:auto">
+    <div class="table-wrapper" style="overflow-x:auto;width:100%">
+      <table class="data-table cpl-table" style="width:100%;table-layout:fixed;min-width:1200px">
         <thead><tr>
-          ${th('Référence','ref','')}
+          ${th('Référence','ref','130px')}
           ${th('Objet','objet','')}
           ${cplTh}
           ${th('Priorité','prio','80px')}
