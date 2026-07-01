@@ -97,6 +97,25 @@
   .charts-row{grid-template-columns:1fr}
 }
 [contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:#9CA3AF;pointer-events:none}
+
+.toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:360px}
+.toast{background:#fff;border-radius:8px;border:1px solid var(--border);box-shadow:0 6px 20px rgba(0,0,0,.14);padding:11px 14px;font-size:13px;display:flex;align-items:center;gap:9px;color:#111827;animation:toast-in .18s ease-out}
+.toast.hide{animation:toast-out .18s ease-in forwards}
+@keyframes toast-in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toast-out{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(24px)}}
+.toast-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:#fff}
+.toast-success .toast-icon{background:#15803D}
+.toast-error .toast-icon{background:#DC2626}
+.toast-info .toast-icon{background:#2563EB}
+.toast-close{margin-left:auto;background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:15px;line-height:1;padding:0 2px;flex-shrink:0}
+
+.assigned-toggle{font-size:11.5px;font-weight:500;padding:3px 11px;border-radius:20px;cursor:pointer;background:#fff;color:var(--text-secondary);border:1px solid var(--border);font-family:inherit;display:inline-flex;align-items:center;gap:5px}
+.assigned-toggle.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.list-refresh{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:11.5px;padding:0;font-family:inherit}
+.list-refresh:hover{color:var(--navy)}
+.list-refresh svg{width:12px;height:12px;transition:transform .4s ease}
+.list-refresh.spinning svg{animation:spin .6s linear}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -176,6 +195,8 @@
 
 </div>
 
+<div id="toast-container" class="toast-container"></div>
+
 <script>
 const msalConfig = {
   auth: {
@@ -235,6 +256,8 @@ let spCommListId = null;  // liste Tracker CPL Commentaires
 let requests     = [];
 let sortCol      = '_ts';
 let sortDir      = -1;    // -1 desc, 1 asc
+let assignedOnly = false; // filtre "mes demandes assignées" (CPL)
+let lastLoadedAt = null;
 
 function sortBy(col) {
   if (sortCol === col) sortDir *= -1;
@@ -441,12 +464,15 @@ async function loadRequests() {
       const key = `lastSeen_${r.ref}`;
       if (!localStorage.getItem(key)) localStorage.setItem(key, Date.now().toString());
     });
+    lastLoadedAt = new Date();
     setListLoading(false);
     renderList();
+    return true;
   } catch(e) {
     console.error('Erreur chargement demandes:', e);
     setListLoading(false);
     showListError(e.message);
+    return false;
   }
 }
 
@@ -479,6 +505,14 @@ function showView(id) {
 function goList() { renderList(); showView('list'); window.scrollTo(0,0); }
 function setFilter(s) { statusFilter = s; renderList(); }
 function setCplTab(t) { cplTab = t; renderList(); }
+function toggleAssignedOnly() { assignedOnly = !assignedOnly; renderList(); }
+
+async function manualRefresh() {
+  const btn = document.getElementById('list-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  const ok = await loadRequests();
+  if (ok) showToast('Liste actualisée.', 'success');
+}
 
 // ═══════════════════════════════════════════════════════════
 // HELPERS
@@ -499,16 +533,45 @@ function svgIcon(path, extras) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// TOASTS
+// ═══════════════════════════════════════════════════════════
+function showToast(message, type) {
+  type = type || 'info';
+  const icons = { success: '✓', error: '✕', info: 'i' };
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span>${message}</span>
+    <button class="toast-close" aria-label="Fermer">&times;</button>`;
+  const dismiss = () => {
+    toast.classList.add('hide');
+    setTimeout(() => toast.remove(), 180);
+  };
+  toast.querySelector('.toast-close').onclick = dismiss;
+  container.appendChild(toast);
+  setTimeout(dismiss, 4500);
+}
+
+// Échap ferme le panneau de détail
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && currentView === 'detail') goList();
+});
+
+// ═══════════════════════════════════════════════════════════
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
 function renderList() {
-  const all      = isCPL ? requests : requests.filter(r =>
+  let all = isCPL ? requests : requests.filter(r =>
     r.email === currentUser.email ||
     (r.followers || '').toLowerCase()
       .split(',')
       .map(e => e.trim())
       .includes(currentUser.email.toLowerCase())
   );
+  if (isCPL && assignedOnly) all = all.filter(r => r.responsable === currentUser.name);
   const filtered = statusFilter === 'all' ? all : all.filter(r => r.statut === statusFilter);
   const open     = all.filter(r => ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
   const awaiting = all.filter(r => r.statut === "En attente d'informations").length;
@@ -579,12 +642,15 @@ function renderList() {
       Exporter CSV
     </button>` : '';
 
-  const searchBox = isCPL ? `
+  const assignedToggle = isCPL ? `
+    <button class="assigned-toggle ${assignedOnly?'on':''}" onclick="toggleAssignedOnly()">Mes demandes assignées</button>` : '';
+
+  const searchBox = `
     <input type="text" placeholder="Rechercher..." oninput="searchTable(this.value)"
-      style="margin-left:auto;padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">` : '';
+      style="margin-left:auto;padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">`;
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
-    <div class="cpl-filters">${filterBtns}${searchBox}</div>
+    <div class="cpl-filters">${filterBtns}${assignedToggle}${searchBox}</div>
     <div class="table-wrapper" style="overflow-x:auto;width:100%">
       <table class="data-table cpl-table" style="width:100%;table-layout:auto">
         <thead><tr>
@@ -611,7 +677,13 @@ function renderList() {
         <p class="section-desc">${isCPL
           ? `${requests.length} demandes au total &nbsp;·&nbsp; ${open} ouvertes &nbsp;·&nbsp; ${overSLA} hors SLA`
           : `${all.length} demande${all.length>1?'s':''} &nbsp;·&nbsp; ${awaiting} action${awaiting>1?'s':''} requise${awaiting>1?'s':''} de votre part`
-        }</p>
+        }
+          &nbsp;·&nbsp;
+          <button class="list-refresh" id="list-refresh-btn" onclick="manualRefresh()" title="Rafraîchir la liste depuis SharePoint">
+            ${svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>')}
+            Actualisé à ${lastLoadedAt ? lastLoadedAt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'}
+          </button>
+        </p>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         ${exportBtn}
@@ -824,6 +896,7 @@ function goNew() {
               <option>Conflit d'intérêts</option>
               <option>Déontologie</option>
               <option>Processus d'investissement</option>
+              <option>Franchissement de seuil</option>
             </select>
           </div>
           <div class="form-group full-width">
@@ -1178,7 +1251,7 @@ async function updateFollowers() {
     if (msg) { msg.style.display = 'inline'; setTimeout(() => { msg.style.display = 'none'; }, 2500); }
   } catch(e) {
     console.warn('Mise à jour copies:', e);
-    alert(`Erreur : ${e.message}`);
+    showToast(`Erreur : ${e.message}`, 'error');
   }
 }
 
@@ -1191,11 +1264,11 @@ async function submitRequest() {
   const deadline = document.getElementById('f-deadline').value;
 
   if (!dept || !type || !objet || !descText) {
-    alert('Veuillez remplir tous les champs obligatoires (*)');
+    showToast('Veuillez remplir tous les champs obligatoires (*)', 'error');
     return;
   }
   if (['Élevé','Critique'].includes(selPrio) && !deadline) {
-    alert('Une deadline est obligatoire pour les priorités Élevé et Critique.');
+    showToast('Une deadline est obligatoire pour les priorités Élevé et Critique.', 'error');
     return;
   }
 
@@ -1303,13 +1376,13 @@ async function submitRequest() {
 
     followersSelected = [];
     allSelectedFiles  = [];
-    alert(`✅ Demande ${ref} soumise avec succès.`);
+    showToast(`Demande ${ref} soumise avec succès.`, 'success');
     await loadRequests();
     goList();
 
   } catch(e) {
     console.error('Erreur soumission:', e);
-    alert(`Erreur : ${e.message}`);
+    showToast(`Erreur : ${e.message}`, 'error');
     btn.disabled = false;
     btn.textContent = 'Soumettre la demande';
   }
@@ -1589,8 +1662,8 @@ function showCommentFile() {
 async function sendComment() {
   const texte   = document.getElementById('comment-editor')?.innerHTML.replace(/<[^>]*>/g,'').trim() ? document.getElementById('comment-editor').innerHTML : '';
   const interne = document.getElementById('comment-interne')?.checked || false;
-  if (!texte) { alert('Veuillez saisir un commentaire.'); return; }
-  if (!spCommListId) { alert('Liste commentaires non configurée.'); return; }
+  if (!texte) { showToast('Veuillez saisir un commentaire.', 'error'); return; }
+  if (!spCommListId) { showToast('Liste commentaires non configurée.', 'error'); return; }
 
   const btn = document.getElementById('send-comment-btn');
   btn.disabled = true;
@@ -1691,7 +1764,7 @@ async function sendComment() {
     if (commentFile) await loadFilesForDetail(selectedReq.ref);
   } catch(e) {
     console.error('Erreur envoi commentaire:', e);
-    alert(`Erreur : ${e.message}`);
+    showToast(`Erreur : ${e.message}`, 'error');
   } finally {
     btn.disabled = false;
     btn.textContent = 'Envoyer';
@@ -1722,8 +1795,8 @@ async function changeStatus() {
   const newStatus = STATUS_MAP[rawVal] || rawVal;
   const motif     = document.getElementById('cpl-motif')?.value.trim();
 
-  if (!newStatus) { alert('Veuillez sélectionner un statut.'); return; }
-  if (newStatus === 'Rejeté' && !motif) { alert('Le motif de rejet est obligatoire.'); return; }
+  if (!newStatus) { showToast('Veuillez sélectionner un statut.', 'error'); return; }
+  if (newStatus === 'Rejeté' && !motif) { showToast('Le motif de rejet est obligatoire.', 'error'); return; }
 
   const btn = document.getElementById('cpl-apply-btn');
   btn.disabled = true;
@@ -1796,13 +1869,13 @@ async function changeStatus() {
       }
     }
 
-    alert(`✅ Statut mis à jour : ${newStatus}`);
+    showToast(`Statut mis à jour : ${newStatus}`, 'success');
     await loadRequests();
     openDetail(selectedReq.ref);
 
   } catch(e) {
     console.error('Erreur changement statut:', e);
-    alert(`Erreur : ${e.message}`);
+    showToast(`Erreur : ${e.message}`, 'error');
     btn.disabled = false;
     btn.textContent = 'Appliquer';
   }
@@ -1816,17 +1889,17 @@ async function reopenRequest() {
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
       { Statut: 'À traiter', HistoriqueStatuts: JSON.stringify(history) }
     );
-    alert('✅ Demande rouverte — statut repassé à Soumis.');
+    showToast('Demande rouverte, statut repassé à Soumis.', 'success');
     await loadRequests();
     openDetail(selectedReq.ref);
   } catch(e) {
-    alert(`Erreur : ${e.message}`);
+    showToast(`Erreur : ${e.message}`, 'error');
   }
 }
 
 async function assignRequest() {
   const name = document.getElementById('cpl-assign-select')?.value;
-  if (!name) { alert('Veuillez sélectionner un membre CPL.'); return; }
+  if (!name) { showToast('Veuillez sélectionner un membre CPL.', 'error'); return; }
   try {
     await graphPatch(
       `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
@@ -1862,11 +1935,11 @@ async function assignRequest() {
       console.warn('Notification attribution non envoyée :', mailErr.message);
     }
 
-    alert(`✅ Demande attribuée à ${name}.`);
+    showToast(`Demande attribuée à ${name}.`, 'success');
     await loadRequests();
     openDetail(selectedReq.ref);
   } catch(e) {
-    alert(`Erreur : ${e.message}`);
+    showToast(`Erreur : ${e.message}`, 'error');
   }
 }
 
