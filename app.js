@@ -186,10 +186,13 @@ function renderRestrictedTable(items) {
   const fragment = document.createDocumentFragment();
   items.forEach(item => {
     const badgeClass = item.source === "NDA List" ? "badge-nda" : "badge-restricted";
-    const isFutureEnd = item.dateFin && item.dateFin !== "\u2014" && new Date(item.dateFin) > new Date();
+    const dateFin = item.dateFin;
+    const type = item.type;
+    const isNDA = type?.toLowerCase().includes("nda") || type === "NDA";
+    const isFutureEnd = !isNDA && dateFin && dateFin !== "\u2014" && new Date(dateFin) > new Date();
     const dateFinCell = isFutureEnd
       ? `<span class="pill-live"><span class="live-dot"></span>En cours</span>`
-      : formatDate(item.dateFin);
+      : formatDate(dateFin);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${item.nom}</strong></td>

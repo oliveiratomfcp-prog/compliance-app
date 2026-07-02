@@ -26,7 +26,9 @@
 .cpl-table tbody tr.sla-over:hover{background:#FEE2E2}
 .td-ref{font-family:monospace;font-size:11.5px;font-weight:600;color:var(--navy);white-space:nowrap}
 .td-objet-main{font-size:13px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px}
-.page-content{max-width:1340px !important}
+.page-content{max-width:1340px !important;padding:28px 24px 40px !important}
+.table-wrapper{overflow-x:auto;width:100%}
+.cpl-table{min-width:1050px;width:100%}
 .td-objet-sub{font-size:11px;color:var(--text-secondary);margin-top:1px}
 .td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
 .action-req{font-size:10px;color:#B45309;margin-top:2px}
@@ -617,12 +619,12 @@ function renderList() {
 
   const arrow = col => sortCol === col ? (sortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
   const th = (label, col, w) =>
-    `<th onclick="sortBy('${col}')" style="cursor:pointer;white-space:nowrap;${w?'width:'+w:''}">
+    `<th onclick="sortBy('${col}')" style="cursor:pointer;white-space:nowrap;${w?(w.includes(':')?w:'width:'+w):''}">
       ${label}<span style="opacity:.4;font-size:10px">${arrow(col)}</span>
     </th>`;
 
-  const cplTh  = cplView ? `${th('Demandeur','from','')}${th('Département','dept','')}` : '';
-  const cplThR = cplView ? `${th('Responsable CPL','responsable','145px')}` : '';
+  const cplTh  = cplView ? `${th('Demandeur','from','130px')}${th('Département','dept','110px')}` : '';
+  const cplThR = cplView ? `${th('Responsable CPL','responsable','width:130px;white-space:nowrap')}` : '';
   const cols   = cplView ? 9 : 6;
 
   const rows = sortedFiltered.map(req => {
@@ -683,15 +685,15 @@ function renderList() {
     ${viewLegend}
     <div class="cpl-filters">${filterBtns}${assignedToggle}${viewToggle}${searchBox}</div>
     <div class="table-wrapper" style="overflow-x:auto;width:100%">
-      <table class="data-table cpl-table" style="width:100%;table-layout:auto">
+      <table class="data-table cpl-table" style="width:100%;min-width:1050px;table-layout:auto">
         <thead><tr>
-          ${th('Référence','ref','')}
-          ${th('Objet','objet','')}
+          ${th('Référence','ref','120px')}
+          ${th('Objet','objet','min-width:160px')}
           ${cplTh}
-          ${th('Priorité','prio','85px')}
-          ${th('Statut','statut','120px')}
-          ${th('Soumis le','date','95px')}
-          ${th('Deadline','deadline','95px')}
+          ${th('Priorité','prio','75px')}
+          ${th('Statut','statut','160px')}
+          ${th('Soumis le','date','90px')}
+          ${th('Deadline','deadline','90px')}
           ${cplThR}
         </tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
