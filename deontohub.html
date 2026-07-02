@@ -204,6 +204,8 @@
       </div>
       <div id="view-detail" class="hidden"></div>
       <div id="view-campagne" class="hidden"></div>
+      <div id="view-nouveau-collab" class="hidden"></div>
+      <div id="view-nouvelle-obligation" class="hidden"></div>
     </main>
 
   </div>
@@ -268,6 +270,10 @@ const RECURRING_CATEGORIES = [
   'Charte IA', 'Attestation Annuelle'
 ];
 const OBLIGATION_STATUSES = ['OK', 'En attente', 'En retard', 'Anomalie', 'À revoir', 'Refusé'];
+// Même liste de départements que le formulaire de nouvelle demande de tracker-cpl.html.
+const DEPARTMENTS = ['Listed Equity','Innovation','Private Equity','Private Credit','BCD','Infrastructure','Trade Credit','Venture Capital','CLO','OPS','Juridique','Finance','Back Office','Audit','RH'];
+const TYPES_CONTRAT = ['CDI','CDD','Stage','Alternance','VIE','Consultant'];
+const STATUTS_COLLAB = ['Actif','Stagiaire','Parti'];
 
 // ═══════════════════════════════════════════════════════════
 // STATE
@@ -595,7 +601,9 @@ function showToast(message, type) {
 }
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && currentView === 'detail') goRegistre();
+  if (e.key !== 'Escape') return;
+  if (currentView === 'nouvelle-obligation') openDetail(selectedCollab.spId);
+  else if (currentView === 'detail' || currentView === 'campagne' || currentView === 'nouveau-collab') goRegistre();
 });
 
 // ═══════════════════════════════════════════════════════════
@@ -606,8 +614,9 @@ function showScreen(id) {
   document.getElementById('screen-' + id).classList.add('active');
 }
 
+const VIEW_IDS = ['registre','detail','campagne','nouveau-collab','nouvelle-obligation'];
 function showView(id) {
-  ['registre','detail','campagne'].forEach(v => {
+  VIEW_IDS.forEach(v => {
     document.getElementById('view-' + v).classList.toggle('hidden', v !== id);
   });
   currentView = id;
@@ -700,6 +709,7 @@ function renderRegistre() {
       </div>
       <div style="display:flex;gap:8px;align-items:center">
         ${cplTab==='registre' ? `<button class="btn-secondary" onclick="exportCSV()">${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}Exporter CSV</button>` : ''}
+        ${cplTab==='registre' ? `<button class="btn-secondary" onclick="goNouveauCollab()">${svgIcon('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/>')}Nouveau collaborateur</button>` : ''}
         <button class="btn-primary" onclick="goCampagne()">
           ${svgIcon('<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>')}
           Nouvelle campagne
@@ -809,15 +819,6 @@ async function openDetail(spId) {
         ${bdg(status, COMPUTED_CLASS[status])}
       </div>
       <div class="timeline">${histo}</div>
-      <div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px;display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-        <input type="number" id="obl-annee-${cat.replace(/\W/g,'')}" class="form-input" placeholder="Année" style="width:80px;padding:6px 8px;font-size:12px" value="${new Date().getFullYear()}">
-        <input type="date" id="obl-date-${cat.replace(/\W/g,'')}" class="form-input" style="width:140px;padding:6px 8px;font-size:12px">
-        <select id="obl-statut-${cat.replace(/\W/g,'')}" class="form-input" style="width:130px;padding:6px 8px;font-size:12px">
-          ${OBLIGATION_STATUSES.map(s => `<option>${s}</option>`).join('')}
-        </select>
-        <input type="text" id="obl-detail-${cat.replace(/\W/g,'')}" class="form-input" placeholder="Détail (société, précision...)" style="flex:1;min-width:140px;padding:6px 8px;font-size:12px">
-        <button class="btn-secondary" style="padding:6px 12px;font-size:12px" onclick="addObligation('${cat}')">Ajouter</button>
-      </div>
     </div>`;
   }).join('');
 
@@ -849,6 +850,10 @@ async function openDetail(spId) {
       <div>
         <div class="form-card">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Actions</div>
+          <button class="btn-primary" style="width:100%;justify-content:center;margin-bottom:8px" onclick="goNouvelleObligation()">
+            ${svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>')}
+            Ajouter une obligation
+          </button>
           <button class="btn-secondary" style="width:100%;justify-content:center;margin-bottom:8px" onclick="generateAttestationPDF(selectedCollab)">
             ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}
             Générer l'attestation PDF
@@ -876,34 +881,100 @@ async function loadDetailPhoto() {
   if (slot) slot.outerHTML = `<img id="detail-avatar-slot" src="${url}" class="avatar-photo" style="width:54px;height:54px" alt="${selectedCollab.nom}">`;
 }
 
-async function addObligation(categorie) {
-  const key = categorie.replace(/\W/g,'');
-  const annee  = document.getElementById(`obl-annee-${key}`).value;
-  const date   = document.getElementById(`obl-date-${key}`).value;
-  const statut = document.getElementById(`obl-statut-${key}`).value;
-  const detail = document.getElementById(`obl-detail-${key}`).value.trim();
+// ═══════════════════════════════════════════════════════════
+// NOUVELLE OBLIGATION
+// (même patron que goNew() dans tracker-cpl.html)
+// ═══════════════════════════════════════════════════════════
+function goNouvelleObligation(preselectCategorie) {
+  document.getElementById('view-nouvelle-obligation').innerHTML = `
+    <button class="back-btn" onclick="openDetail(selectedCollab.spId)">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour à la fiche</button>
+    <div style="max-width:600px">
+      <div class="form-card">
+        <div style="margin-bottom:18px">
+          <h2 class="section-title" style="font-size:18px">Ajouter une obligation</h2>
+          <p class="section-desc">Collaborateur : ${selectedCollab.nom}</p>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label">Catégorie *</label>
+            <select id="obl-categorie" class="form-input">
+              <option value="">Sélectionner...</option>
+              ${OBLIGATION_CATEGORIES.map(c => `<option ${c===preselectCategorie?'selected':''}>${c}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Année *</label>
+            <input type="number" id="obl-annee" class="form-input" value="${new Date().getFullYear()}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date de l'événement *</label>
+            <input type="date" id="obl-date" class="form-input">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Statut *</label>
+            <select id="obl-statut" class="form-input">
+              ${OBLIGATION_STATUSES.map(s => `<option>${s}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Détail <span style="font-weight:400;color:var(--text-muted)">(société, précision...)</span></label>
+            <input type="text" id="obl-detail" class="form-input" placeholder="Ex : Gérant — SCI Dupont, session du 12/03...">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Commentaire <span style="font-weight:400;color:var(--text-muted)">(optionnel)</span></label>
+            <textarea id="obl-commentaire" class="form-input form-textarea" placeholder="Informations complémentaires..."></textarea>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="submitNouvelleObligation()" style="width:100%;justify-content:center">
+            ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
+            Enregistrer l'obligation
+          </button>
+        </div>
+      </div>
+    </div>`;
+  showView('nouvelle-obligation');
+  window.scrollTo(0,0);
+}
 
-  if (!date || !statut) { showToast('Date et statut sont obligatoires.', 'error'); return; }
+async function submitNouvelleObligation() {
+  const categorie   = document.getElementById('obl-categorie').value;
+  const annee       = document.getElementById('obl-annee').value;
+  const date        = document.getElementById('obl-date').value;
+  const statut      = document.getElementById('obl-statut').value;
+  const detail      = document.getElementById('obl-detail').value.trim();
+  const commentaire = document.getElementById('obl-commentaire').value.trim();
+
+  if (!categorie || !date || !statut) {
+    showToast('Catégorie, date et statut sont obligatoires.', 'error');
+    return;
+  }
+
+  const btn = document.querySelector('#view-nouvelle-obligation [onclick="submitNouvelleObligation()"]');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
 
   try {
-    await graphPost(`/sites/${spSiteId}/lists/${spListObligationsId}/items`, {
-      fields: {
-        Title: `${selectedCollab.nom} — ${categorie}`,
-        Collaborateur: selectedCollab.spId,
-        Categorie: categorie,
-        Annee: annee ? parseInt(annee) : new Date(date).getFullYear(),
-        DateEvenement: new Date(date).toISOString(),
-        Statut: statut,
-        Detail: detail
-      }
-    });
-    await writeAuditLog('Ajout obligation', `${selectedCollab.nom} — ${categorie}`, null, { statut, date, detail });
+    const fields = {
+      Title: `${selectedCollab.nom} — ${categorie}`,
+      Collaborateur: selectedCollab.spId,
+      Categorie: categorie,
+      Annee: annee ? parseInt(annee) : new Date(date).getFullYear(),
+      DateEvenement: new Date(date).toISOString(),
+      Statut: statut,
+      Detail: detail,
+      Commentaire: commentaire
+    };
+    await graphPost(`/sites/${spSiteId}/lists/${spListObligationsId}/items`, { fields });
+    await writeAuditLog('Ajout obligation', `${selectedCollab.nom} — ${categorie}`, null, fields);
     showToast('Obligation enregistrée.', 'success');
     await loadRegistreData();
     openDetail(selectedCollab.spId);
   } catch(e) {
     console.error(e);
     showToast(`Erreur : ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = "Enregistrer l'obligation";
   }
 }
 
@@ -1046,6 +1117,168 @@ async function launchCampaign() {
   } catch(e) {
     console.error(e);
     showToast(`Erreur lors de l'envoi : ${e.message}`, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOUVEAU COLLABORATEUR
+// (même patron que goNew() dans tracker-cpl.html / formulaire cadeau d'index.html)
+// ═══════════════════════════════════════════════════════════
+let collabFonctionsSelected = [];
+let collabStatutSel = 'Actif';
+
+function goNouveauCollab() {
+  collabFonctionsSelected = [];
+  collabStatutSel = 'Actif';
+  document.getElementById('view-nouveau-collab').innerHTML = `
+    <button class="back-btn" onclick="goRegistre()">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour au registre</button>
+    <div style="max-width:700px">
+      <div class="form-card">
+        <div style="margin-bottom:18px">
+          <h2 class="section-title" style="font-size:18px">Nouveau collaborateur</h2>
+          <p class="section-desc">Ajout direct dans le Registre déontologique</p>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label">Nom complet *</label>
+            <input type="text" id="collab-nom" class="form-input" placeholder="Prénom Nom">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Email <span style="font-weight:400;color:var(--text-muted)">(nécessaire pour la photo M365 et les emails de campagne)</span></label>
+            <input type="email" id="collab-email" class="form-input" placeholder="prenom.nom@eiffel-ig.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Département *</label>
+            <select id="collab-departement" class="form-input">
+              <option value="">Sélectionner...</option>
+              ${DEPARTMENTS.map(d => `<option>${d}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Type de contrat</label>
+            <select id="collab-type-contrat" class="form-input">
+              <option value="">Sélectionner...</option>
+              ${TYPES_CONTRAT.map(t => `<option>${t}</option>`).join('')}
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date d'entrée</label>
+            <input type="date" id="collab-date-entree" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date de sortie <span style="font-weight:400;color:var(--text-muted)">(optionnel)</span></label>
+            <input type="date" id="collab-date-sortie" class="form-input">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Statut *</label>
+            <div class="prio-row">
+              ${STATUTS_COLLAB.map(s => `<button type="button" class="prio-btn ${s==='Actif'?'sel':''}" onclick="setCollabStatut('${s}',this)">${s}</button>`).join('')}
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Fonction(s) clé(s) <span style="font-weight:400;color:var(--text-muted)">(optionnel)</span></label>
+            <div id="collab-fonctions-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px"></div>
+            <div style="display:flex;gap:8px">
+              <input type="text" id="collab-fonction-input" class="form-input" placeholder="Ex : RCCI, Gérant..." onkeydown="if(event.key==='Enter'){event.preventDefault();addFonctionTag()}">
+              <button type="button" class="btn-secondary" onclick="addFonctionTag()">Ajouter</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Statut déclaré AMF</label>
+            <select id="collab-statut-amf" class="form-input">
+              <option value="">—</option>
+              <option value="D">D</option>
+              <option value="ND">ND</option>
+            </select>
+          </div>
+          <div class="form-group" style="display:flex;align-items:flex-end">
+            <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:500;color:var(--text-secondary);cursor:pointer">
+              <input type="checkbox" id="collab-certif-requise" style="width:16px;height:16px">
+              Certification requise
+            </label>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="submitNouveauCollab()" style="width:100%;justify-content:center">
+            ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
+            Enregistrer le collaborateur
+          </button>
+        </div>
+      </div>
+    </div>`;
+  renderFonctionTags();
+  showView('nouveau-collab');
+}
+
+function setCollabStatut(s, btn) {
+  collabStatutSel = s;
+  document.querySelectorAll('#view-nouveau-collab .prio-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function addFonctionTag() {
+  const input = document.getElementById('collab-fonction-input');
+  const val = input.value.trim();
+  if (!val || collabFonctionsSelected.includes(val)) return;
+  collabFonctionsSelected.push(val);
+  input.value = '';
+  renderFonctionTags();
+}
+function removeFonctionTag(f) {
+  collabFonctionsSelected = collabFonctionsSelected.filter(x => x !== f);
+  renderFonctionTags();
+}
+function renderFonctionTags() {
+  const el = document.getElementById('collab-fonctions-tags');
+  if (!el) return;
+  el.innerHTML = collabFonctionsSelected.map(f => `
+    <span class="bdg bdg-fonction" style="cursor:default">
+      ${f}<span onclick="removeFonctionTag('${f.replace(/'/g,"\\'")}')" style="cursor:pointer;margin-left:6px;opacity:.7">×</span>
+    </span>`).join('');
+}
+
+async function submitNouveauCollab() {
+  const nom = document.getElementById('collab-nom').value.trim();
+  const email = document.getElementById('collab-email').value.trim();
+  const departement = document.getElementById('collab-departement').value;
+  const typeContrat = document.getElementById('collab-type-contrat').value;
+  const dateEntree = document.getElementById('collab-date-entree').value;
+  const dateSortie = document.getElementById('collab-date-sortie').value;
+  const statutAMF = document.getElementById('collab-statut-amf').value;
+  const certifRequise = document.getElementById('collab-certif-requise').checked;
+
+  if (!nom || !departement) {
+    showToast('Le nom et le département sont obligatoires.', 'error');
+    return;
+  }
+
+  const btn = document.querySelector('#view-nouveau-collab [onclick="submitNouveauCollab()"]');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    const fields = {
+      Title: nom,
+      Email: email,
+      Departement: departement,
+      TypeContrat: typeContrat,
+      DateEntree: dateEntree ? new Date(dateEntree).toISOString() : null,
+      DateSortie: dateSortie ? new Date(dateSortie).toISOString() : null,
+      Statut: dateSortie ? 'Parti' : collabStatutSel,
+      FonctionCle: collabFonctionsSelected,
+      StatutDeclareAMF: statutAMF,
+      CertificationRequise: certifRequise
+    };
+    const created = await graphPost(`/sites/${spSiteId}/lists/${spListCollabId}/items`, { fields });
+    await writeAuditLog('Création collaborateur', nom, null, fields);
+    showToast(`${nom} ajouté au registre.`, 'success');
+    await loadRegistreData();
+    goRegistre();
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer le collaborateur';
   }
 }
 

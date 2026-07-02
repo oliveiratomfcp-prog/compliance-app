@@ -1,1 +1,4 @@
 config.js
+scripts/import-registre/.env
+scripts/import-registre/*.xlsx
+scripts/import-registre/node_modules/

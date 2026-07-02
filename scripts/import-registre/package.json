@@ -1,0 +1,16 @@
+{
+  "name": "import-registre-deontologique",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Script ponctuel d'import du Registre déontologique Excel vers les listes SharePoint DeontoHub (CPLDashboard). Ne pas exécuter automatiquement, ne pas committer de données réelles ni de fichier .env.",
+  "scripts": {
+    "inspect": "node import.js --inspect",
+    "dry-run": "node import.js --dry-run",
+    "import": "node import.js"
+  },
+  "dependencies": {
+    "xlsx": "^0.18.5",
+    "@azure/msal-node": "^2.9.2",
+    "node-fetch": "^2.7.0"
+  }
+}
