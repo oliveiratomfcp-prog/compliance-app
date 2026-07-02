@@ -40,53 +40,67 @@ const msalConfig = {
 
 <!-- ===== APPLICATION PRINCIPALE ===== -->
 <div id="screen-app" class="screen">
+  <div class="app-shell">
 
-  <!-- NAVBAR -->
-  <nav class="navbar">
-    <div class="nav-brand">
-      <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="36" />
-    </div>
-    <div class="nav-tabs">
-      <button class="nav-tab active" data-tab="restricted">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-        <span id="nav-restricted-el">Restricted List</span>
-      </button>
-      <button class="nav-tab" data-tab="declaration">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
-        <span id="nav-declare-el">Déclarer</span>
-      </button>
-      <a class="nav-tab" href="doc-review.html" style="text-decoration:none;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-        <span>Doc Review</span>
-        <span style="font-size:9px;font-weight:700;background:#006660;color:white;padding:1px 6px;border-radius:10px;margin-left:4px;">New</span>
-      </a>
-      <!-- ↓ TRACKER CPL — ajout -->
-      <a class="nav-tab" href="tracker-cpl.html" style="text-decoration:none;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
-        <span>Tracker CPL</span>
-        <span style="font-size:9px;font-weight:700;background:#006660;color:white;padding:1px 6px;border-radius:10px;margin-left:4px;">New</span>
-      </a>
-    </div>
-    <div class="nav-user">
-      <button id="lang-toggle-btn" class="btn-lang" onclick="setLang(currentLang === 'fr' ? 'en' : 'fr')">EN</button>
-      <div class="user-avatar" id="user-avatar">--</div>
-      <div class="user-info">
-        <span class="user-name" id="user-name">Chargement...</span>
-        <span class="user-role" id="nav-role-el">Collaborateur</span>
+    <!-- SIDEBAR -->
+    <aside class="sidebar eiffel-rays">
+      <div class="sidebar-logo">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="30" />
       </div>
-      <button id="btn-logout" class="btn-logout" title="Se déconnecter">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-      </button>
-    </div>
-  </nav>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-nav-label">Navigation</div>
+      <nav style="position:relative;z-index:1;display:flex;flex-direction:column;gap:2px">
+        <button class="sidebar-item nav-tab active" data-tab="restricted">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span id="nav-restricted-el">Restricted List</span>
+        </button>
+        <button class="sidebar-item nav-tab" data-tab="declaration">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          <span id="nav-declare-el">Déclarer</span>
+        </button>
+        <a class="sidebar-item" href="doc-review.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Doc Review</span>
+          <span class="sidebar-badge-new">NEW</span>
+        </a>
+        <a class="sidebar-item" href="tracker-cpl.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
+          <span>Tracker CPL</span>
+          <span class="sidebar-badge-new">NEW</span>
+        </a>
+      </nav>
 
-  <main class="main-content">
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-user" style="position:relative;z-index:1">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="sidebar-user-avatar" id="user-avatar">--</div>
+          <div style="min-width:0;flex:1">
+            <div class="sidebar-user-name" id="user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chargement...</div>
+            <div class="sidebar-user-role" id="nav-role-el">Collaborateur</div>
+          </div>
+          <button id="lang-toggle-btn" class="btn-lang" style="margin-left:auto" onclick="setLang(currentLang === 'fr' ? 'en' : 'fr')">EN</button>
+        </div>
+        <button id="btn-logout" class="btn-sidebar-logout" title="Se déconnecter">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>Se déconnecter</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- CONTENU PRINCIPAL -->
+    <main class="page-content">
 
     <!-- ===== ONGLET 1 : RESTRICTED LIST ===== -->
     <section id="tab-restricted" class="tab-content active">
       <div class="section-header">
         <div>
-          <h2 class="section-title" id="restricted-title-el">Restricted List</h2>
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+            <div class="eyebrow">Conformité</div>
+            <span style="width:4px;height:4px;border-radius:50%;background:#c7cfdb"></span>
+            <div class="live-indicator"><span class="live-dot"></span>Synchronisé · SharePoint</div>
+          </div>
+          <h1 class="page-title" id="restricted-title-el">Restricted List</h1>
           <p class="section-desc" id="restricted-desc-el">Liste des titres financiers sous restriction</p>
         </div>
         <div style="display:flex;gap:10px;flex-wrap:wrap">
@@ -220,7 +234,8 @@ const msalConfig = {
     <section id="tab-declaration" class="tab-content">
       <div class="section-header">
         <div>
-          <h2 class="section-title" id="declare-title-el">Déclarer</h2>
+          <div class="eyebrow" style="margin-bottom:9px">Déclarations</div>
+          <h1 class="page-title" id="declare-title-el">Déclarer</h1>
           <p class="section-desc" id="declare-desc-el">Saisie Compliance et déclaration de transaction personnelle</p>
         </div>
       </div>
@@ -402,8 +417,8 @@ const msalConfig = {
       </div>
     </section>
 
-
-  </main>
+    </main>
+  </div>
 </div>
 
 <script src="app.js"></script>

@@ -186,6 +186,10 @@ function renderRestrictedTable(items) {
   const fragment = document.createDocumentFragment();
   items.forEach(item => {
     const badgeClass = item.source === "NDA List" ? "badge-nda" : "badge-restricted";
+    const isFutureEnd = item.dateFin && item.dateFin !== "\u2014" && new Date(item.dateFin) > new Date();
+    const dateFinCell = isFutureEnd
+      ? `<span class="pill-live"><span class="live-dot"></span>En cours</span>`
+      : formatDate(item.dateFin);
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${item.nom}</strong></td>
@@ -194,7 +198,7 @@ function renderRestrictedTable(items) {
       <td>${item.equipe && item.equipe !== "\u2014" ? `<span class="badge badge-active">${item.equipe}</span>` : "\u2014"}</td>
       <td>${item.signataire !== "\u2014" ? item.signataire : "\u2014"}</td>
       <td>${formatDate(item.dateDebut)}</td>
-      <td>${formatDate(item.dateFin)}</td>`;
+      <td>${dateFinCell}</td>`;
     fragment.appendChild(tr);
   });
   tbody.appendChild(fragment);

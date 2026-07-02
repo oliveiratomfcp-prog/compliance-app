@@ -10,7 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="translations.js"></script>
   <style>
-    .dr-content { max-width: 900px; margin: 0 auto; padding: 32px 24px; }
+    .dr-content { max-width: 900px; margin: 0 auto; }
     .dr-card { background: white; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 20px; }
     .dr-card-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .dr-card-title { font-size: 14px; font-weight: 600; color: var(--navy); display: flex; align-items: center; gap: 8px; }
@@ -120,50 +120,63 @@
 
   <!-- ===== APPLICATION PRINCIPALE ===== -->
   <div id="screen-app" class="screen">
+    <div class="app-shell">
 
-    <!-- NAVBAR identique au portail existant -->
-    <nav class="navbar">
-      <div class="nav-brand">
-        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="36" />
+    <!-- SIDEBAR -->
+    <aside class="sidebar eiffel-rays">
+      <div class="sidebar-logo">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="30" />
       </div>
-      <div class="nav-tabs">
-        <a class="nav-tab" href="index.html" style="text-decoration:none;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-nav-label">Navigation</div>
+      <nav style="position:relative;z-index:1;display:flex;flex-direction:column;gap:2px">
+        <a class="sidebar-item" href="index.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           <span>Restricted List</span>
         </a>
-        <a class="nav-tab" href="index.html" style="text-decoration:none;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+        <a class="sidebar-item" href="index.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
           <span>Déclarer</span>
         </a>
-        <button class="nav-tab active" style="cursor:default;border:none;background:none;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        <button class="sidebar-item active" style="cursor:default">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
           <span>Doc Review</span>
-          <span style="font-size:9px;font-weight:700;background:#006660;color:white;padding:1px 6px;border-radius:10px;margin-left:4px;">New</span>
+          <span class="sidebar-badge-new">NEW</span>
         </button>
-        <a class="nav-tab" href="tracker-cpl.html" style="text-decoration:none;">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
+        <a class="sidebar-item" href="tracker-cpl.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
           <span>Tracker CPL</span>
-          <span style="font-size:9px;font-weight:700;background:#006660;color:white;padding:1px 6px;border-radius:10px;margin-left:4px;">New</span>
+          <span class="sidebar-badge-new">NEW</span>
         </a>
-      </div>
-      <div class="nav-user">
-        <div class="user-avatar" id="user-avatar">--</div>
-        <div class="user-info">
-          <span class="user-name" id="user-name">Chargement...</span>
-          <span class="user-role">Collaborateur</span>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-user" style="position:relative;z-index:1">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="sidebar-user-avatar" id="user-avatar">--</div>
+          <div style="min-width:0;flex:1">
+            <div class="sidebar-user-name" id="user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chargement...</div>
+            <div class="sidebar-user-role">Collaborateur</div>
+          </div>
         </div>
-        <button id="btn-logout" class="btn-logout" title="Se déconnecter">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        <button id="btn-logout" class="btn-sidebar-logout" title="Se déconnecter">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>Se déconnecter</span>
         </button>
       </div>
-    </nav>
+    </aside>
 
-    <main class="main-content">
+    <main class="page-content">
       <div class="dr-content">
 
         <div class="section-header">
           <div>
-            <h2 class="section-title">Doc Review</h2>
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
+              <div class="eyebrow">Analyse documentaire</div>
+              <span class="sidebar-badge-new" style="margin-left:0">NEW</span>
+            </div>
+            <h1 class="page-title">Doc Review</h1>
             <p class="section-desc">Pré-contrôle de conformité AMF / MIF II de la documentation marketing</p>
           </div>
           <button class="btn-secondary" onclick="resetAll()">
@@ -315,6 +328,7 @@
 
       </div>
     </main>
+    </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
