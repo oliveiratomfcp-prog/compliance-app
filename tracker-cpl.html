@@ -276,7 +276,6 @@ let requests     = [];
 let sortCol      = '_ts';
 let sortDir      = -1;    // -1 desc, 1 asc
 let assignedOnly = false; // filtre "mes demandes assignées" (CPL)
-let viewMode     = 'cpl'; // 'cpl' | 'std' — bascule d'affichage de la liste pour les CPL (aperçu vue collaborateur)
 let lastLoadedAt = null;
 
 function sortBy(col) {
@@ -526,7 +525,6 @@ function goList() { renderList(); showView('list'); window.scrollTo(0,0); }
 function setFilter(s) { statusFilter = s; renderList(); }
 function setCplTab(t) { cplTab = t; renderList(); }
 function toggleAssignedOnly() { assignedOnly = !assignedOnly; renderList(); }
-function setViewMode(m) { viewMode = m; renderList(); }
 
 async function manualRefresh() {
   const btn = document.getElementById('list-refresh-btn');
@@ -582,10 +580,103 @@ document.addEventListener('keydown', e => {
 });
 
 // ═══════════════════════════════════════════════════════════
+// COLONNES PERSONNALISABLES
+// ═══════════════════════════════════════════════════════════
+const COLS_DEF = [
+  { id: 'ref',         label: 'Référence',      always: true,  cplOnly: false, defaultW: 120 },
+  { id: 'objet',       label: 'Objet',           always: false, cplOnly: false, defaultW: 220 },
+  { id: 'from',        label: 'Demandeur',       always: false, cplOnly: true,  defaultW: 130 },
+  { id: 'dept',        label: 'Département',     always: false, cplOnly: true,  defaultW: 110 },
+  { id: 'prio',        label: 'Priorité',        always: false, cplOnly: false, defaultW: 85  },
+  { id: 'statut',      label: 'Statut',          always: false, cplOnly: false, defaultW: 160 },
+  { id: 'date',        label: 'Soumis le',       always: false, cplOnly: false, defaultW: 90  },
+  { id: 'deadline',    label: 'Deadline',        always: false, cplOnly: false, defaultW: 90  },
+  { id: 'responsable', label: 'Responsable CPL', always: false, cplOnly: true,  defaultW: 145 },
+];
+
+function getColConfig()  { try { return JSON.parse(localStorage.getItem('tracker_cpl_columns_v1') || '{}'); } catch(e) { return {}; } }
+function getColWidths()  { try { return JSON.parse(localStorage.getItem('tracker_cpl_colwidths_v1') || '{}'); } catch(e) { return {}; } }
+
+function isColVisible(colId, cfg, cplView) {
+  const def = COLS_DEF.find(c => c.id === colId);
+  if (!def) return false;
+  if (def.always) return true;
+  if (def.cplOnly && !cplView) return false;
+  return cfg[colId] !== false;
+}
+
+function toggleCol(colId, visible) {
+  const cfg = getColConfig();
+  cfg[colId] = visible;
+  localStorage.setItem('tracker_cpl_columns_v1', JSON.stringify(cfg));
+  renderList();
+}
+
+function resetCols() {
+  localStorage.removeItem('tracker_cpl_columns_v1');
+  localStorage.removeItem('tracker_cpl_colwidths_v1');
+  renderList();
+}
+
+function toggleColPanel() {
+  const panel = document.getElementById('col-panel');
+  if (!panel) return;
+  panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+// Fermer le panneau si clic en dehors
+document.addEventListener('click', e => {
+  const panel = document.getElementById('col-panel');
+  const btn   = document.getElementById('col-panel-btn');
+  if (panel && panel.style.display !== 'none' && btn
+      && !panel.contains(e.target) && !btn.contains(e.target)) {
+    panel.style.display = 'none';
+  }
+});
+
+// Redimensionnement des colonnes
+let _resizeCol = null, _resizeStartX = 0, _resizeStartW = 0;
+
+function startColResize(e, colId) {
+  _resizeCol   = colId;
+  _resizeStartX = e.clientX;
+  const thEl   = e.target.closest('th');
+  _resizeStartW = thEl ? thEl.offsetWidth : 100;
+  document.addEventListener('mousemove', _onColResize);
+  document.addEventListener('mouseup',   _stopColResize);
+}
+
+function _onColResize(e) {
+  if (!_resizeCol) return;
+  const newW = Math.max(60, _resizeStartW + (e.clientX - _resizeStartX));
+  const cfg = getColConfig();
+  const active = COLS_DEF.filter(c => isColVisible(c.id, cfg, isCPL));
+  const idx  = active.findIndex(c => c.id === _resizeCol);
+  const ths  = document.querySelectorAll('.cpl-table thead th');
+  if (idx >= 0 && ths[idx]) ths[idx].style.width = newW + 'px';
+}
+
+function _stopColResize(e) {
+  if (!_resizeCol) return;
+  const newW = Math.max(60, _resizeStartW + (e.clientX - _resizeStartX));
+  const widths = getColWidths();
+  widths[_resizeCol] = newW;
+  localStorage.setItem('tracker_cpl_colwidths_v1', JSON.stringify(widths));
+  _resizeCol = null;
+  document.removeEventListener('mousemove', _onColResize);
+  document.removeEventListener('mouseup',   _stopColResize);
+}
+
+// ═══════════════════════════════════════════════════════════
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
 function renderList() {
-  const cplView = isCPL && viewMode === 'cpl';
+  const cplView   = isCPL;
+  const colsCfg   = getColConfig();
+  const colWidths = getColWidths();
+  const activeCols = COLS_DEF.filter(c => isColVisible(c.id, colsCfg, cplView));
+  const colCount   = activeCols.length;
+
   let all = cplView ? requests : requests.filter(r =>
     r.email === currentUser.email ||
     (r.followers || '').toLowerCase()
@@ -608,12 +699,11 @@ function renderList() {
     const active = statusFilter === s;
     const count  = s === 'all' ? all.length : all.filter(r => r.statut === s).length;
     let st = '';
-    if(active && s !== 'all') st = `style="background:${BG[s]};color:${CO[s]};border-color:${BO[s]}"`;
-    else if(active)            st = `style="background:var(--navy);color:#fff;border-color:var(--navy)"`;
+    if (active && s !== 'all') st = `style="background:${BG[s]};color:${CO[s]};border-color:${BO[s]}"`;
+    else if (active)            st = `style="background:var(--navy);color:#fff;border-color:var(--navy)"`;
     return `<button class="filter-pill" data-s="${s}" onclick="setFilter(this.dataset.s)" ${st}>${s==='all'?'Tous':s}${count>0?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
   }).join('');
 
-  // Tri
   const sortedFiltered = [...filtered].sort((a, b) => {
     let va = a[sortCol] ?? '';
     let vb = b[sortCol] ?? '';
@@ -623,34 +713,40 @@ function renderList() {
   });
 
   const arrow = col => sortCol === col ? (sortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
-  const th = (label, col, w) =>
-    `<th onclick="sortBy('${col}')" style="cursor:pointer;white-space:nowrap;${w?(w.includes(':')?w:'width:'+w):''}">
-      ${label}<span style="opacity:.4;font-size:10px">${arrow(col)}</span>
-    </th>`;
 
-  const cplTh  = cplView ? `${th('Demandeur','from','130px')}${th('Département','dept','110px')}` : '';
-  const cplThR = cplView ? `${th('Responsable CPL','responsable','width:130px;white-space:nowrap')}` : '';
-  const cols   = cplView ? 9 : 6;
+  const th = c => {
+    const w = colWidths[c.id] ? `width:${colWidths[c.id]}px`
+            : c.id === 'objet' ? 'min-width:160px'
+            : `width:${c.defaultW}px`;
+    return `<th onclick="sortBy('${c.id}')" style="cursor:pointer;white-space:nowrap;position:relative;${w}">
+      ${c.label}<span style="opacity:.4;font-size:10px">${arrow(c.id)}</span>
+      <span onmousedown="event.stopPropagation();startColResize(event,'${c.id}')"
+        style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1"></span>
+    </th>`;
+  };
+
+  const theadCells = activeCols.map(c => th(c)).join('');
 
   const rows = sortedFiltered.map(req => {
     const over = cplView && req.sla > 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
     const near = cplView && req.sla >= 4 && req.sla <= 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
-    const cplTd = cplView ? `<td class="td-muted" style="color:#374151;white-space:nowrap">${req.from}</td><td class="td-muted" style="white-space:nowrap">${req.dept}</td>` : '';
-    const cplTdR = cplView ? `<td class="td-muted" style="white-space:nowrap">${req.responsable || '—'}</td>` : '';
     const lastSeen = parseInt(localStorage.getItem(`lastSeen_${req.ref}`) || '0');
     const hasNew = req.lastComment > 0 && req.lastComment > lastSeen && req.lastComment > req._ts;
     const badge = hasNew ? `<span style="display:inline-flex;align-items:center;justify-content:center;background:#DC2626;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;margin-left:6px">!</span>` : '';
-    return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">
-      <td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}${badge}</td>
-      <td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>
-      ${cplTd}
-      <td>${bdg(req.prio, PC[req.prio]||'bdg-normale')}</td>
-      <td>${bdg(req.statut, SC[req.statut]||'bdg-brouillon')}${req.statut==="En attente d'informations"&&!cplView?'<div class="action-req">↩ Action requise</div>':''}</td>
-      <td class="td-muted">${req.date}</td>
-      <td class="td-muted">${req.deadline ? new Date(req.deadline).toLocaleDateString('fr-FR') : '—'}</td>
-      ${cplTdR}
-    </tr>`;
-  }).join('') || `<tr><td colspan="${cols}" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune demande dans cette catégorie</td></tr>`;
+    const cells = activeCols.map(c => {
+      if (c.id === 'ref')         return `<td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}${badge}</td>`;
+      if (c.id === 'objet')       return `<td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>`;
+      if (c.id === 'from')        return `<td class="td-muted" style="color:#374151;white-space:nowrap">${req.from}</td>`;
+      if (c.id === 'dept')        return `<td class="td-muted" style="white-space:nowrap">${req.dept}</td>`;
+      if (c.id === 'prio')        return `<td>${bdg(req.prio, PC[req.prio]||'bdg-normale')}</td>`;
+      if (c.id === 'statut')      return `<td>${bdg(req.statut, SC[req.statut]||'bdg-brouillon')}${req.statut==="En attente d'informations"&&!cplView?'<div class="action-req">↩ Action requise</div>':''}</td>`;
+      if (c.id === 'date')        return `<td class="td-muted">${req.date}</td>`;
+      if (c.id === 'deadline')    return `<td class="td-muted">${req.deadline ? new Date(req.deadline).toLocaleDateString('fr-FR') : '—'}</td>`;
+      if (c.id === 'responsable') return `<td class="td-muted" style="white-space:nowrap">${req.responsable || '—'}</td>`;
+      return '';
+    }).join('');
+    return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">${cells}</tr>`;
+  }).join('') || `<tr><td colspan="${colCount}" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune demande dans cette catégorie</td></tr>`;
 
   const tabBtns = isCPL ? `
     <div class="nav-tabs-sub">
@@ -658,11 +754,37 @@ function renderList() {
       <button class="nav-tab-sub ${cplTab==='dashboard'?'active':''}" onclick="setCplTab('dashboard')">Dashboard KPI</button>
     </div>` : '';
 
-  const exportBtn = cplView && cplTab==='demandes' ? `
+  const isTableView = !isCPL || cplTab === 'demandes';
+
+  const exportBtn = isCPL && cplTab === 'demandes' ? `
     <button class="btn-secondary" onclick="exportCSV()">
       ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}
       Exporter CSV
     </button>` : '';
+
+  const colCheckboxes = COLS_DEF
+    .filter(c => !c.always && (!c.cplOnly || cplView))
+    .map(c => {
+      const vis = isColVisible(c.id, colsCfg, cplView);
+      return `<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;padding:3px 0">
+        <input type="checkbox" ${vis ? 'checked' : ''} onchange="toggleCol('${c.id}',this.checked)" style="cursor:pointer"> ${c.label}
+      </label>`;
+    }).join('');
+
+  const colBtn = isTableView ? `
+    <div style="position:relative;display:inline-block">
+      <button class="btn-secondary" id="col-panel-btn" onclick="event.stopPropagation();toggleColPanel()" title="Personnaliser les colonnes">
+        ${svgIcon('<line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>')}
+        Colonnes
+      </button>
+      <div id="col-panel" style="display:none;position:absolute;right:0;top:calc(100% + 4px);background:#fff;border:1px solid var(--border);border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.12);padding:12px 14px;z-index:200;min-width:200px">
+        <div style="font-size:12px;font-weight:600;color:var(--navy);margin-bottom:8px">Colonnes visibles</div>
+        ${colCheckboxes}
+        <div style="border-top:1px solid var(--border);margin-top:8px;padding-top:8px">
+          <button onclick="resetCols()" style="font-size:11.5px;color:var(--text-secondary);background:none;border:none;cursor:pointer;padding:0;font-family:inherit">Réinitialiser</button>
+        </div>
+      </div>
+    </div>` : '';
 
   const assignedToggle = cplView ? `
     <button class="assigned-toggle ${assignedOnly?'on':''}" onclick="toggleAssignedOnly()">
@@ -670,37 +792,15 @@ function renderList() {
       Mes demandes assignées
     </button>` : '';
 
-  const viewToggle = isCPL ? `
-    <div style="display:inline-flex;gap:4px;background:#fff;border:1px solid var(--border);border-radius:20px;padding:3px;margin-left:auto">
-      <button class="filter-pill" style="border:none;${viewMode==='cpl'?'background:var(--navy);color:#fff':''}" onclick="setViewMode('cpl')">Vue CPL</button>
-      <button class="filter-pill" style="border:none;${viewMode==='std'?'background:var(--navy);color:#fff':''}" onclick="setViewMode('std')">Vue collaborateur</button>
-    </div>` : '';
-
   const searchBox = `
     <input type="text" placeholder="Rechercher..." oninput="searchTable(this.value)"
       style="${isCPL?'':'margin-left:auto;'}padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">`;
 
-  const viewLegend = isCPL ? `
-    <p style="font-size:12.5px;color:var(--text-secondary);margin:0 0 14px;line-height:1.5;max-width:860px">
-      <strong style="color:#374151">Vue CPL</strong> — toutes les demandes de tous les collaborateurs, avec demandeur, département et responsable assigné.
-      <strong style="color:#374151">Vue collaborateur</strong> — aperçu de ce que voit un demandeur : uniquement ses propres demandes, sans les colonnes internes.
-    </p>` : '';
-
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
-    ${viewLegend}
-    <div class="cpl-filters">${filterBtns}${assignedToggle}${viewToggle}${searchBox}</div>
+    <div class="cpl-filters">${filterBtns}${assignedToggle}${searchBox}</div>
     <div class="table-wrapper" style="overflow-x:auto;width:100%">
-      <table class="data-table cpl-table" style="width:100%;min-width:1050px;table-layout:auto">
-        <thead><tr>
-          ${th('Référence','ref','120px')}
-          ${th('Objet','objet','min-width:160px')}
-          ${cplTh}
-          ${th('Priorité','prio','75px')}
-          ${th('Statut','statut','160px')}
-          ${th('Soumis le','date','90px')}
-          ${th('Deadline','deadline','90px')}
-          ${cplThR}
-        </tr></thead>
+      <table class="data-table cpl-table" style="width:100%;min-width:900px;table-layout:auto">
+        <thead><tr>${theadCells}</tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
       </table>
     </div>`;
@@ -725,6 +825,7 @@ function renderList() {
         </p>
       </div>
       <div style="display:flex;gap:8px;align-items:center">
+        ${colBtn}
         ${exportBtn}
         <button class="btn-primary" onclick="goNew()">
           ${svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>')}
