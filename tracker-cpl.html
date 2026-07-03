@@ -28,9 +28,10 @@
 .td-objet-main{font-size:13px;color:#111827;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .page-content{max-width:none !important;padding:28px 32px 40px !important}
 .table-wrapper{overflow-x:auto;width:100%}
-.cpl-table{min-width:1050px;width:100%}
+.cpl-table{width:100%;table-layout:fixed}
+.cpl-table td{overflow:hidden;text-overflow:ellipsis}
 .td-objet-sub{font-size:11px;color:var(--text-secondary);margin-top:1px}
-.td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
+.td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .action-req{font-size:10px;color:#B45309;margin-top:2px}
 
 .cpl-filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
@@ -595,7 +596,7 @@ const COLS_DEF = [
 ];
 
 function getColConfig()  { try { return JSON.parse(localStorage.getItem('tracker_cpl_columns_v1') || '{}'); } catch(e) { return {}; } }
-function getColWidths()  { try { return JSON.parse(localStorage.getItem('tracker_cpl_colwidths_v1') || '{}'); } catch(e) { return {}; } }
+function getColWidths()  { try { return JSON.parse(localStorage.getItem('tracker_cpl_colwidths_pct_v1') || '{}'); } catch(e) { return {}; } }
 
 function isColVisible(colId, cfg, cplView) {
   const def = COLS_DEF.find(c => c.id === colId);
@@ -603,6 +604,18 @@ function isColVisible(colId, cfg, cplView) {
   if (def.always) return true;
   if (def.cplOnly && !cplView) return false;
   return cfg[colId] !== false;
+}
+
+// Calcule les pourcentages réels des colonnes actives (somme = 100 % exactement).
+// Utilise les valeurs stockées si disponibles, sinon les defaultW proportionnels.
+function computeActivePcts(activeCols, storedPcts) {
+  const totalDefault = activeCols.reduce((s, c) => s + c.defaultW, 0);
+  const raw = activeCols.map(c => ({
+    id: c.id,
+    pct: storedPcts[c.id] != null ? storedPcts[c.id] : (c.defaultW / totalDefault * 100)
+  }));
+  const sum = raw.reduce((s, p) => s + p.pct, 0);
+  return Object.fromEntries(raw.map(p => [p.id, sum > 0 ? p.pct / sum * 100 : 100 / raw.length]));
 }
 
 function toggleCol(colId, visible) {
@@ -614,7 +627,7 @@ function toggleCol(colId, visible) {
 
 function resetCols() {
   localStorage.removeItem('tracker_cpl_columns_v1');
-  localStorage.removeItem('tracker_cpl_colwidths_v1');
+  localStorage.removeItem('tracker_cpl_colwidths_pct_v1');
   renderList();
 }
 
@@ -634,35 +647,61 @@ document.addEventListener('click', e => {
   }
 });
 
-// Redimensionnement des colonnes
-let _resizeCol = null, _resizeStartX = 0, _resizeStartW = 0;
+// Redimensionnement des colonnes — delta en % de la largeur du tableau
+const COL_MIN_PCT = 4; // ~50px sur un écran 1200px
+let _resizeCol = null, _resizeNextCol = null;
+let _resizeStartX = 0, _resizeStartPct = 0, _resizeNextStartPct = 0, _resizeTableW = 0;
 
 function startColResize(e, colId) {
-  _resizeCol   = colId;
-  _resizeStartX = e.clientX;
-  const thEl   = e.target.closest('th');
-  _resizeStartW = thEl ? thEl.offsetWidth : 100;
+  const cfg    = getColConfig();
+  const active = COLS_DEF.filter(c => isColVisible(c.id, cfg, isCPL));
+  const idx    = active.findIndex(c => c.id === colId);
+  if (idx < 0 || idx >= active.length - 1) return; // dernière colonne : pas de poignée
+  _resizeCol     = colId;
+  _resizeNextCol = active[idx + 1].id;
+  _resizeStartX  = e.clientX;
+  const table    = document.querySelector('.cpl-table');
+  _resizeTableW  = table ? table.offsetWidth : 1000;
+  const ths      = document.querySelectorAll('.cpl-table thead th');
+  _resizeStartPct     = ths[idx]     ? ths[idx].offsetWidth     / _resizeTableW * 100 : 10;
+  _resizeNextStartPct = ths[idx + 1] ? ths[idx + 1].offsetWidth / _resizeTableW * 100 : 10;
   document.addEventListener('mousemove', _onColResize);
   document.addEventListener('mouseup',   _stopColResize);
 }
 
 function _onColResize(e) {
-  if (!_resizeCol) return;
-  const newW = Math.max(60, _resizeStartW + (e.clientX - _resizeStartX));
-  const cfg = getColConfig();
+  if (!_resizeCol || !_resizeTableW) return;
+  const delta = (e.clientX - _resizeStartX) / _resizeTableW * 100;
+  let pctA = _resizeStartPct + delta;
+  let pctB = _resizeNextStartPct - delta;
+  // Appliquer le minimum sur les deux colonnes
+  if (pctA < COL_MIN_PCT) { pctB += pctA - COL_MIN_PCT; pctA = COL_MIN_PCT; }
+  if (pctB < COL_MIN_PCT) { pctA += pctB - COL_MIN_PCT; pctB = COL_MIN_PCT; }
+  pctA = Math.max(COL_MIN_PCT, pctA);
+  pctB = Math.max(COL_MIN_PCT, pctB);
+  const cfg    = getColConfig();
   const active = COLS_DEF.filter(c => isColVisible(c.id, cfg, isCPL));
-  const idx  = active.findIndex(c => c.id === _resizeCol);
-  const ths  = document.querySelectorAll('.cpl-table thead th');
-  if (idx >= 0 && ths[idx]) ths[idx].style.width = newW + 'px';
+  const idxA   = active.findIndex(c => c.id === _resizeCol);
+  const ths    = document.querySelectorAll('.cpl-table thead th');
+  if (ths[idxA])     ths[idxA].style.width     = pctA.toFixed(2) + '%';
+  if (ths[idxA + 1]) ths[idxA + 1].style.width = pctB.toFixed(2) + '%';
 }
 
-function _stopColResize(e) {
+function _stopColResize() {
   if (!_resizeCol) return;
-  const newW = Math.max(60, _resizeStartW + (e.clientX - _resizeStartX));
-  const widths = getColWidths();
-  widths[_resizeCol] = newW;
-  localStorage.setItem('tracker_cpl_colwidths_v1', JSON.stringify(widths));
-  _resizeCol = null;
+  // Lire les largeurs depuis le DOM et normaliser à 100 %
+  const cfg    = getColConfig();
+  const active = COLS_DEF.filter(c => isColVisible(c.id, cfg, isCPL));
+  const ths    = document.querySelectorAll('.cpl-table thead th');
+  const widths = {};
+  let sum = 0;
+  active.forEach((c, i) => {
+    const w = ths[i] ? ths[i].offsetWidth / _resizeTableW * 100 : 0;
+    widths[c.id] = w; sum += w;
+  });
+  if (sum > 0) active.forEach(c => { widths[c.id] = widths[c.id] / sum * 100; });
+  localStorage.setItem('tracker_cpl_colwidths_pct_v1', JSON.stringify(widths));
+  _resizeCol = null; _resizeNextCol = null;
   document.removeEventListener('mousemove', _onColResize);
   document.removeEventListener('mouseup',   _stopColResize);
 }
@@ -671,11 +710,12 @@ function _stopColResize(e) {
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
 function renderList() {
-  const cplView   = isCPL;
-  const colsCfg   = getColConfig();
-  const colWidths = getColWidths();
+  const cplView    = isCPL;
+  const colsCfg    = getColConfig();
+  const storedPcts = getColWidths();
   const activeCols = COLS_DEF.filter(c => isColVisible(c.id, colsCfg, cplView));
   const colCount   = activeCols.length;
+  const pctMap     = computeActivePcts(activeCols, storedPcts);
 
   let all = cplView ? requests : requests.filter(r =>
     r.email === currentUser.email ||
@@ -714,18 +754,18 @@ function renderList() {
 
   const arrow = col => sortCol === col ? (sortDir === 1 ? ' ↑' : ' ↓') : ' ↕';
 
-  const th = c => {
-    const w = colWidths[c.id] ? `width:${colWidths[c.id]}px`
-            : c.id === 'objet' ? 'min-width:160px'
-            : `width:${c.defaultW}px`;
-    return `<th onclick="sortBy('${c.id}')" style="cursor:pointer;white-space:nowrap;position:relative;${w}">
+  const th = (c, isLast) => {
+    const pct    = (pctMap[c.id] || (100 / colCount)).toFixed(2);
+    const handle = isLast ? '' :
+      `<span onmousedown="event.stopPropagation();startColResize(event,'${c.id}')"
+        style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1"></span>`;
+    return `<th onclick="sortBy('${c.id}')" style="cursor:pointer;white-space:nowrap;overflow:hidden;position:relative;width:${pct}%">
       ${c.label}<span style="opacity:.4;font-size:10px">${arrow(c.id)}</span>
-      <span onmousedown="event.stopPropagation();startColResize(event,'${c.id}')"
-        style="position:absolute;right:0;top:0;bottom:0;width:6px;cursor:col-resize;z-index:1"></span>
+      ${handle}
     </th>`;
   };
 
-  const theadCells = activeCols.map(c => th(c)).join('');
+  const theadCells = activeCols.map((c, i) => th(c, i === activeCols.length - 1)).join('');
 
   const rows = sortedFiltered.map(req => {
     const over = cplView && req.sla > 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
@@ -799,7 +839,7 @@ function renderList() {
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
     <div class="cpl-filters">${filterBtns}${assignedToggle}${searchBox}</div>
     <div class="table-wrapper" style="overflow-x:auto;width:100%">
-      <table class="data-table cpl-table" style="width:100%;min-width:900px;table-layout:auto">
+      <table class="data-table cpl-table">
         <thead><tr>${theadCells}</tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
       </table>
