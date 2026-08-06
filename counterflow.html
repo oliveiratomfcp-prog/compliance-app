@@ -357,12 +357,50 @@ async function initSharePointThenLoad() {
     spListBrokersId = lists.value[0]?.id;
     if (!spListBrokersId) throw new Error(`Liste "${SP.listName}" introuvable sur SharePoint`);
 
+    await detectColumnFormats();
     await loadBrokers();
   } catch(e) {
     console.error('SharePoint init error:', e);
     setListLoading(false);
     showListError(e.message);
   }
+}
+
+// ── Détection du schéma réel de la liste Brokers ────────────────────────────
+// Un PATCH Graph renvoie 400 "invalidRequest" si le format d'un champ ne
+// correspond pas au type réel de la colonne (objet {Url,Description} envoyé
+// vers une colonne texte, ou l'inverse), ou si une colonne du payload n'existe
+// pas dans la liste. On interroge donc /columns une fois au chargement pour :
+//  - écrire KYC / LienListeSignee au format attendu par leur type réel,
+//  - n'inclure PiecesDossier que si la colonne existe vraiment.
+let linkColumnFormats = { KYC: 'object', LienListeSignee: 'object' }; // défaut : type Lien hypertexte
+let existingColumns = null; // Set des noms internes, null si la détection a échoué
+
+async function detectColumnFormats() {
+  try {
+    const cols = await graphGet(`/sites/${spSiteId}/lists/${spListBrokersId}/columns`);
+    existingColumns = new Set(cols.value.map(c => c.name));
+    ['KYC', 'LienListeSignee'].forEach(name => {
+      const col = cols.value.find(c => c.name === name);
+      if (!col) return; // colonne absente : on garde le défaut, l'erreur sera explicite à l'écriture
+      linkColumnFormats[name] = col.hyperlinkOrPicture ? 'object' : 'string';
+    });
+    console.info('CounterFlow — formats colonnes lien :', JSON.stringify(linkColumnFormats));
+  } catch(e) {
+    // Détection impossible (droits, etc.) : on garde les défauts sans bloquer la page.
+    console.warn('Détection du schéma de colonnes impossible, formats par défaut conservés :', e.message);
+  }
+}
+
+// Valeur d'écriture d'un champ lien, au format correspondant au type réel de
+// la colonne : objet { Url, Description } pour "Lien hypertexte", chaîne brute
+// pour une colonne texte.
+function linkWriteValue(colName, url, label) {
+  return linkColumnFormats[colName] === 'string' ? url : { Url: url, Description: label };
+}
+
+function hasColumn(name) {
+  return existingColumns === null || existingColumns.has(name); // au bénéfice du doute si détection KO
 }
 
 // Les colonnes "lien hypertexte" SharePoint arrivent via Graph sous forme
@@ -902,14 +940,19 @@ async function submitMajKYC() {
   btn.textContent = 'Enregistrement...';
 
   try {
-    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, {
-      KYC: { Description: 'Dossier KYC', Url: lien },
+    const fields = {
+      KYC: linkWriteValue('KYC', lien, 'Dossier KYC'),
       DateExpirationKYC: new Date(dateExp).toISOString(),
       DernierKYCPar: currentUser.name,
-      DateDernierKYC: new Date().toISOString(),
-      'PiecesDossier@odata.type': 'Collection(Edm.String)',
-      PiecesDossier: selectedPiecesDossier('view-maj-kyc')
-    });
+      DateDernierKYC: new Date().toISOString()
+    };
+    if (hasColumn('PiecesDossier')) {
+      fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
+      fields.PiecesDossier = selectedPiecesDossier('view-maj-kyc');
+    } else {
+      console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
+    }
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, fields);
     showToast(`KYC de ${selectedBroker.nom} mis à jour.`, 'success');
     await loadBrokers();
     openDetail(selectedBroker.spId);
@@ -1024,11 +1067,15 @@ async function submitNouvelle() {
       NiveauRisque: nouvelleRisqueSel,
       'ClasseActif@odata.type': 'Collection(Edm.String)',
       ClasseActif: classes,
-      ClasseActifAutre: classes.includes('Autres') ? classeAutre : '',
-      'PiecesDossier@odata.type': 'Collection(Edm.String)',
-      PiecesDossier: selectedPiecesDossier('view-nouvelle')
+      ClasseActifAutre: classes.includes('Autres') ? classeAutre : ''
     };
-    if (kycLien) fields.KYC = { Description: 'Dossier KYC', Url: kycLien };
+    if (hasColumn('PiecesDossier')) {
+      fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
+      fields.PiecesDossier = selectedPiecesDossier('view-nouvelle');
+    } else {
+      console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
+    }
+    if (kycLien) fields.KYC = linkWriteValue('KYC', kycLien, 'Dossier KYC');
     if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
 
     await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
@@ -1226,12 +1273,12 @@ async function submitLienSigne() {
   try {
     if (counterflowConfig?.spId) {
       await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${counterflowConfig.spId}/fields`, {
-        LienListeSignee: { Description: 'Liste signée', Url: lien }
+        LienListeSignee: linkWriteValue('LienListeSignee', lien, 'Liste signée')
       });
       counterflowConfig.lienListeSignee = lien;
     } else {
       const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, {
-        fields: { Title: CONFIG_TITLE, LienListeSignee: { Description: 'Liste signée', Url: lien } }
+        fields: { Title: CONFIG_TITLE, LienListeSignee: linkWriteValue('LienListeSignee', lien, 'Liste signée') }
       });
       counterflowConfig = { spId: created.id, lienListeSignee: lien };
     }
