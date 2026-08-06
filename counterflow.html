@@ -367,22 +367,18 @@ async function initSharePointThenLoad() {
 }
 
 // ── Colonnes existantes de la liste Brokers ─────────────────────────────────
-// Sert uniquement à ne pas inclure PiecesDossier dans un payload si la colonne
-// n'existe pas (un PATCH Graph échoue en 400 sur toute colonne inconnue).
-// NOTE : KYC et LienListeSignee sont des colonnes "Lien hypertexte" et
-// s'écrivent TOUJOURS au format objet { Url, Description }. Ne pas réintroduire
-// de détection de type via /columns : Graph v1.0 n'expose pas de façon fiable
-// la facette hyperlinkOrPicture, ce qui avait fait classer la colonne comme
-// texte à tort (envoi en chaîne brute → 400 invalidRequest).
+// Sert uniquement à ne pas inclure une colonne optionnelle dans un payload si
+// elle n'existe pas (un PATCH Graph échoue en 400 sur toute colonne inconnue).
+// NOTE : KYC et LienListeSignee sont des colonnes "Plusieurs lignes de texte"
+// (texte brut) : elles se lisent et s'écrivent comme de simples chaînes. Le
+// type "Lien hypertexte" a été abandonné car l'API Graph v1.0 en refusait
+// l'écriture — l'app rend les liens cliquables elle-même (renderLienCliquable).
 let existingColumns = null; // Set des noms internes, null si la détection a échoué
 
 async function detectListColumns() {
   try {
     const cols = await graphGet(`/sites/${spSiteId}/lists/${spListBrokersId}/columns`);
     existingColumns = new Set(cols.value.map(c => c.name));
-    // Log de diagnostic : permet de vérifier d'un coup d'œil que toutes les
-    // colonnes attendues (KYC, DateExpirationKYC, DernierKYCPar, DateDernierKYC,
-    // PiecesDossier, Commentaire, LienListeSignee...) existent avec le bon nom interne.
     console.info('CounterFlow — colonnes de la liste Brokers :', [...existingColumns].join(', '));
   } catch(e) {
     // Détection impossible (droits, etc.) : on n'exclut rien, sans bloquer la page.
@@ -390,51 +386,16 @@ async function detectListColumns() {
   }
 }
 
-// Valeur d'écriture d'un champ "Lien hypertexte" : toujours l'objet attendu par Graph.
-function linkWriteValue(url, label) {
-  return { Url: url, Description: label };
-}
-
 function hasColumn(name) {
   return existingColumns === null || existingColumns.has(name); // au bénéfice du doute si détection KO
 }
 
-// Écrit un champ lien sur un item, en deux tentatives : format objet
-// { Url, Description } (colonne "Lien hypertexte"), puis chaîne brute en repli
-// (colonne texte). Si les deux échouent, l'erreur combinée est remontée :
-// c'est le symptôme de la limitation Graph v1.0 qui refuse toute écriture sur
-// certaines colonnes Lien hypertexte — la colonne doit alors être convertie en
-// texte côté SharePoint.
-async function patchLinkField(itemId, colName, url, label) {
-  try {
-    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${itemId}/fields`, {
-      [colName]: linkWriteValue(url, label)
-    });
-    return 'object';
-  } catch(eObj) {
-    console.warn(`Écriture ${colName} au format objet refusée, tentative en texte brut :`, eObj.message);
-    try {
-      await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${itemId}/fields`, {
-        [colName]: url
-      });
-      return 'string';
-    } catch(eStr) {
-      throw new Error(
-        `La colonne ${colName} refuse l'écriture via Graph aux deux formats (objet puis texte). ` +
-        `C'est une limitation connue des colonnes "Lien hypertexte" avec l'API Graph : ` +
-        `convertissez la colonne ${colName} en "Plusieurs lignes de texte (brut)" dans SharePoint. ` +
-        `Détail : ${eStr.message}`
-      );
-    }
-  }
-}
-
-// Les colonnes "lien hypertexte" SharePoint arrivent via Graph sous forme
-// d'objet { Description, Url } — on lit défensivement les deux formes.
-function readLink(field) {
-  if (!field) return '';
-  if (typeof field === 'string') return field;
-  return field.Url || '';
+// Rend une valeur de lien (simple chaîne) cliquable dans le HTML.
+// fallback : texte discret affiché en gris si la valeur est vide.
+// attrs : attributs HTML de l'ancre (classe, style...) ; défaut lien inline navy.
+function renderLienCliquable(valeur, libelle, fallback, attrs) {
+  if (!valeur) return `<span class="td-muted">${fallback || 'Aucun lien'}</span>`;
+  return `<a href="${esc(valeur)}" target="_blank" rel="noopener" ${attrs || 'style="color:var(--navy);font-weight:600"'}>${libelle}</a>`;
 }
 
 // Garde-fou contre les liens erronés : l'autofill du navigateur (ou un collage
@@ -468,13 +429,13 @@ async function loadBrokers() {
     data.value.forEach(item => {
       const f = item.fields;
       if ((f.Title || '').trim() === CONFIG_TITLE) {
-        counterflowConfig = { spId: item.id, lienListeSignee: readLink(f.LienListeSignee) };
+        counterflowConfig = { spId: item.id, lienListeSignee: f.LienListeSignee || '' };
         return;
       }
       brokers.push({
         spId          : item.id,
         nom           : f.Title || '',
-        kycLink       : readLink(f.KYC),
+        kycLink       : f.KYC || '',
         dateExpiration: f.DateExpirationKYC || '',
         equipes       : Array.isArray(f.Equipe) ? f.Equipe : (f.Equipe ? [f.Equipe] : []),
         niveauRisque  : f.NiveauRisque || '',
@@ -682,14 +643,12 @@ function renderListe() {
   }).join('') || `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
 
   const lienSigne = counterflowConfig?.lienListeSignee || '';
+  const signedBtnLabel = `${svgIcon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
+        Contreparties autorisées (document signé)`;
   const signedBtn = lienSigne
-    ? `<a class="btn-secondary" href="${esc(lienSigne)}" target="_blank" rel="noopener" id="btn-liste-signee" style="text-decoration:none">
-        ${svgIcon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
-        Contreparties autorisées (document signé)
-      </a>`
+    ? renderLienCliquable(lienSigne, signedBtnLabel, '', 'class="btn-secondary" id="btn-liste-signee" style="text-decoration:none"')
     : `<button class="btn-secondary" id="btn-liste-signee" disabled style="opacity:.5;cursor:not-allowed" title="Lien non configuré">
-        ${svgIcon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
-        Contreparties autorisées (document signé)
+        ${signedBtnLabel}
       </button>`;
   const editSignedBtn = isCPL ? `
     <button class="btn-secondary" onclick="openEditLienSigne()" title="Modifier le lien du document signé" style="padding:10px 12px">
@@ -808,9 +767,7 @@ function openDetail(spId) {
             <div><strong style="font-weight:600;color:var(--navy)">Classe(s) d'actif :</strong> ${esc(classesActifLabel(b))}</div>
             <div><strong style="font-weight:600;color:var(--navy)">Expiration du KYC :</strong> ${formatDate(b.dateExpiration)} ${bdg(st, STATUS_CLASS[st])}</div>
             <div><strong style="font-weight:600;color:var(--navy)">Dossier KYC :</strong>
-              ${b.kycLink
-                ? `<a href="${esc(b.kycLink)}" target="_blank" rel="noopener" style="color:var(--navy);font-weight:600">Ouvrir le dossier SharePoint →</a>`
-                : '<span class="td-muted">Aucun lien renseigné</span>'}
+              ${renderLienCliquable(b.kycLink, 'Ouvrir le dossier SharePoint →', 'Aucun lien renseigné')}
             </div>
             <div class="td-muted" style="font-size:12px;margin-top:4px">
               ${b.dernierKYCPar
@@ -988,9 +945,13 @@ async function submitMajKYC() {
   btn.textContent = 'Enregistrement...';
 
   try {
-    // PATCH 1 — champs simples uniquement, chacun gardé par hasColumn() : une
-    // colonne absente de la liste ferait échouer toute la requête en 400.
-    const fields = { DateExpirationKYC: new Date(dateExp).toISOString() };
+    // KYC est une colonne texte : la valeur s'envoie directement en chaîne.
+    // Les colonnes optionnelles restent gardées par hasColumn() : une colonne
+    // absente de la liste ferait échouer toute la requête en 400.
+    const fields = {
+      KYC: lien,
+      DateExpirationKYC: new Date(dateExp).toISOString()
+    };
     if (hasColumn('DernierKYCPar')) fields.DernierKYCPar = currentUser.name;
     else console.warn('Colonne DernierKYCPar absente de la liste Brokers : non enregistrée.');
     if (hasColumn('DateDernierKYC')) fields.DateDernierKYC = new Date().toISOString();
@@ -1002,12 +963,7 @@ async function submitMajKYC() {
       console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
     }
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, fields);
-
-    // PATCH 2 — le lien KYC seul, avec repli objet → texte brut. En cas
-    // d'échec, les champs simples restent enregistrés et l'erreur désigne
-    // précisément la colonne lien.
-    const format = await patchLinkField(selectedBroker.spId, 'KYC', lien, 'Dossier KYC');
-    showToast(`KYC de ${selectedBroker.nom} mis à jour.${format === 'string' ? ' (lien enregistré en texte brut)' : ''}`, 'success');
+    showToast(`KYC de ${selectedBroker.nom} mis à jour.`, 'success');
     await loadBrokers();
     openDetail(selectedBroker.spId);
   } catch(e) {
@@ -1130,13 +1086,10 @@ async function submitNouvelle() {
     } else {
       console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
     }
+    if (kycLien) fields.KYC = kycLien; // colonne texte : chaîne directe
     if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
 
-    // Création SANS le champ lien, puis écriture du lien à part via
-    // patchLinkField (repli objet → texte) : la contrepartie est créée même si
-    // la colonne KYC refuse l'écriture.
-    const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
-    if (kycLien) await patchLinkField(created.id, 'KYC', kycLien, 'Dossier KYC');
+    await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
     showToast(`${nom} ajoutée aux contreparties.`, 'success');
     await loadBrokers();
     goListe();
@@ -1330,17 +1283,18 @@ async function submitLienSigne() {
   if (!validateExternalLink(lien, 'Lien du document signé')) return;
 
   try {
-    // Même stratégie que le lien KYC : création de l'item de configuration sans
-    // le champ lien si nécessaire, puis écriture du lien via patchLinkField
-    // (format objet, repli texte brut).
-    if (!counterflowConfig?.spId) {
-      const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, {
-        fields: { Title: CONFIG_TITLE }
+    // LienListeSignee est une colonne texte : la valeur s'envoie en chaîne.
+    if (counterflowConfig?.spId) {
+      await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${counterflowConfig.spId}/fields`, {
+        LienListeSignee: lien
       });
-      counterflowConfig = { spId: created.id, lienListeSignee: '' };
+      counterflowConfig.lienListeSignee = lien;
+    } else {
+      const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, {
+        fields: { Title: CONFIG_TITLE, LienListeSignee: lien }
+      });
+      counterflowConfig = { spId: created.id, lienListeSignee: lien };
     }
-    await patchLinkField(counterflowConfig.spId, 'LienListeSignee', lien, 'Liste signée');
-    counterflowConfig.lienListeSignee = lien;
     closeModal();
     showToast('Lien du document signé mis à jour.', 'success');
     renderListe(); // le bouton principal reflète immédiatement le nouveau lien
