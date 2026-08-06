@@ -180,6 +180,12 @@ const msalConfig = {
 <script>
 'use strict';
 
+// Tampon de version, affiché au chargement : permet de vérifier en console que
+// le navigateur exécute bien le dernier build déployé (et pas une version en
+// cache). Incrémenter à chaque correctif notable.
+const CF_BUILD = '2026-08-06.3 — champ commentaire en minuscules';
+console.info(`CounterFlow — build ${CF_BUILD}`);
+
 // ═══════════════════════════════════════════════════════════
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════
