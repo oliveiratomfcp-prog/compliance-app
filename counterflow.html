@@ -442,7 +442,7 @@ async function loadBrokers() {
         classesActif  : Array.isArray(f.ClasseActif) ? f.ClasseActif : (f.ClasseActif ? [f.ClasseActif] : []),
         classeActifAutre : f.ClasseActifAutre || '',
         piecesDossier : Array.isArray(f.PiecesDossier) ? f.PiecesDossier : (f.PiecesDossier ? [f.PiecesDossier] : []),
-        commentaire   : f.Commentaire || '',
+        commentaire   : f.commentaire || '', // nom interne SharePoint en minuscules (sensible à la casse)
         dernierKYCPar : f.DernierKYCPar || '',
         dateDernierKYC: f.DateDernierKYC || '',
         _expTs        : f.DateExpirationKYC ? new Date(f.DateExpirationKYC).getTime() : 0
@@ -858,7 +858,7 @@ async function submitCommentaire() {
 
   try {
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, {
-      Commentaire: txt
+      commentaire: txt // nom interne SharePoint en minuscules (sensible à la casse)
     });
     selectedBroker.commentaire = txt; // même objet que dans brokers[] : la liste reste cohérente
     renderCommentaireRead();
