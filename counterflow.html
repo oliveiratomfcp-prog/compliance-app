@@ -398,6 +398,7 @@ async function loadBrokers() {
         classesActif  : Array.isArray(f.ClasseActif) ? f.ClasseActif : (f.ClasseActif ? [f.ClasseActif] : []),
         classeActifAutre : f.ClasseActifAutre || '',
         piecesDossier : Array.isArray(f.PiecesDossier) ? f.PiecesDossier : (f.PiecesDossier ? [f.PiecesDossier] : []),
+        commentaire   : f.Commentaire || '',
         dernierKYCPar : f.DernierKYCPar || '',
         dateDernierKYC: f.DateDernierKYC || '',
         _expTs        : f.DateExpirationKYC ? new Date(f.DateExpirationKYC).getTime() : 0
@@ -464,6 +465,12 @@ function showToast(message, type) {
 document.addEventListener('keydown', e => {
   if (e.key !== 'Escape') return;
   if (document.querySelector('.cf-modal-overlay')) { closeModal(); return; }
+  // Édition de commentaire en cours : Échap referme l'éditeur sans quitter la fiche.
+  const commentEdit = document.getElementById('commentaire-edit');
+  if (currentView === 'detail' && commentEdit && !commentEdit.classList.contains('hidden')) {
+    cancelEditCommentaire();
+    return;
+  }
   if (currentView === 'maj-kyc') openDetail(selectedBroker.spId);
   else if (currentView !== 'liste') goListe();
 });
@@ -739,6 +746,25 @@ function openDetail(spId) {
           <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">${nbPieces}/${PIECES_DOSSIER.length} pièces réunies</p>
           ${piecesChecklist}
         </div>
+
+        <!-- COMMENTAIRE (édition inline, ouverte à tous les collaborateurs) -->
+        <div class="form-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase">Commentaire</div>
+            <button class="btn-secondary" onclick="startEditCommentaire()" title="Modifier le commentaire" style="padding:6px 10px">
+              ${svgIcon('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>')}
+            </button>
+          </div>
+          <div id="commentaire-read" style="font-size:13px;line-height:1.6"></div>
+          <div id="commentaire-edit" class="hidden">
+            <textarea id="commentaire-textarea" class="form-input form-textarea" style="width:100%;min-height:110px"
+              placeholder="Dérogation temporaire, contexte d'un retard KYC, particularité juridique..."></textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:8px">
+              <button class="btn-secondary" onclick="cancelEditCommentaire()">Annuler</button>
+              <button class="btn-primary" id="btn-save-commentaire" onclick="submitCommentaire()">Enregistrer</button>
+            </div>
+          </div>
+        </div>
       </div>
       <div>
         <div class="form-card">
@@ -751,8 +777,60 @@ function openDetail(spId) {
       </div>
     </div>`;
 
+  renderCommentaireRead();
   showView('detail');
   window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════════════════
+// COMMENTAIRE (fiche détail — édition inline, sans condition isCPL)
+// ═══════════════════════════════════════════════════════════
+function renderCommentaireRead() {
+  const el = document.getElementById('commentaire-read');
+  if (!el) return;
+  const txt = selectedBroker?.commentaire || '';
+  if (txt) {
+    el.textContent = txt; // textContent + pre-wrap : retours à la ligne préservés, aucune injection HTML
+    el.style.cssText = 'font-size:13px;line-height:1.6;color:#374151;white-space:pre-wrap';
+  } else {
+    el.textContent = 'Aucun commentaire pour l\'instant';
+    el.style.cssText = 'font-size:12.5px;line-height:1.6;color:var(--text-muted);font-style:italic';
+  }
+}
+
+function startEditCommentaire() {
+  document.getElementById('commentaire-textarea').value = selectedBroker?.commentaire || '';
+  document.getElementById('commentaire-read').classList.add('hidden');
+  document.getElementById('commentaire-edit').classList.remove('hidden');
+  document.getElementById('commentaire-textarea').focus();
+}
+
+function cancelEditCommentaire() {
+  document.getElementById('commentaire-edit').classList.add('hidden');
+  document.getElementById('commentaire-read').classList.remove('hidden');
+}
+
+async function submitCommentaire() {
+  const txt = document.getElementById('commentaire-textarea').value.trim();
+  const btn = document.getElementById('btn-save-commentaire');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, {
+      Commentaire: txt
+    });
+    selectedBroker.commentaire = txt; // même objet que dans brokers[] : la liste reste cohérente
+    renderCommentaireRead();
+    cancelEditCommentaire();
+    showToast('Commentaire mis à jour.', 'success');
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${e.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer';
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
