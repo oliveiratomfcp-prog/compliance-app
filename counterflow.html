@@ -1,0 +1,1069 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>CounterFlow — Compliance Portal</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<style>
+/* ── CounterFlow — styles spécifiques (mêmes conventions que deontohub.html) ───────────── */
+.page-content{max-width:none !important;padding:28px 32px 40px !important}
+.bdg{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
+.bdg-a-jour{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}
+.bdg-bientot{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}
+.bdg-expire{background:#FEF2F2;color:#DC2626;border-color:#FECACA}
+.bdg-risque-faible{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}
+.bdg-risque-moyen{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}
+.bdg-risque-eleve{background:#FEF2F2;color:#DC2626;border-color:#FECACA}
+.bdg-equipe{background:#EFF6FF;color:#2563EB;border-color:#BFDBFE}
+.bdg-actif{background:rgba(209,143,65,0.12);color:#92400E;border-color:rgba(209,143,65,0.3)}
+
+/* Clignotement des contreparties dont le KYC est expiré */
+@keyframes blink-expired{0%,100%{color:#DC2626;opacity:1}50%{color:#DC2626;opacity:.45}}
+.name-blink-expired{animation:blink-expired 1s ease-in-out infinite;font-weight:700}
+
+.td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
+.table-wrapper{overflow-x:auto;width:100%}
+.cf-table{min-width:1000px;width:100%}
+.cf-table tbody tr{cursor:pointer}
+
+.cpl-filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;align-items:center}
+.filter-pill{font-size:11.5px;font-weight:500;padding:3px 11px;border-radius:20px;cursor:pointer;background:#fff;color:var(--text-secondary);border:1px solid var(--border);font-family:inherit}
+.filter-pill:hover{border-color:#B8C0D1}
+.filter-group-label{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin-right:2px}
+
+.list-refresh{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:11.5px;padding:0;font-family:inherit}
+.list-refresh:hover{color:var(--navy)}
+.list-refresh svg{width:12px;height:12px;transition:transform .4s ease}
+.list-refresh.spinning svg{animation:spin .6s linear}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.detail-grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
+.back-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:13px;margin-bottom:14px;padding:0;font-family:inherit}
+.back-btn:hover{color:var(--navy)}
+
+.toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;max-width:360px}
+.toast{background:#fff;border-radius:8px;border:1px solid var(--border);box-shadow:0 6px 20px rgba(0,0,0,.14);padding:11px 14px;font-size:13px;display:flex;align-items:center;gap:9px;color:#111827;animation:toast-in .18s ease-out}
+.toast.hide{animation:toast-out .18s ease-in forwards}
+@keyframes toast-in{from{opacity:0;transform:translateX(24px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toast-out{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(24px)}}
+.toast-icon{width:18px;height:18px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;color:#fff}
+.toast-success .toast-icon{background:#15803D}
+.toast-error .toast-icon{background:#DC2626}
+.toast-info .toast-icon{background:#2563EB}
+.toast-close{margin-left:auto;background:none;border:none;cursor:pointer;color:#9CA3AF;font-size:15px;line-height:1;padding:0 2px;flex-shrink:0}
+
+.prio-row{display:flex;gap:8px}
+.prio-btn{flex:1;padding:7px;font-size:12.5px;font-weight:500;border-radius:8px;cursor:pointer;border:1px solid var(--border);background:#fff;color:var(--navy);font-family:inherit}
+.prio-btn.sel{background:var(--navy);color:#fff;border-color:var(--navy)}
+
+.checkbox-row{display:flex;gap:16px;flex-wrap:wrap}
+.checkbox-row label{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--text-secondary);cursor:pointer;font-weight:500}
+.checkbox-row input[type=checkbox]{width:15px;height:15px}
+
+/* Modal simple (édition du lien signé) */
+.cf-modal-overlay{position:fixed;inset:0;background:rgba(0,20,59,.45);z-index:5000;display:flex;align-items:center;justify-content:center;padding:20px}
+.cf-modal{background:#fff;border-radius:12px;padding:24px;width:100%;max-width:520px;box-shadow:0 20px 50px rgba(0,20,59,.25)}
+
+@media(max-width:900px){.detail-grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- ===== ÉCRAN DE CONNEXION ===== -->
+<div id="screen-login" class="screen active">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="72" />
+    </div>
+    <div class="login-divider"></div>
+    <h1 class="login-title">CounterFlow</h1>
+    <p class="login-desc">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder au suivi des contreparties autorisées.</p>
+    <button id="btn-login" class="btn-microsoft">
+      <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+      </svg>
+      <span>Se connecter avec Microsoft</span>
+    </button>
+    <p class="login-footer">Accès réservé aux collaborateurs Eiffel IG</p>
+  </div>
+</div>
+
+<!-- ===== APPLICATION ===== -->
+<div id="screen-app" class="screen">
+  <div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar eiffel-rays">
+      <div class="sidebar-logo">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="30" />
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-nav-label">Navigation</div>
+      <nav style="position:relative;z-index:1;display:flex;flex-direction:column;gap:2px">
+        <a class="sidebar-item" href="index.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Restricted List</span>
+        </a>
+        <a class="sidebar-item" href="index.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          <span>Déclarer</span>
+        </a>
+        <a class="sidebar-item" href="doc-review.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Doc Review</span>
+        </a>
+        <a class="sidebar-item" href="tracker-cpl.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
+          <span>Tracker CPL</span>
+        </a>
+        <a class="sidebar-item" href="deontohub.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>DeontoHub</span>
+        </a>
+        <button class="sidebar-item active" style="cursor:default">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="9 13 11 15 15 11"/></svg>
+          <span>CounterFlow</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-user">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="sidebar-user-avatar" id="user-avatar">--</div>
+          <div style="min-width:0;flex:1">
+            <div class="sidebar-user-name" id="user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chargement...</div>
+            <div class="sidebar-user-role" id="user-role">Collaborateur</div>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn-sidebar-logout" title="Se déconnecter">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>Se déconnecter</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="page-content">
+      <div id="view-liste">
+        <div id="list-loading" style="display:flex;align-items:center;gap:10px;padding:40px 0;justify-content:center;color:var(--text-secondary);font-size:14px">
+          <div class="spinner"></div> Chargement depuis SharePoint...
+        </div>
+        <div id="list-error" style="display:none;padding:20px;background:#FEF2F2;border-radius:8px;color:#DC2626;font-size:13px"></div>
+      </div>
+      <div id="view-detail" class="hidden"></div>
+      <div id="view-maj-kyc" class="hidden"></div>
+      <div id="view-nouvelle" class="hidden"></div>
+      <div id="view-relances" class="hidden"></div>
+    </main>
+
+  </div>
+</div>
+
+<div id="toast-container" class="toast-container"></div>
+<div id="modal-slot"></div>
+
+<script>
+const msalConfig = {
+  auth: {
+    clientId: "56c83db2-7fc6-4826-8073-82077e91ae27",
+    authority: "https://login.microsoftonline.com/eb5288b6-5ccb-4f5d-88fb-346db1317a4f",
+    redirectUri: window.location.origin
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+</script>
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+// CounterFlow est ouvert à tous les collaborateurs authentifiés (lecture + écriture
+// sur les contreparties). CPL_EMAILS ne sert ici qu'à conditionner l'affichage du
+// bouton "Envoyer les relances KYC" et du crayon d'édition du lien signé.
+const CPL_EMAILS = [
+  'thomas.oliveira@eiffel-ig.com',
+  'cassandre.memet@eiffel-ig.com',
+  'manalle.ourrami@eiffel-ig.com',
+  'jessica.manukyan@eiffel-ig.com'
+];
+
+const SP = {
+  hostname : 'eiffelinvestmentgroup.sharepoint.com',
+  sitePath : '/sites/CPLDashboard',
+  listName : 'Brokers'
+};
+
+const GRAPH_SCOPES_LOGIN = ['User.Read'];
+const GRAPH_SCOPES_SP    = ['Sites.ReadWrite.All'];
+const GRAPH_SCOPES_MAIL  = ['Mail.Send'];
+
+// Title réservé à l'élément de configuration (lien vers la liste signée) : il ne
+// représente pas une contrepartie et doit être exclu de tout affichage/calcul.
+const CONFIG_TITLE = '__CONFIG__';
+
+const EQUIPES = ['Trade Credit', 'Equity'];
+const TEAM_EMAILS = { 'Trade Credit': 'cdt@eiffel-ig.com', 'Equity': 'eqty_pew@eiffel-ig.com' };
+const NIVEAUX_RISQUE = ['Faible', 'Moyen', 'Élevé'];
+const CLASSES_ACTIF = ['Actions', 'Obligations', 'Autres'];
+const SEUIL_BIENTOT_JOURS = 60;
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let currentUser      = null;
+let isCPL            = false;
+let msalInst         = null;
+let spSiteId         = null;
+let spListBrokersId  = null;
+let brokers          = [];    // contreparties réelles — l'item __CONFIG__ n'y entre jamais
+let counterflowConfig = null; // { spId, lienListeSignee } — l'item __CONFIG__, isolé au chargement
+let currentView      = 'liste';
+let statusFilter     = 'all';
+let equipeFilter     = 'all';
+let risqueFilter     = 'all';
+let selectedBroker   = null;
+let lastLoadedAt     = null;
+
+// ═══════════════════════════════════════════════════════════
+// AUTH MSAL (identique à deontohub.html)
+// ═══════════════════════════════════════════════════════════
+async function initApp() {
+  msalInst = new msal.PublicClientApplication(msalConfig);
+  await msalInst.initialize();
+
+  const accounts = msalInst.getAllAccounts();
+  if (accounts.length > 0) {
+    await loginWithAccount(accounts[0]);
+  } else {
+    showScreen('login');
+  }
+
+  document.getElementById('btn-login').onclick = async () => {
+    try {
+      const result = await msalInst.loginPopup({ scopes: GRAPH_SCOPES_LOGIN });
+      await loginWithAccount(result.account);
+    } catch(e) { console.error('Login failed:', e); }
+  };
+
+  document.getElementById('btn-logout').onclick = async () => {
+    try { await msalInst.logoutPopup(); } catch(e) {}
+    showScreen('login');
+  };
+}
+
+async function loginWithAccount(account) {
+  try {
+    const token = await getToken(GRAPH_SCOPES_LOGIN, account);
+    const p = await graphGet('/me', token);
+    setUser({ name: p.displayName, email: p.userPrincipalName, account });
+  } catch(e) {
+    console.error('Token error:', e);
+    showScreen('login');
+  }
+}
+
+function setUser(u) {
+  currentUser = u;
+  isCPL = CPL_EMAILS.map(e => e.toLowerCase()).includes(u.email.toLowerCase());
+  const ini = u.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
+  document.getElementById('user-avatar').textContent = ini;
+  document.getElementById('user-avatar').style.background = isCPL ? '#D18F41' : '#4B5563';
+  document.getElementById('user-name').textContent = u.name;
+  document.getElementById('user-role').textContent = isCPL ? 'Compliance' : 'Collaborateur';
+  showScreen('app');
+  initSharePointThenLoad();
+}
+
+// ═══════════════════════════════════════════════════════════
+// GRAPH HELPERS (identiques à deontohub.html)
+// ═══════════════════════════════════════════════════════════
+async function getToken(scopes, account) {
+  const acc = account || currentUser?.account || msalInst.getAllAccounts()[0];
+  try {
+    const res = await msalInst.acquireTokenSilent({ scopes, account: acc });
+    return res.accessToken;
+  } catch(e) {
+    if (e.name === 'InteractionRequiredAuthError' || e instanceof msal.InteractionRequiredAuthError) {
+      const res = await msalInst.acquireTokenPopup({ scopes, account: acc });
+      return res.accessToken;
+    }
+    throw e;
+  }
+}
+
+async function graphGet(path, token) {
+  const t = token || await getToken(GRAPH_SCOPES_SP);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, { headers: { Authorization: `Bearer ${t}` } });
+  if (!res.ok) throw new Error(`Graph GET ${path} → ${res.status}`);
+  return res.json();
+}
+
+async function graphPost(path, body, scopes) {
+  const t = await getToken(scopes || GRAPH_SCOPES_SP);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(`Graph POST ${path} → ${res.status}: ${e}`); }
+  return (res.status === 204 || res.status === 202) ? null : res.json();
+}
+
+async function graphPatch(path, body) {
+  const t = await getToken(GRAPH_SCOPES_SP);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
+    method: 'PATCH',
+    headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const e = await res.text(); throw new Error(`Graph PATCH ${path} → ${res.status}: ${e}`); }
+  return (res.status === 204 || res.status === 202) ? null : res.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+// SHAREPOINT — initialisation + chargement
+// ═══════════════════════════════════════════════════════════
+async function initSharePointThenLoad() {
+  setListLoading(true);
+  try {
+    const site = await graphGet(`/sites/${SP.hostname}:${SP.sitePath}`);
+    spSiteId = site.id;
+
+    const lists = await graphGet(`/sites/${spSiteId}/lists?$filter=displayName eq '${encodeURIComponent(SP.listName)}'`);
+    spListBrokersId = lists.value[0]?.id;
+    if (!spListBrokersId) throw new Error(`Liste "${SP.listName}" introuvable sur SharePoint`);
+
+    await loadBrokers();
+  } catch(e) {
+    console.error('SharePoint init error:', e);
+    setListLoading(false);
+    showListError(e.message);
+  }
+}
+
+// Les colonnes "lien hypertexte" SharePoint arrivent via Graph sous forme
+// d'objet { Description, Url } — on lit défensivement les deux formes.
+function readLink(field) {
+  if (!field) return '';
+  if (typeof field === 'string') return field;
+  return field.Url || '';
+}
+
+async function loadBrokers() {
+  setListLoading(true);
+  try {
+    const data = await graphGet(`/sites/${spSiteId}/lists/${spListBrokersId}/items?expand=fields&$top=4999`);
+
+    // Séparation stricte dès le chargement : l'item __CONFIG__ (lien vers le
+    // document signé) part dans counterflowConfig, tout le reste dans brokers.
+    counterflowConfig = null;
+    brokers = [];
+    data.value.forEach(item => {
+      const f = item.fields;
+      if ((f.Title || '').trim() === CONFIG_TITLE) {
+        counterflowConfig = { spId: item.id, lienListeSignee: readLink(f.LienListeSignee) };
+        return;
+      }
+      brokers.push({
+        spId          : item.id,
+        nom           : f.Title || '',
+        kycLink       : readLink(f.KYC),
+        dateExpiration: f.DateExpirationKYC || '',
+        equipes       : Array.isArray(f.Equipe) ? f.Equipe : (f.Equipe ? [f.Equipe] : []),
+        niveauRisque  : f.NiveauRisque || '',
+        classesActif  : Array.isArray(f.ClasseActif) ? f.ClasseActif : (f.ClasseActif ? [f.ClasseActif] : []),
+        classeActifAutre : f.ClasseActifAutre || '',
+        dernierKYCPar : f.DernierKYCPar || '',
+        dateDernierKYC: f.DateDernierKYC || '',
+        _expTs        : f.DateExpirationKYC ? new Date(f.DateExpirationKYC).getTime() : 0
+      });
+    });
+    brokers.sort((a,b) => a.nom.localeCompare(b.nom, 'fr'));
+
+    lastLoadedAt = new Date();
+    setListLoading(false);
+    renderListe();
+
+    // Lien profond depuis les emails de relance : counterflow.html#<spId>
+    const hash = window.location.hash.replace('#','');
+    if (hash && brokers.find(b => b.spId === hash)) {
+      openDetail(hash);
+      history.replaceState(null, '', window.location.pathname);
+    }
+    return true;
+  } catch(e) {
+    console.error('Erreur chargement contreparties:', e);
+    setListLoading(false);
+    showListError(e.message);
+    return false;
+  }
+}
+
+async function manualRefresh() {
+  const btn = document.getElementById('list-refresh-btn');
+  if (btn) btn.classList.add('spinning');
+  const ok = await loadBrokers();
+  if (ok) showToast('Liste actualisée.', 'success');
+}
+
+function setListLoading(on) {
+  const el = document.getElementById('list-loading');
+  if (el) el.style.display = on ? 'flex' : 'none';
+}
+
+function showListError(msg) {
+  const el = document.getElementById('list-error');
+  if (el) { el.textContent = `Erreur : ${msg}`; el.style.display = 'block'; }
+}
+
+// ═══════════════════════════════════════════════════════════
+// TOASTS (identiques au patron existant)
+// ═══════════════════════════════════════════════════════════
+function showToast(message, type) {
+  type = type || 'info';
+  const icons = { success: '✓', error: '✕', info: 'i' };
+  const container = document.getElementById('toast-container');
+  if (!container) return;
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  toast.innerHTML = `
+    <span class="toast-icon">${icons[type] || icons.info}</span>
+    <span>${message}</span>
+    <button class="toast-close" aria-label="Fermer">&times;</button>`;
+  const dismiss = () => { toast.classList.add('hide'); setTimeout(() => toast.remove(), 180); };
+  toast.querySelector('.toast-close').onclick = dismiss;
+  container.appendChild(toast);
+  setTimeout(dismiss, 4500);
+}
+
+document.addEventListener('keydown', e => {
+  if (e.key !== 'Escape') return;
+  if (document.querySelector('.cf-modal-overlay')) { closeModal(); return; }
+  if (currentView === 'maj-kyc') openDetail(selectedBroker.spId);
+  else if (currentView !== 'liste') goListe();
+});
+
+// ═══════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+
+const VIEW_IDS = ['liste','detail','maj-kyc','nouvelle','relances'];
+function showView(id) {
+  VIEW_IDS.forEach(v => document.getElementById('view-' + v).classList.toggle('hidden', v !== id));
+  currentView = id;
+}
+
+function goListe() { renderListe(); showView('liste'); window.scrollTo(0,0); }
+function setStatusFilter(s) { statusFilter = s; renderListe(); }
+function setEquipeFilter(s) { equipeFilter = s; renderListe(); }
+function setRisqueFilter(s) { risqueFilter = s; renderListe(); }
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function bdg(label, cls) { return `<span class="bdg ${cls}">${label}</span>`; }
+function svgIcon(path, extras) {
+  return `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ${extras||''}>${path}</svg>`;
+}
+function formatDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '—'; }
+}
+function esc(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Statut calculé — jamais stocké, toujours recalculé à l'affichage.
+// Une contrepartie sans date d'expiration est traitée comme "expiré" (pas de KYC
+// valide démontrable = à traiter en priorité).
+function computeStatus(broker, today) {
+  today = today || new Date();
+  if (!broker._expTs) return 'expiré';
+  const days = Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
+  if (days < 0) return 'expiré';
+  if (days <= SEUIL_BIENTOT_JOURS) return 'bientôt expiré';
+  return 'à jour';
+}
+function daysToExpiration(broker, today) {
+  today = today || new Date();
+  if (!broker._expTs) return null;
+  return Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
+}
+const STATUS_CLASS = { 'à jour':'bdg-a-jour', 'bientôt expiré':'bdg-bientot', 'expiré':'bdg-expire' };
+const RISQUE_CLASS = { 'Faible':'bdg-risque-faible', 'Moyen':'bdg-risque-moyen', 'Élevé':'bdg-risque-eleve' };
+
+function classesActifLabel(b) {
+  const list = b.classesActif.map(c => c === 'Autres' && b.classeActifAutre ? `Autres (${b.classeActifAutre})` : c);
+  return list.length ? list.join(', ') : '—';
+}
+
+// ═══════════════════════════════════════════════════════════
+// VUE LISTE
+// ═══════════════════════════════════════════════════════════
+function renderListe() {
+  const filtered = brokers.filter(b => {
+    const st = computeStatus(b);
+    if (statusFilter !== 'all' && st !== statusFilter) return false;
+    if (equipeFilter !== 'all' && !b.equipes.includes(equipeFilter)) return false;
+    if (risqueFilter !== 'all' && b.niveauRisque !== risqueFilter) return false;
+    return true;
+  });
+
+  const pill = (label, value, current, setter, count) => {
+    const active = current === value;
+    const st = active ? 'style="background:var(--navy);color:#fff;border-color:var(--navy)"' : '';
+    return `<button class="filter-pill" ${st} onclick="${setter}('${value.replace(/'/g,"\\'")}')">${label}${count!=null?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
+  };
+
+  const nbByStatus = s => brokers.filter(b => computeStatus(b) === s).length;
+  const statusPills = [
+    pill('Tous','all',statusFilter,'setStatusFilter',brokers.length),
+    pill('À jour','à jour',statusFilter,'setStatusFilter',nbByStatus('à jour')),
+    pill('Bientôt expiré','bientôt expiré',statusFilter,'setStatusFilter',nbByStatus('bientôt expiré')),
+    pill('Expiré','expiré',statusFilter,'setStatusFilter',nbByStatus('expiré'))
+  ].join('');
+  const equipePills = [pill('Tous','all',equipeFilter,'setEquipeFilter')]
+    .concat(EQUIPES.map(e => pill(e, e, equipeFilter, 'setEquipeFilter'))).join('');
+  const risquePills = [pill('Tous','all',risqueFilter,'setRisqueFilter')]
+    .concat(NIVEAUX_RISQUE.map(r => pill(r, r, risqueFilter, 'setRisqueFilter'))).join('');
+
+  const rows = filtered.map(b => {
+    const st = computeStatus(b);
+    const nameCls = st === 'expiré' ? 'name-blink-expired' : '';
+    return `<tr onclick="openDetail('${b.spId}')">
+      <td><span class="${nameCls}" style="font-size:13px;${st==='expiré'?'':'font-weight:600;color:#111827'}">${esc(b.nom)}</span></td>
+      <td>${b.equipes.length ? b.equipes.map(e => bdg(e,'bdg-equipe')).join(' ') : '<span class="td-muted">—</span>'}</td>
+      <td>${b.niveauRisque ? bdg(b.niveauRisque, RISQUE_CLASS[b.niveauRisque]||'bdg-risque-moyen') : '<span class="td-muted">—</span>'}</td>
+      <td class="td-muted">${esc(classesActifLabel(b))}</td>
+      <td class="td-muted">${formatDate(b.dateExpiration)}</td>
+      <td>${bdg(st, STATUS_CLASS[st])}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
+
+  const lienSigne = counterflowConfig?.lienListeSignee || '';
+  const signedBtn = lienSigne
+    ? `<a class="btn-secondary" href="${esc(lienSigne)}" target="_blank" rel="noopener" id="btn-liste-signee" style="text-decoration:none">
+        ${svgIcon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
+        Contreparties autorisées (document signé)
+      </a>`
+    : `<button class="btn-secondary" id="btn-liste-signee" disabled style="opacity:.5;cursor:not-allowed" title="Lien non configuré">
+        ${svgIcon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
+        Contreparties autorisées (document signé)
+      </button>`;
+  const editSignedBtn = isCPL ? `
+    <button class="btn-secondary" onclick="openEditLienSigne()" title="Modifier le lien du document signé" style="padding:10px 12px">
+      ${svgIcon('<path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/>')}
+    </button>` : '';
+
+  const relanceBtn = isCPL ? `
+    <button class="btn-secondary" onclick="goRelances()">
+      ${svgIcon('<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/>')}
+      Envoyer les relances KYC
+    </button>` : '';
+
+  document.getElementById('view-liste').innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="eyebrow" style="margin-bottom:9px">Contreparties autorisées · KYC</div>
+        <h1 class="page-title" style="margin:0 0 7px">CounterFlow</h1>
+        <p class="section-desc">${brokers.length} contrepartie${brokers.length>1?'s':''} suivie${brokers.length>1?'s':''}
+          &nbsp;·&nbsp; ${nbByStatus('expiré')} expirée${nbByStatus('expiré')>1?'s':''}
+          &nbsp;·&nbsp;
+          <button class="list-refresh" id="list-refresh-btn" onclick="manualRefresh()" title="Rafraîchir depuis SharePoint">
+            ${svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>')}
+            Actualisé à ${lastLoadedAt ? lastLoadedAt.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) : '—'}
+          </button>
+        </p>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        ${relanceBtn}
+        ${signedBtn}${editSignedBtn}
+        <button class="btn-primary" onclick="goNouvelle()">
+          ${svgIcon('<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>')}
+          Nouvelle contrepartie
+        </button>
+      </div>
+    </div>
+    <div class="cpl-filters">
+      <span class="filter-group-label">Statut</span>${statusPills}
+      <span class="filter-group-label" style="margin-left:10px">Équipe</span>${equipePills}
+      <span class="filter-group-label" style="margin-left:10px">Risque</span>${risquePills}
+      <input type="text" placeholder="Rechercher..." oninput="searchTable(this.value)"
+        style="margin-left:auto;padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:170px">
+    </div>
+    <div class="table-wrapper">
+      <table class="data-table cf-table">
+        <thead><tr>
+          <th style="width:220px">Nom</th>
+          <th style="width:170px">Équipe(s)</th>
+          <th style="width:110px">Niveau de risque</th>
+          <th style="min-width:160px">Classe(s) d'actif</th>
+          <th style="width:120px">Expiration KYC</th>
+          <th style="width:130px">Statut</th>
+        </tr></thead>
+        <tbody id="cf-tbody">${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+function searchTable(q) {
+  document.querySelectorAll('#cf-tbody tr').forEach(r => {
+    r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+// FICHE DÉTAIL
+// ═══════════════════════════════════════════════════════════
+function openDetail(spId) {
+  selectedBroker = brokers.find(b => b.spId === spId);
+  if (!selectedBroker) return;
+  const b = selectedBroker;
+  const st = computeStatus(b);
+  const nameCls = st === 'expiré' ? 'name-blink-expired' : '';
+
+  document.getElementById('view-detail').innerHTML = `
+    <button class="back-btn" onclick="goListe()">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour aux contreparties</button>
+    <div class="detail-grid">
+      <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="form-card">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
+            <div>
+              <div class="section-title ${nameCls}" style="font-size:19px">${esc(b.nom)}</div>
+              <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+                ${bdg(st, STATUS_CLASS[st])}
+                ${b.niveauRisque ? bdg(`Risque ${b.niveauRisque.toLowerCase()}`, RISQUE_CLASS[b.niveauRisque]) : ''}
+                ${b.equipes.map(e => bdg(e,'bdg-equipe')).join(' ')}
+              </div>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:#374151">
+            <div><strong style="font-weight:600;color:var(--navy)">Classe(s) d'actif :</strong> ${esc(classesActifLabel(b))}</div>
+            <div><strong style="font-weight:600;color:var(--navy)">Expiration du KYC :</strong> ${formatDate(b.dateExpiration)} ${bdg(st, STATUS_CLASS[st])}</div>
+            <div><strong style="font-weight:600;color:var(--navy)">Dossier KYC :</strong>
+              ${b.kycLink
+                ? `<a href="${esc(b.kycLink)}" target="_blank" rel="noopener" style="color:var(--navy);font-weight:600">Ouvrir le dossier SharePoint →</a>`
+                : '<span class="td-muted">Aucun lien renseigné</span>'}
+            </div>
+            <div class="td-muted" style="font-size:12px;margin-top:4px">
+              ${b.dernierKYCPar
+                ? `Dernier KYC réalisé par ${esc(b.dernierKYCPar)} le ${formatDate(b.dateDernierKYC)}`
+                : 'Aucune mise à jour du KYC enregistrée via CounterFlow.'}
+            </div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="form-card">
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Actions</div>
+          <button class="btn-primary" style="width:100%;justify-content:center" onclick="goMajKYC()">
+            ${svgIcon('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>')}
+            Mettre à jour le KYC
+          </button>
+        </div>
+      </div>
+    </div>`;
+
+  showView('detail');
+  window.scrollTo({top:0, behavior:'smooth'});
+}
+
+// ═══════════════════════════════════════════════════════════
+// MISE À JOUR DU KYC
+// ═══════════════════════════════════════════════════════════
+function goMajKYC() {
+  const b = selectedBroker;
+  document.getElementById('view-maj-kyc').innerHTML = `
+    <button class="back-btn" onclick="openDetail(selectedBroker.spId)">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour à la fiche</button>
+    <div style="max-width:600px">
+      <div class="form-card">
+        <div style="margin-bottom:18px">
+          <h2 class="section-title" style="font-size:18px">Mettre à jour le KYC</h2>
+          <p class="section-desc">Contrepartie : ${esc(b.nom)}</p>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label">Nouveau lien du dossier KYC (SharePoint) *</label>
+            <input type="url" id="kyc-lien" class="form-input" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Nouvelle date d'expiration *</label>
+            <input type="date" id="kyc-date-exp" class="form-input">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="submitMajKYC()" style="width:100%;justify-content:center">
+            ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
+            Enregistrer la mise à jour
+          </button>
+        </div>
+      </div>
+    </div>`;
+  showView('maj-kyc');
+  window.scrollTo(0,0);
+}
+
+async function submitMajKYC() {
+  const lien = document.getElementById('kyc-lien').value.trim();
+  const dateExp = document.getElementById('kyc-date-exp').value;
+  if (!lien || !dateExp) { showToast('Le lien KYC et la date d\'expiration sont obligatoires.', 'error'); return; }
+
+  const btn = document.querySelector('#view-maj-kyc [onclick="submitMajKYC()"]');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, {
+      KYC: { Description: 'Dossier KYC', Url: lien },
+      DateExpirationKYC: new Date(dateExp).toISOString(),
+      DernierKYCPar: currentUser.name,
+      DateDernierKYC: new Date().toISOString()
+    });
+    showToast(`KYC de ${selectedBroker.nom} mis à jour.`, 'success');
+    await loadBrokers();
+    openDetail(selectedBroker.spId);
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer la mise à jour';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOUVELLE CONTREPARTIE
+// ═══════════════════════════════════════════════════════════
+let nouvelleRisqueSel = 'Faible';
+
+function goNouvelle() {
+  nouvelleRisqueSel = 'Faible';
+  document.getElementById('view-nouvelle').innerHTML = `
+    <button class="back-btn" onclick="goListe()">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour aux contreparties</button>
+    <div style="max-width:700px">
+      <div class="form-card">
+        <div style="margin-bottom:18px">
+          <h2 class="section-title" style="font-size:18px">Nouvelle contrepartie</h2>
+          <p class="section-desc">Ajout dans la liste des contreparties autorisées</p>
+        </div>
+        <div class="form-grid">
+          <div class="form-group full-width">
+            <label class="form-label">Nom de la contrepartie *</label>
+            <input type="text" id="cf-nom" class="form-input" placeholder="Ex : Banque XYZ">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Équipe(s) *</label>
+            <div class="checkbox-row">
+              ${EQUIPES.map(e => `<label><input type="checkbox" class="cf-equipe" value="${e}">${e}</label>`).join('')}
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Niveau de risque *</label>
+            <div class="prio-row">
+              ${NIVEAUX_RISQUE.map(r => `<button type="button" class="prio-btn ${r==='Faible'?'sel':''}" onclick="setNouvelleRisque('${r}',this)">${r}</button>`).join('')}
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Classe(s) d'actif *</label>
+            <div class="checkbox-row">
+              ${CLASSES_ACTIF.map(c => `<label><input type="checkbox" class="cf-classe" value="${c}" onchange="toggleClasseAutre()">${c}</label>`).join('')}
+            </div>
+            <input type="text" id="cf-classe-autre" class="form-input" placeholder="Précisez la classe d'actif..." style="display:none;margin-top:8px">
+          </div>
+          <div class="form-group full-width">
+            <label class="form-label">Lien du dossier KYC (SharePoint)</label>
+            <input type="url" id="cf-kyc-lien" class="form-input" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Date d'expiration du KYC</label>
+            <input type="date" id="cf-date-exp" class="form-input">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button class="btn-primary" onclick="submitNouvelle()" style="width:100%;justify-content:center">
+            ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
+            Enregistrer la contrepartie
+          </button>
+        </div>
+      </div>
+    </div>`;
+  showView('nouvelle');
+  window.scrollTo(0,0);
+}
+
+function setNouvelleRisque(r, btn) {
+  nouvelleRisqueSel = r;
+  document.querySelectorAll('#view-nouvelle .prio-btn').forEach(b => b.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function toggleClasseAutre() {
+  const autreChecked = Array.from(document.querySelectorAll('.cf-classe:checked')).some(c => c.value === 'Autres');
+  document.getElementById('cf-classe-autre').style.display = autreChecked ? 'block' : 'none';
+}
+
+async function submitNouvelle() {
+  const nom = document.getElementById('cf-nom').value.trim();
+  const equipes = Array.from(document.querySelectorAll('.cf-equipe:checked')).map(c => c.value);
+  const classes = Array.from(document.querySelectorAll('.cf-classe:checked')).map(c => c.value);
+  const classeAutre = document.getElementById('cf-classe-autre').value.trim();
+  const kycLien = document.getElementById('cf-kyc-lien').value.trim();
+  const dateExp = document.getElementById('cf-date-exp').value;
+
+  if (!nom || !equipes.length || !classes.length) {
+    showToast('Le nom, au moins une équipe et au moins une classe d\'actif sont obligatoires.', 'error');
+    return;
+  }
+  // Le Title "__CONFIG__" est réservé à l'élément de configuration interne :
+  // refuser toute création qui entrerait en collision avec lui.
+  if (nom === CONFIG_TITLE) {
+    showToast(`Le nom "${CONFIG_TITLE}" est réservé au fonctionnement interne de CounterFlow et ne peut pas être utilisé.`, 'error');
+    return;
+  }
+
+  const btn = document.querySelector('#view-nouvelle [onclick="submitNouvelle()"]');
+  btn.disabled = true;
+  btn.textContent = 'Enregistrement...';
+
+  try {
+    const fields = {
+      Title: nom,
+      'Equipe@odata.type': 'Collection(Edm.String)',
+      Equipe: equipes,
+      NiveauRisque: nouvelleRisqueSel,
+      'ClasseActif@odata.type': 'Collection(Edm.String)',
+      ClasseActif: classes,
+      ClasseActifAutre: classes.includes('Autres') ? classeAutre : ''
+    };
+    if (kycLien) fields.KYC = { Description: 'Dossier KYC', Url: kycLien };
+    if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
+
+    await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
+    showToast(`${nom} ajoutée aux contreparties.`, 'success');
+    await loadBrokers();
+    goListe();
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${e.message}`, 'error');
+    btn.disabled = false;
+    btn.textContent = 'Enregistrer la contrepartie';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// RELANCES KYC PAR ÉQUIPE (Compliance uniquement)
+// ═══════════════════════════════════════════════════════════
+function brokersToRelance() {
+  // Contreparties "bientôt expiré" ou "expiré", groupées par équipe.
+  const parEquipe = {};
+  EQUIPES.forEach(e => parEquipe[e] = []);
+  brokers.forEach(b => {
+    const st = computeStatus(b);
+    if (st === 'à jour') return;
+    b.equipes.forEach(e => { if (parEquipe[e]) parEquipe[e].push(b); });
+  });
+  return parEquipe;
+}
+
+function goRelances() {
+  if (!isCPL) return;
+  const parEquipe = brokersToRelance();
+  const totalCount = EQUIPES.reduce((s,e) => s + parEquipe[e].length, 0);
+
+  if (!totalCount) {
+    showToast('Aucune contrepartie à relancer actuellement.', 'info');
+    return;
+  }
+
+  const sections = EQUIPES.map(equipe => {
+    const list = parEquipe[equipe];
+    if (!list.length) return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--navy)">${equipe} → ${TEAM_EMAILS[equipe]}</div>
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Aucune contrepartie à signaler — aucun email ne sera envoyé à cette équipe.</p>
+      </div>`;
+    const rows = list.map(b => {
+      const st = computeStatus(b);
+      const days = daysToExpiration(b);
+      const detail = days === null ? 'date d\'expiration non renseignée'
+        : st === 'expiré' ? `expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`
+        : `expire dans ${days} jour${days>1?'s':''}`;
+      return `<div style="display:flex;align-items:center;gap:8px;padding:5px 0;font-size:12.5px">
+        ${bdg(st, STATUS_CLASS[st])}
+        <span style="font-weight:600;color:#111827">${esc(b.nom)}</span>
+        <span class="td-muted">${detail}</span>
+      </div>`;
+    }).join('');
+    return `
+      <div style="border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="font-size:13px;font-weight:700;color:var(--navy);margin-bottom:6px">${equipe} → ${TEAM_EMAILS[equipe]} <span style="font-weight:500;color:var(--text-secondary)">(${list.length} contrepartie${list.length>1?'s':''})</span></div>
+        ${rows}
+      </div>`;
+  }).join('');
+
+  document.getElementById('view-relances').innerHTML = `
+    <button class="back-btn" onclick="goListe()">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour aux contreparties</button>
+    <div style="max-width:700px">
+      <div class="form-card">
+        <div style="margin-bottom:18px">
+          <h2 class="section-title" style="font-size:18px">Relances KYC — prévisualisation</h2>
+          <p class="section-desc">Un email sera envoyé à chaque équipe ayant au moins une contrepartie dont le KYC expire dans moins de ${SEUIL_BIENTOT_JOURS} jours ou est déjà expiré.</p>
+        </div>
+        ${sections}
+        <div class="form-actions">
+          <button class="btn-primary" onclick="sendRelances()" style="width:100%;justify-content:center">
+            ${svgIcon('<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>')}
+            Confirmer et envoyer les relances
+          </button>
+        </div>
+      </div>
+    </div>`;
+  showView('relances');
+  window.scrollTo(0,0);
+}
+
+function relanceEmailBody(equipe, list) {
+  const appLink = spId => `${window.location.origin}/counterflow.html#${spId}`;
+  const row = b => {
+    const days = daysToExpiration(b);
+    const st = computeStatus(b);
+    const detail = days === null ? 'date d\'expiration non renseignée'
+      : st === 'expiré' ? `expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`
+      : `expire dans ${days} jour${days>1?'s':''}`;
+    return `<tr>
+      <td style="padding:7px 12px;font-weight:600">${esc(b.nom)}</td>
+      <td style="padding:7px 12px">${formatDate(b.dateExpiration)}</td>
+      <td style="padding:7px 12px">${detail}</td>
+      <td style="padding:7px 12px">${esc(b.niveauRisque || '—')}</td>
+      <td style="padding:7px 12px"><a href="${appLink(b.spId)}" style="color:#00143B;font-weight:600">Ouvrir la fiche →</a></td>
+    </tr>`;
+  };
+  const table = (rows, headColor) => `
+    <table style="border-collapse:collapse;width:100%;margin:10px 0 20px;border:1px solid #E5E7EB;font-size:13px">
+      <tr style="background:${headColor};color:#fff">
+        <th style="padding:8px 12px;text-align:left">Contrepartie</th>
+        <th style="padding:8px 12px;text-align:left">Expiration</th>
+        <th style="padding:8px 12px;text-align:left">Statut</th>
+        <th style="padding:8px 12px;text-align:left">Risque</th>
+        <th style="padding:8px 12px;text-align:left">Fiche</th>
+      </tr>
+      ${rows}
+    </table>`;
+
+  const expires  = list.filter(b => computeStatus(b) === 'expiré');
+  const bientots = list.filter(b => computeStatus(b) === 'bientôt expiré');
+
+  return `
+    <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
+      <p>Bonjour,</p>
+      <p>Les contreparties suivantes de l'équipe <strong>${equipe}</strong> nécessitent une action sur leur dossier KYC :</p>
+      ${expires.length ? `<p style="color:#DC2626;font-weight:700;margin-bottom:2px">⚠ KYC expirés (${expires.length})</p>${table(expires.map(row).join(''), '#DC2626')}` : ''}
+      ${bientots.length ? `<p style="color:#C2410C;font-weight:700;margin-bottom:2px">KYC bientôt expirés (${bientots.length})</p>${table(bientots.map(row).join(''), '#C2410C')}` : ''}
+      <p>Merci de mettre à jour les dossiers concernés directement dans CounterFlow.</p>
+      <p style="color:#6B7280;font-size:12px">— CounterFlow · Eiffel Investment Group</p>
+    </div>`;
+}
+
+async function sendRelances() {
+  const parEquipe = brokersToRelance();
+  const equipesAvecRelances = EQUIPES.filter(e => parEquipe[e].length > 0);
+  if (!equipesAvecRelances.length) {
+    showToast('Aucune contrepartie à relancer actuellement.', 'info');
+    return;
+  }
+
+  const btn = document.querySelector('#view-relances [onclick="sendRelances()"]');
+  btn.disabled = true;
+  btn.textContent = 'Envoi en cours...';
+
+  const sent = [];
+  const failed = [];
+  for (const equipe of equipesAvecRelances) {
+    try {
+      await graphPost('/me/sendMail', {
+        message: {
+          subject: '[CounterFlow] Relance KYC — contreparties à traiter',
+          body: { contentType: 'HTML', content: relanceEmailBody(equipe, parEquipe[equipe]) },
+          toRecipients: [{ emailAddress: { address: TEAM_EMAILS[equipe] } }]
+        },
+        saveToSentItems: true
+      }, GRAPH_SCOPES_MAIL);
+      sent.push(equipe);
+    } catch(e) {
+      console.error(`Relance ${equipe}:`, e);
+      failed.push(equipe);
+    }
+  }
+
+  if (sent.length) showToast(`${sent.length} email${sent.length>1?'s':''} de relance envoyé${sent.length>1?'s':''} : ${sent.join(', ')}.`, 'success');
+  if (failed.length) showToast(`Échec de l'envoi pour : ${failed.join(', ')}.`, 'error');
+  if (sent.length) goListe();
+  else { btn.disabled = false; btn.textContent = 'Confirmer et envoyer les relances'; }
+}
+
+// ═══════════════════════════════════════════════════════════
+// LIEN VERS LE DOCUMENT SIGNÉ (élément __CONFIG__)
+// ═══════════════════════════════════════════════════════════
+function closeModal() {
+  document.getElementById('modal-slot').innerHTML = '';
+}
+
+function openEditLienSigne() {
+  if (!isCPL) return;
+  const current = counterflowConfig?.lienListeSignee || '';
+  document.getElementById('modal-slot').innerHTML = `
+    <div class="cf-modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="cf-modal">
+        <h3 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">Lien du document signé</h3>
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">Lien vers la liste des contreparties autorisées signée par la direction. Il est stocké dans la liste Brokers (élément de configuration), jamais dans le code.</p>
+        <input type="url" id="lien-signe-input" class="form-input" style="width:100%" placeholder="https://eiffelinvestmentgroup.sharepoint.com/..." value="${esc(current)}">
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button class="btn-secondary" onclick="closeModal()">Annuler</button>
+          <button class="btn-primary" onclick="submitLienSigne()">Enregistrer</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('lien-signe-input').focus();
+}
+
+async function submitLienSigne() {
+  const lien = document.getElementById('lien-signe-input').value.trim();
+  if (!lien) { showToast('Veuillez saisir un lien.', 'error'); return; }
+
+  try {
+    if (counterflowConfig?.spId) {
+      await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${counterflowConfig.spId}/fields`, {
+        LienListeSignee: { Description: 'Liste signée', Url: lien }
+      });
+      counterflowConfig.lienListeSignee = lien;
+    } else {
+      const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, {
+        fields: { Title: CONFIG_TITLE, LienListeSignee: { Description: 'Liste signée', Url: lien } }
+      });
+      counterflowConfig = { spId: created.id, lienListeSignee: lien };
+    }
+    closeModal();
+    showToast('Lien du document signé mis à jour.', 'success');
+    renderListe(); // le bouton principal reflète immédiatement le nouveau lien
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
