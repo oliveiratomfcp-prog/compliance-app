@@ -1,0 +1,14 @@
+{
+  "routes": [
+    {
+      "route": "/*.html",
+      "headers": {
+        "cache-control": "no-cache, must-revalidate"
+      }
+    },
+    {
+      "route": "/*",
+      "allowedRoles": ["anonymous"]
+    }
+  ]
+}
