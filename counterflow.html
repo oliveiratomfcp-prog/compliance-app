@@ -357,7 +357,7 @@ async function initSharePointThenLoad() {
     spListBrokersId = lists.value[0]?.id;
     if (!spListBrokersId) throw new Error(`Liste "${SP.listName}" introuvable sur SharePoint`);
 
-    await detectColumnFormats();
+    await detectListColumns();
     await loadBrokers();
   } catch(e) {
     console.error('SharePoint init error:', e);
@@ -366,37 +366,29 @@ async function initSharePointThenLoad() {
   }
 }
 
-// ── Détection du schéma réel de la liste Brokers ────────────────────────────
-// Un PATCH Graph renvoie 400 "invalidRequest" si le format d'un champ ne
-// correspond pas au type réel de la colonne (objet {Url,Description} envoyé
-// vers une colonne texte, ou l'inverse), ou si une colonne du payload n'existe
-// pas dans la liste. On interroge donc /columns une fois au chargement pour :
-//  - écrire KYC / LienListeSignee au format attendu par leur type réel,
-//  - n'inclure PiecesDossier que si la colonne existe vraiment.
-let linkColumnFormats = { KYC: 'object', LienListeSignee: 'object' }; // défaut : type Lien hypertexte
+// ── Colonnes existantes de la liste Brokers ─────────────────────────────────
+// Sert uniquement à ne pas inclure PiecesDossier dans un payload si la colonne
+// n'existe pas (un PATCH Graph échoue en 400 sur toute colonne inconnue).
+// NOTE : KYC et LienListeSignee sont des colonnes "Lien hypertexte" et
+// s'écrivent TOUJOURS au format objet { Url, Description }. Ne pas réintroduire
+// de détection de type via /columns : Graph v1.0 n'expose pas de façon fiable
+// la facette hyperlinkOrPicture, ce qui avait fait classer la colonne comme
+// texte à tort (envoi en chaîne brute → 400 invalidRequest).
 let existingColumns = null; // Set des noms internes, null si la détection a échoué
 
-async function detectColumnFormats() {
+async function detectListColumns() {
   try {
     const cols = await graphGet(`/sites/${spSiteId}/lists/${spListBrokersId}/columns`);
     existingColumns = new Set(cols.value.map(c => c.name));
-    ['KYC', 'LienListeSignee'].forEach(name => {
-      const col = cols.value.find(c => c.name === name);
-      if (!col) return; // colonne absente : on garde le défaut, l'erreur sera explicite à l'écriture
-      linkColumnFormats[name] = col.hyperlinkOrPicture ? 'object' : 'string';
-    });
-    console.info('CounterFlow — formats colonnes lien :', JSON.stringify(linkColumnFormats));
   } catch(e) {
-    // Détection impossible (droits, etc.) : on garde les défauts sans bloquer la page.
-    console.warn('Détection du schéma de colonnes impossible, formats par défaut conservés :', e.message);
+    // Détection impossible (droits, etc.) : on n'exclut rien, sans bloquer la page.
+    console.warn('Détection des colonnes impossible :', e.message);
   }
 }
 
-// Valeur d'écriture d'un champ lien, au format correspondant au type réel de
-// la colonne : objet { Url, Description } pour "Lien hypertexte", chaîne brute
-// pour une colonne texte.
-function linkWriteValue(colName, url, label) {
-  return linkColumnFormats[colName] === 'string' ? url : { Url: url, Description: label };
+// Valeur d'écriture d'un champ "Lien hypertexte" : toujours l'objet attendu par Graph.
+function linkWriteValue(url, label) {
+  return { Url: url, Description: label };
 }
 
 function hasColumn(name) {
@@ -963,7 +955,7 @@ async function submitMajKYC() {
 
   try {
     const fields = {
-      KYC: linkWriteValue('KYC', lien, 'Dossier KYC'),
+      KYC: linkWriteValue(lien, 'Dossier KYC'),
       DateExpirationKYC: new Date(dateExp).toISOString(),
       DernierKYCPar: currentUser.name,
       DateDernierKYC: new Date().toISOString()
@@ -1098,7 +1090,7 @@ async function submitNouvelle() {
     } else {
       console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
     }
-    if (kycLien) fields.KYC = linkWriteValue('KYC', kycLien, 'Dossier KYC');
+    if (kycLien) fields.KYC = linkWriteValue(kycLien, 'Dossier KYC');
     if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
 
     await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
@@ -1297,12 +1289,12 @@ async function submitLienSigne() {
   try {
     if (counterflowConfig?.spId) {
       await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${counterflowConfig.spId}/fields`, {
-        LienListeSignee: linkWriteValue('LienListeSignee', lien, 'Liste signée')
+        LienListeSignee: linkWriteValue(lien, 'Liste signée')
       });
       counterflowConfig.lienListeSignee = lien;
     } else {
       const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, {
-        fields: { Title: CONFIG_TITLE, LienListeSignee: linkWriteValue('LienListeSignee', lien, 'Liste signée') }
+        fields: { Title: CONFIG_TITLE, LienListeSignee: linkWriteValue(lien, 'Liste signée') }
       });
       counterflowConfig = { spId: created.id, lienListeSignee: lien };
     }
