@@ -411,6 +411,25 @@ function readLink(field) {
   return field.Url || '';
 }
 
+// Garde-fou contre les liens erronés : l'autofill du navigateur (ou un collage
+// accidentel) peut remplir un input type="url" avec l'URL de CounterFlow
+// elle-même. Un lien KYC / document signé doit pointer vers SharePoint, jamais
+// vers cette application.
+function validateExternalLink(url, champ) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    if (parsed.origin === window.location.origin) {
+      showToast(`${champ} : le lien saisi pointe vers CounterFlow lui-même, pas vers le dossier SharePoint. Vérifiez le lien collé.`, 'error');
+      return false;
+    }
+    return true;
+  } catch {
+    showToast(`${champ} : le lien saisi n'est pas une URL valide (elle doit commencer par https://).`, 'error');
+    return false;
+  }
+}
+
 async function loadBrokers() {
   setListLoading(true);
   try {
@@ -910,7 +929,7 @@ function goMajKYC() {
         <div class="form-grid">
           <div class="form-group full-width">
             <label class="form-label">Nouveau lien du dossier KYC (SharePoint) *</label>
-            <input type="url" id="kyc-lien" class="form-input" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
+            <input type="url" id="kyc-lien" class="form-input" autocomplete="off" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
           </div>
           <div class="form-group full-width">
             <label class="form-label">Nouvelle date d'expiration *</label>
@@ -931,9 +950,12 @@ function goMajKYC() {
 }
 
 async function submitMajKYC() {
-  const lien = document.getElementById('kyc-lien').value.trim();
-  const dateExp = document.getElementById('kyc-date-exp').value;
+  // Lectures scopées à la vue du formulaire : aucune valeur ne peut venir d'un
+  // autre écran resté dans le DOM.
+  const lien = document.querySelector('#view-maj-kyc #kyc-lien').value.trim();
+  const dateExp = document.querySelector('#view-maj-kyc #kyc-date-exp').value;
   if (!lien || !dateExp) { showToast('Le lien KYC et la date d\'expiration sont obligatoires.', 'error'); return; }
+  if (!validateExternalLink(lien, 'Lien KYC')) return;
 
   const btn = document.querySelector('#view-maj-kyc [onclick="submitMajKYC()"]');
   btn.disabled = true;
@@ -1005,7 +1027,7 @@ function goNouvelle() {
           </div>
           <div class="form-group full-width">
             <label class="form-label">Lien du dossier KYC (SharePoint)</label>
-            <input type="url" id="cf-kyc-lien" class="form-input" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
+            <input type="url" id="cf-kyc-lien" class="form-input" autocomplete="off" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
           </div>
           <div class="form-group">
             <label class="form-label">Date d'expiration du KYC</label>
@@ -1037,12 +1059,12 @@ function toggleClasseAutre() {
 }
 
 async function submitNouvelle() {
-  const nom = document.getElementById('cf-nom').value.trim();
-  const equipes = Array.from(document.querySelectorAll('.cf-equipe:checked')).map(c => c.value);
-  const classes = Array.from(document.querySelectorAll('.cf-classe:checked')).map(c => c.value);
-  const classeAutre = document.getElementById('cf-classe-autre').value.trim();
-  const kycLien = document.getElementById('cf-kyc-lien').value.trim();
-  const dateExp = document.getElementById('cf-date-exp').value;
+  const nom = document.querySelector('#view-nouvelle #cf-nom').value.trim();
+  const equipes = Array.from(document.querySelectorAll('#view-nouvelle .cf-equipe:checked')).map(c => c.value);
+  const classes = Array.from(document.querySelectorAll('#view-nouvelle .cf-classe:checked')).map(c => c.value);
+  const classeAutre = document.querySelector('#view-nouvelle #cf-classe-autre').value.trim();
+  const kycLien = document.querySelector('#view-nouvelle #cf-kyc-lien').value.trim();
+  const dateExp = document.querySelector('#view-nouvelle #cf-date-exp').value;
 
   if (!nom || !equipes.length || !classes.length) {
     showToast('Le nom, au moins une équipe et au moins une classe d\'actif sont obligatoires.', 'error');
@@ -1054,6 +1076,7 @@ async function submitNouvelle() {
     showToast(`Le nom "${CONFIG_TITLE}" est réservé au fonctionnement interne de CounterFlow et ne peut pas être utilisé.`, 'error');
     return;
   }
+  if (kycLien && !validateExternalLink(kycLien, 'Lien KYC')) return;
 
   const btn = document.querySelector('#view-nouvelle [onclick="submitNouvelle()"]');
   btn.disabled = true;
@@ -1256,7 +1279,7 @@ function openEditLienSigne() {
       <div class="cf-modal">
         <h3 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">Lien du document signé</h3>
         <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">Lien vers la liste des contreparties autorisées signée par la direction. Il est stocké dans la liste Brokers (élément de configuration), jamais dans le code.</p>
-        <input type="url" id="lien-signe-input" class="form-input" style="width:100%" placeholder="https://eiffelinvestmentgroup.sharepoint.com/..." value="${esc(current)}">
+        <input type="url" id="lien-signe-input" class="form-input" autocomplete="off" style="width:100%" placeholder="https://eiffelinvestmentgroup.sharepoint.com/..." value="${esc(current)}">
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
           <button class="btn-secondary" onclick="closeModal()">Annuler</button>
           <button class="btn-primary" onclick="submitLienSigne()">Enregistrer</button>
@@ -1269,6 +1292,7 @@ function openEditLienSigne() {
 async function submitLienSigne() {
   const lien = document.getElementById('lien-signe-input').value.trim();
   if (!lien) { showToast('Veuillez saisir un lien.', 'error'); return; }
+  if (!validateExternalLink(lien, 'Lien du document signé')) return;
 
   try {
     if (counterflowConfig?.spId) {
