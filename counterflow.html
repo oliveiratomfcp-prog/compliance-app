@@ -213,6 +213,24 @@ const NIVEAUX_RISQUE = ['Faible', 'Moyen', 'Élevé'];
 const CLASSES_ACTIF = ['Actions', 'Obligations', 'Autres'];
 const SEUIL_BIENTOT_JOURS = 60;
 
+// Pièces attendues dans le dossier de chaque contrepartie. Ces libellés doivent
+// correspondre EXACTEMENT aux 12 valeurs de la colonne SharePoint "PiecesDossier"
+// (choix multiple, cases à cocher) de la liste Brokers.
+const PIECES_DOSSIER = [
+  "Convention (ou Terms of Business)",
+  "Agrément de l'intermédiaire (cf. REGAFI)",
+  "Politique de Best Execution",
+  "Liste des lieux d'exécution",
+  "Statuts",
+  "Liste des signataires autorisés",
+  "Politique en matière de prévention et de gestion des conflits d'intérêt",
+  "Lettre de catégorisation en tant que « Client Professionnel »",
+  "Questionnaire « intermédiaire » Eiffel complété et signé",
+  "Un formulaire de consentement à traiter les ordres en dehors d'un marché réglementé ou d'un système multilatéral de négociation",
+  "Rapport annuel",
+  "Bénéficiaire effectif"
+];
+
 // ═══════════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════════
@@ -379,6 +397,7 @@ async function loadBrokers() {
         niveauRisque  : f.NiveauRisque || '',
         classesActif  : Array.isArray(f.ClasseActif) ? f.ClasseActif : (f.ClasseActif ? [f.ClasseActif] : []),
         classeActifAutre : f.ClasseActifAutre || '',
+        piecesDossier : Array.isArray(f.PiecesDossier) ? f.PiecesDossier : (f.PiecesDossier ? [f.PiecesDossier] : []),
         dernierKYCPar : f.DernierKYCPar || '',
         dateDernierKYC: f.DateDernierKYC || '',
         _expTs        : f.DateExpirationKYC ? new Date(f.DateExpirationKYC).getTime() : 0
@@ -502,6 +521,27 @@ function daysToExpiration(broker, today) {
 const STATUS_CLASS = { 'à jour':'bdg-a-jour', 'bientôt expiré':'bdg-bientot', 'expiré':'bdg-expire' };
 const RISQUE_CLASS = { 'Faible':'bdg-risque-faible', 'Moyen':'bdg-risque-moyen', 'Élevé':'bdg-risque-eleve' };
 
+// Nombre de pièces du référentiel PIECES_DOSSIER présentes dans le dossier de la
+// contrepartie. Seuls les libellés exacts du référentiel comptent : une valeur
+// inconnue dans SharePoint n'augmente pas le compteur.
+function countPiecesDossier(broker) {
+  const set = new Set(broker.piecesDossier || []);
+  return PIECES_DOSSIER.filter(p => set.has(p)).length;
+}
+
+// Le nom d'une contrepartie clignote (tableau ET fiche détail) dès que l'une de
+// ces deux conditions est vraie : KYC expiré OU dossier incomplet (< 12 pièces).
+function needsBlinking(broker) {
+  return computeStatus(broker) === 'expiré' || countPiecesDossier(broker) < PIECES_DOSSIER.length;
+}
+
+function dossierBadge(broker) {
+  const n = countPiecesDossier(broker);
+  const total = PIECES_DOSSIER.length;
+  const cls = n === total ? 'bdg-a-jour' : n >= 6 ? 'bdg-bientot' : 'bdg-expire';
+  return bdg(`${n}/${total}`, cls);
+}
+
 function classesActifLabel(b) {
   const list = b.classesActif.map(c => c === 'Autres' && b.classeActifAutre ? `Autres (${b.classeActifAutre})` : c);
   return list.length ? list.join(', ') : '—';
@@ -539,16 +579,17 @@ function renderListe() {
 
   const rows = filtered.map(b => {
     const st = computeStatus(b);
-    const nameCls = st === 'expiré' ? 'name-blink-expired' : '';
+    const nameCls = needsBlinking(b) ? 'name-blink-expired' : '';
     return `<tr onclick="openDetail('${b.spId}')">
-      <td><span class="${nameCls}" style="font-size:13px;${st==='expiré'?'':'font-weight:600;color:#111827'}">${esc(b.nom)}</span></td>
+      <td><span class="${nameCls}" style="font-size:13px;${nameCls?'':'font-weight:600;color:#111827'}">${esc(b.nom)}</span></td>
       <td>${b.equipes.length ? b.equipes.map(e => bdg(e,'bdg-equipe')).join(' ') : '<span class="td-muted">—</span>'}</td>
       <td>${b.niveauRisque ? bdg(b.niveauRisque, RISQUE_CLASS[b.niveauRisque]||'bdg-risque-moyen') : '<span class="td-muted">—</span>'}</td>
       <td class="td-muted">${esc(classesActifLabel(b))}</td>
       <td class="td-muted">${formatDate(b.dateExpiration)}</td>
+      <td>${dossierBadge(b)}</td>
       <td>${bdg(st, STATUS_CLASS[st])}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
+  }).join('') || `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
 
   const lienSigne = counterflowConfig?.lienListeSignee || '';
   const signedBtn = lienSigne
@@ -605,10 +646,11 @@ function renderListe() {
       <table class="data-table cf-table">
         <thead><tr>
           <th style="width:220px">Nom</th>
-          <th style="width:170px">Équipe(s)</th>
+          <th style="width:160px">Équipe(s)</th>
           <th style="width:110px">Niveau de risque</th>
-          <th style="min-width:160px">Classe(s) d'actif</th>
-          <th style="width:120px">Expiration KYC</th>
+          <th style="min-width:150px">Classe(s) d'actif</th>
+          <th style="width:115px">Expiration KYC</th>
+          <th style="width:80px">Dossier</th>
           <th style="width:130px">Statut</th>
         </tr></thead>
         <tbody id="cf-tbody">${rows}</tbody>
@@ -630,7 +672,31 @@ function openDetail(spId) {
   if (!selectedBroker) return;
   const b = selectedBroker;
   const st = computeStatus(b);
-  const nameCls = st === 'expiré' ? 'name-blink-expired' : '';
+  const nameCls = needsBlinking(b) ? 'name-blink-expired' : '';
+
+  // Raisons du clignotement, affichées sous le nom : KYC expiré et/ou dossier incomplet.
+  const blinkReasons = [];
+  if (st === 'expiré') {
+    const days = daysToExpiration(b);
+    blinkReasons.push(days === null
+      ? "KYC expiré : date d'expiration non renseignée"
+      : `KYC expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`);
+  }
+  const nbPieces = countPiecesDossier(b);
+  if (nbPieces < PIECES_DOSSIER.length) {
+    blinkReasons.push(`Dossier incomplet : ${nbPieces}/${PIECES_DOSSIER.length} pièces`);
+  }
+  const blinkReasonsHtml = blinkReasons.length
+    ? `<div style="margin-top:4px;font-size:12px;font-weight:600;color:#DC2626">${blinkReasons.map(esc).join(' · ')}</div>`
+    : '';
+
+  const piecesChecklist = PIECES_DOSSIER.map(p => {
+    const ok = (b.piecesDossier || []).includes(p);
+    return `<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:12.5px;border-bottom:1px solid var(--row-sep)">
+      <span style="flex-shrink:0;font-size:14px;line-height:1.3;${ok?'color:#15803D':'color:#9CA3AF'}">${ok?'☑':'☐'}</span>
+      <span style="${ok?'color:#374151':'color:var(--text-muted)'}">${esc(p)}</span>
+    </div>`;
+  }).join('');
 
   document.getElementById('view-detail').innerHTML = `
     <button class="back-btn" onclick="goListe()">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour aux contreparties</button>
@@ -640,6 +706,7 @@ function openDetail(spId) {
           <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:12px">
             <div>
               <div class="section-title ${nameCls}" style="font-size:19px">${esc(b.nom)}</div>
+              ${blinkReasonsHtml}
               <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
                 ${bdg(st, STATUS_CLASS[st])}
                 ${b.niveauRisque ? bdg(`Risque ${b.niveauRisque.toLowerCase()}`, RISQUE_CLASS[b.niveauRisque]) : ''}
@@ -662,6 +729,16 @@ function openDetail(spId) {
             </div>
           </div>
         </div>
+
+        <!-- PIÈCES DU DOSSIER (lecture seule — la saisie se fait dans les formulaires) -->
+        <div class="form-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase">Pièces du dossier</div>
+            ${dossierBadge(b)}
+          </div>
+          <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">${nbPieces}/${PIECES_DOSSIER.length} pièces réunies</p>
+          ${piecesChecklist}
+        </div>
       </div>
       <div>
         <div class="form-card">
@@ -681,6 +758,29 @@ function openDetail(spId) {
 // ═══════════════════════════════════════════════════════════
 // MISE À JOUR DU KYC
 // ═══════════════════════════════════════════════════════════
+// Section "Pièces du dossier" partagée entre les deux formulaires (MAJ KYC et création).
+// checkedList : libellés déjà enregistrés, pour pré-cocher en édition.
+function piecesDossierFormSection(checkedList) {
+  const checked = new Set(checkedList || []);
+  return `
+    <div class="form-group full-width">
+      <label class="form-label">Pièces du dossier</label>
+      <div style="display:flex;flex-direction:column;gap:2px">
+        ${PIECES_DOSSIER.map(p => `
+          <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;padding:4px 0;font-weight:500">
+            <input type="checkbox" class="cf-piece" value="${esc(p)}" ${checked.has(p)?'checked':''} style="width:15px;height:15px;flex-shrink:0;margin-top:1px">
+            <span>${esc(p)}</span>
+          </label>`).join('')}
+      </div>
+    </div>`;
+}
+
+// viewId : conteneur du formulaire actif — les vues gardant leur HTML après
+// navigation, un sélecteur global ramasserait les cases de l'autre formulaire.
+function selectedPiecesDossier(viewId) {
+  return Array.from(document.querySelectorAll(`#${viewId} .cf-piece:checked`)).map(c => c.value);
+}
+
 function goMajKYC() {
   const b = selectedBroker;
   document.getElementById('view-maj-kyc').innerHTML = `
@@ -700,6 +800,7 @@ function goMajKYC() {
             <label class="form-label">Nouvelle date d'expiration *</label>
             <input type="date" id="kyc-date-exp" class="form-input">
           </div>
+          ${piecesDossierFormSection(b.piecesDossier)}
         </div>
         <div class="form-actions">
           <button class="btn-primary" onclick="submitMajKYC()" style="width:100%;justify-content:center">
@@ -727,7 +828,9 @@ async function submitMajKYC() {
       KYC: { Description: 'Dossier KYC', Url: lien },
       DateExpirationKYC: new Date(dateExp).toISOString(),
       DernierKYCPar: currentUser.name,
-      DateDernierKYC: new Date().toISOString()
+      DateDernierKYC: new Date().toISOString(),
+      'PiecesDossier@odata.type': 'Collection(Edm.String)',
+      PiecesDossier: selectedPiecesDossier('view-maj-kyc')
     });
     showToast(`KYC de ${selectedBroker.nom} mis à jour.`, 'success');
     await loadBrokers();
@@ -787,6 +890,7 @@ function goNouvelle() {
             <label class="form-label">Date d'expiration du KYC</label>
             <input type="date" id="cf-date-exp" class="form-input">
           </div>
+          ${piecesDossierFormSection([])}
         </div>
         <div class="form-actions">
           <button class="btn-primary" onclick="submitNouvelle()" style="width:100%;justify-content:center">
@@ -842,7 +946,9 @@ async function submitNouvelle() {
       NiveauRisque: nouvelleRisqueSel,
       'ClasseActif@odata.type': 'Collection(Edm.String)',
       ClasseActif: classes,
-      ClasseActifAutre: classes.includes('Autres') ? classeAutre : ''
+      ClasseActifAutre: classes.includes('Autres') ? classeAutre : '',
+      'PiecesDossier@odata.type': 'Collection(Edm.String)',
+      PiecesDossier: selectedPiecesDossier('view-nouvelle')
     };
     if (kycLien) fields.KYC = { Description: 'Dossier KYC', Url: kycLien };
     if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
