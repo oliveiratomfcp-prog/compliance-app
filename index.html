@@ -310,30 +310,99 @@ const msalConfig = {
             </div>
             <button onclick="toggleGiftForm()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
           </div>
-          <div class="declare-alert" style="margin-bottom:20px;border-color:rgba(0,102,96,0.25);background:rgba(0,102,96,0.06)">
+          <div class="declare-alert" style="margin-bottom:14px;border-color:rgba(0,102,96,0.25);background:rgba(0,102,96,0.06)">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#006660" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-            <span style="color:#006660">Tout cadeau reçu ou offert dans le cadre professionnel doit être déclaré au RCCI.</span>
+            <span id="gift-alert-el" style="color:#006660">Il n'existe aucun seuil de déclaration : tout cadeau ou invitation reçu(e) ou offert(e) doit être déclaré(e), quel que soit son montant.</span>
           </div>
+          <p id="gift-intro-el" style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin-bottom:20px">Avant d'accepter ou d'offrir un cadeau ou une invitation, il convient de s'assurer que sa valeur reste raisonnable au regard du niveau de vie local, qu'il s'inscrit dans un contexte professionnel, et qu'il ne risque pas d'influencer une décision. Demandez-vous également si vous seriez capable d'en parler librement à votre manager ? Si vous hésitez à le mentionner spontanément, c'est probablement le signe qu'il pose problème.<br><br>En cas de doute ou de réponse négative à l'un de ces points, il est recommandé de refuser le cadeau ou l'invitation et de solliciter l'avis de votre manager ou du département Conformité.</p>
           <div class="form-grid">
+            <div class="form-group">
+              <label class="form-label" id="form-label-type-cadeau">Type de cadeau *</label>
+              <select id="g-type-cadeau" class="form-input">
+                <option value="" id="opt-type-cadeau-placeholder">-- Sélectionner --</option>
+                <option value="Cadeau matériel" id="opt-type-cadeau-1">Cadeau matériel</option>
+                <option value="Repas" id="opt-type-cadeau-2">Repas</option>
+                <option value="Invitation sportive" id="opt-type-cadeau-3">Invitation sportive</option>
+                <option value="Invitation culturelle" id="opt-type-cadeau-4">Invitation culturelle</option>
+                <option value="Séminaire" id="opt-type-cadeau-5">Séminaire</option>
+                <option value="Conférence" id="opt-type-cadeau-6">Conférence</option>
+                <option value="Formation" id="opt-type-cadeau-7">Formation</option>
+                <option value="Déplacement" id="opt-type-cadeau-8">Déplacement</option>
+                <option value="Hébergement" id="opt-type-cadeau-9">Hébergement</option>
+                <option value="Remise commerciale" id="opt-type-cadeau-10">Remise commerciale</option>
+                <option value="Autre" id="opt-type-cadeau-11">Autre</option>
+              </select>
+            </div>
             <div class="form-group full-width">
-              <label class="form-label">Description du cadeau *</label>
+              <label class="form-label" id="form-label-description">Description du cadeau *</label>
               <input type="text" id="g-description" class="form-input" placeholder="Ex: Bouteille de vin, place de concert, repas d'affaires..." />
             </div>
             <div class="form-group">
-              <label class="form-label">Émetteur (qui offre) *</label>
+              <label class="form-label" id="form-label-nature-tiers">Nature du tiers *</label>
+              <select id="g-nature-tiers" class="form-input">
+                <option value="" id="opt-nature-tiers-placeholder">-- Sélectionner --</option>
+                <option value="Investisseur" id="opt-nature-tiers-1">Investisseur</option>
+                <option value="Prospect investisseur" id="opt-nature-tiers-2">Prospect investisseur</option>
+                <option value="Société en portefeuille" id="opt-nature-tiers-3">Société en portefeuille</option>
+                <option value="Cible d'investissement" id="opt-nature-tiers-4">Cible d'investissement</option>
+                <option value="Dépositaire/Valorisateur" id="opt-nature-tiers-5">Dépositaire/Valorisateur</option>
+                <option value="Banque d'affaires" id="opt-nature-tiers-6">Banque d'affaires</option>
+                <option value="Contrepartie/Broker" id="opt-nature-tiers-7">Contrepartie/Broker</option>
+                <option value="Autre Prestataire" id="opt-nature-tiers-8">Autre Prestataire</option>
+                <option value="Fournisseur" id="opt-nature-tiers-9">Fournisseur</option>
+                <option value="Distributeur" id="opt-nature-tiers-10">Distributeur</option>
+                <option value="Conseil juridique/fiscal" id="opt-nature-tiers-11">Conseil juridique/fiscal</option>
+                <option value="Autre" id="opt-nature-tiers-12">Autre</option>
+              </select>
+            </div>
+            <div class="form-group full-width hidden" id="g-nature-tiers-precision-group">
+              <label class="form-label" id="form-label-nature-tiers-precision">Précisez la nature du tiers *</label>
+              <input type="text" id="g-nature-tiers-precision" class="form-input" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" id="form-label-emetteur">Émetteur (qui offre) *</label>
               <input type="text" id="g-emetteur" class="form-input" placeholder="Ex: Société XYZ, M. Dupont..." />
             </div>
             <div class="form-group">
-              <label class="form-label">Destinataire (qui reçoit) *</label>
+              <label class="form-label" id="form-label-destinataire">Destinataire (qui reçoit) *</label>
               <input type="text" id="g-destinataire" class="form-input" placeholder="Ex: Thomas Oliveira, Client ABC..." />
             </div>
+            <div class="form-group full-width">
+              <label class="form-label" id="form-label-operation-en-cours">Une opération, négociation, levée de fonds, due diligence ou renouvellement de contrat est-elle en cours avec ce tiers ? *</label>
+              <div class="radio-toggle-group">
+                <label class="radio-toggle-option">
+                  <input type="radio" name="g-operation-en-cours" value="Oui" />
+                  <span id="radio-operation-oui-el">Oui</span>
+                </label>
+                <label class="radio-toggle-option">
+                  <input type="radio" name="g-operation-en-cours" value="Non" />
+                  <span id="radio-operation-non-el">Non</span>
+                </label>
+              </div>
+            </div>
             <div class="form-group">
-              <label class="form-label">Date *</label>
+              <label class="form-label" id="form-label-date-gift">Date à laquelle le cadeau a été reçu/offert *</label>
               <input type="date" id="g-date" class="form-input" />
             </div>
             <div class="form-group">
-              <label class="form-label">Valeur estimée (€)</label>
+              <label class="form-label" id="form-label-valeur">Valeur estimée (€)</label>
               <input type="number" id="g-valeur" class="form-input" placeholder="Ex: 50" step="0.01" />
+            </div>
+            <div class="form-group">
+              <label class="form-label" id="form-label-sort-cadeau">Sort du cadeau *</label>
+              <select id="g-sort-cadeau" class="form-input">
+                <option value="" id="opt-sort-cadeau-placeholder">-- Sélectionner --</option>
+                <option value="Conservé à titre personnel" id="opt-sort-cadeau-1">Conservé à titre personnel</option>
+                <option value="Partagé avec l'équipe" id="opt-sort-cadeau-2">Partagé avec l'équipe</option>
+                <option value="Mis à disposition de l'ensemble des collaborateurs" id="opt-sort-cadeau-3">Mis à disposition de l'ensemble des collaborateurs</option>
+                <option value="Utilisé dans le cadre professionnel" id="opt-sort-cadeau-4">Utilisé dans le cadre professionnel</option>
+                <option value="Refusé" id="opt-sort-cadeau-5">Refusé</option>
+                <option value="Autre" id="opt-sort-cadeau-6">Autre</option>
+              </select>
+            </div>
+            <div class="form-group full-width hidden" id="g-sort-cadeau-precision-group">
+              <label class="form-label" id="form-label-sort-cadeau-precision">Précisez le sort du cadeau *</label>
+              <input type="text" id="g-sort-cadeau-precision" class="form-input" />
             </div>
           </div>
           <div class="form-actions">

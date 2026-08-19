@@ -991,14 +991,89 @@ function toggleTooltip() {
 // -----------------------------------------------
 // FORMULAIRE CADEAU
 // -----------------------------------------------
+
+// Résout dynamiquement les noms internes des colonnes SharePoint à partir de leurs libellés
+// affichés (les noms internes générés par SharePoint diffèrent des libellés dès qu'ils
+// contiennent espaces, accents ou tirets). Le résultat est mis en cache pour la session.
+let giftColumnMap = null;
+async function getGiftColumnMap() {
+  if (giftColumnMap) return giftColumnMap;
+
+  const REQUIRED_DISPLAY_NAMES = [
+    "Type de cadeau",
+    "Nature du tiers",
+    "Nature du tiers - Précision",
+    "Opération en cours",
+    "Sort du cadeau",
+    "Sort du cadeau - Précision"
+  ];
+
+  const res = await callGraphAPI(
+    `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listGifts)}/columns?$select=name,displayName`
+  );
+  const map = {};
+  (res?.value || []).forEach(c => { map[c.displayName] = c.name; });
+
+  const missing = REQUIRED_DISPLAY_NAMES.filter(n => !map[n]);
+  if (missing.length) {
+    throw new Error(`Colonnes introuvables dans la liste "Registre cadeaux" : ${missing.join(", ")}. Vérifiez les libellés des colonnes SharePoint.`);
+  }
+
+  giftColumnMap = map;
+  return giftColumnMap;
+}
+
+// Affiche/masque le champ de précision "Autre" pour la nature du tiers
+document.getElementById("g-nature-tiers").addEventListener("change", (e) => {
+  const group = document.getElementById("g-nature-tiers-precision-group");
+  if (e.target.value === "Autre") {
+    group.classList.remove("hidden");
+  } else {
+    group.classList.add("hidden");
+    document.getElementById("g-nature-tiers-precision").value = "";
+  }
+});
+
+// Affiche/masque le champ de précision "Autre" pour le sort du cadeau
+document.getElementById("g-sort-cadeau").addEventListener("change", (e) => {
+  const group = document.getElementById("g-sort-cadeau-precision-group");
+  if (e.target.value === "Autre") {
+    group.classList.remove("hidden");
+  } else {
+    group.classList.add("hidden");
+    document.getElementById("g-sort-cadeau-precision").value = "";
+  }
+});
+
+// Met en surbrillance l'option sélectionnée du toggle Oui/Non
+document.querySelectorAll('input[name="g-operation-en-cours"]').forEach((radio) => {
+  radio.addEventListener("change", () => {
+    document.querySelectorAll('input[name="g-operation-en-cours"]').forEach((r) => {
+      r.closest(".radio-toggle-option").classList.toggle("active", r.checked);
+    });
+  });
+});
+
 document.getElementById("btn-submit-gift").addEventListener("click", async () => {
+  const typeCadeau = document.getElementById("g-type-cadeau").value;
   const description = document.getElementById("g-description").value.trim();
+  const natureTiers = document.getElementById("g-nature-tiers").value;
+  const natureTiersPrecision = document.getElementById("g-nature-tiers-precision").value.trim();
   const emetteur = document.getElementById("g-emetteur").value.trim();
   const destinataire = document.getElementById("g-destinataire").value.trim();
+  const operationEnCoursEl = document.querySelector('input[name="g-operation-en-cours"]:checked');
+  const operationEnCours = operationEnCoursEl ? operationEnCoursEl.value : "";
   const date = document.getElementById("g-date").value;
   const valeur = document.getElementById("g-valeur").value;
+  const sortCadeau = document.getElementById("g-sort-cadeau").value;
+  const sortCadeauPrecision = document.getElementById("g-sort-cadeau-precision").value.trim();
 
-  if (!description || !emetteur || !destinataire || !date) {
+  const missingRequired = !typeCadeau || !description || !natureTiers || !emetteur ||
+    !destinataire || !operationEnCours || !date || !sortCadeau;
+  const missingNaturePrecision = natureTiers === "Autre" && !natureTiersPrecision;
+  const missingSortPrecision = sortCadeau === "Autre" && !sortCadeauPrecision;
+
+  if (missingRequired || missingNaturePrecision || missingSortPrecision) {
     showGiftMessage("Veuillez remplir tous les champs obligatoires (*)", "error");
     return;
   }
@@ -1007,35 +1082,51 @@ document.getElementById("btn-submit-gift").addEventListener("click", async () =>
   btn.disabled = true;
 
   try {
+    const col = await getGiftColumnMap();
     await callGraphAPI(
       `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listGifts)}/items`,
       "POST",
       { fields: {
         Title: description,
+        [col["Type de cadeau"]]: typeCadeau,
+        [col["Nature du tiers"]]: natureTiers,
+        [col["Nature du tiers - Précision"]]: natureTiers === "Autre" ? natureTiersPrecision : null,
         Emetteur: emetteur,
         Destinataire: destinataire,
+        [col["Opération en cours"]]: operationEnCours,
         Date: date ? new Date(date + "T00:00:00").toISOString() : null,
-        Valeur: valeur ? parseFloat(valeur) : null
+        Valeur: valeur ? parseFloat(valeur) : null,
+        [col["Sort du cadeau"]]: sortCadeau,
+        [col["Sort du cadeau - Précision"]]: sortCadeau === "Autre" ? sortCadeauPrecision : null
       }}
     );
 
     showGiftMessage("✓ Déclaration enregistrée ! Génération de l'attestation et ouverture du mail...", "success");
 
     // Génère le PDF
-    generateGiftPDF({ description, emetteur, destinataire, date, valeur });
+    generateGiftPDF({
+      typeCadeau, description, natureTiers, natureTiersPrecision, emetteur, destinataire,
+      operationEnCours, date, valeur, sortCadeau, sortCadeauPrecision
+    });
 
     // Ouvre Outlook vers CPL
     const userName = currentUser.displayName || currentUser.mail;
     const dateFr = date ? new Date(date).toLocaleDateString("fr-FR") : "—";
+    const natureTiersLabel = natureTiers === "Autre" ? `Autre (${natureTiersPrecision})` : natureTiers;
+    const sortCadeauLabel = sortCadeau === "Autre" ? `Autre (${sortCadeauPrecision})` : sortCadeau;
     const subject = encodeURIComponent(`Déclaration cadeau — ${description} — ${userName}`);
     const body = encodeURIComponent(
       `Bonjour,\n\nVeuillez trouver ci-joint mon attestation de déclaration de cadeau.\n\n` +
       `Déclarant : ${userName}\n` +
+      `Type de cadeau : ${typeCadeau}\n` +
       `Description : ${description}\n` +
+      `Nature du tiers : ${natureTiersLabel}\n` +
       `Émetteur : ${emetteur}\n` +
       `Destinataire : ${destinataire}\n` +
+      `Opération en cours avec ce tiers : ${operationEnCours}\n` +
       `Date : ${dateFr}\n` +
-      `Valeur estimée : ${valeur ? valeur + " €" : "Non renseignée"}\n\n` +
+      `Valeur estimée : ${valeur ? valeur + " €" : "Non renseignée"}\n` +
+      `Sort du cadeau : ${sortCadeauLabel}\n\n` +
       `Cordialement,\n${userName}`
     );
     setTimeout(() => {
@@ -1043,9 +1134,16 @@ document.getElementById("btn-submit-gift").addEventListener("click", async () =>
     }, 1000);
 
     setTimeout(() => {
-      ["g-description","g-emetteur","g-destinataire","g-date","g-valeur"].forEach(id => {
+      ["g-type-cadeau","g-description","g-nature-tiers","g-nature-tiers-precision","g-emetteur",
+       "g-destinataire","g-date","g-valeur","g-sort-cadeau","g-sort-cadeau-precision"].forEach(id => {
         document.getElementById(id).value = "";
       });
+      document.querySelectorAll('input[name="g-operation-en-cours"]').forEach((r) => {
+        r.checked = false;
+        r.closest(".radio-toggle-option").classList.remove("active");
+      });
+      document.getElementById("g-nature-tiers-precision-group").classList.add("hidden");
+      document.getElementById("g-sort-cadeau-precision-group").classList.add("hidden");
       hideElement("gift-msg");
       document.getElementById("gift-form-container").classList.add("hidden");
     }, 5000);
@@ -1102,7 +1200,7 @@ function generateGiftPDF(data) {
     doc.setFont("helvetica", "normal");
     doc.setTextColor(50, 50, 50);
     doc.text(String(value || "—"), 80, y);
-    y += 9;
+    y += 7;
   };
 
   addRow("Déclarant :", userName);
@@ -1121,11 +1219,18 @@ function generateGiftPDF(data) {
   doc.text("DÉTAILS DU CADEAU", 20, y);
   y += 10;
 
+  const natureTiersLabel = data.natureTiers === "Autre" ? `Autre (${data.natureTiersPrecision})` : data.natureTiers;
+  const sortCadeauLabel = data.sortCadeau === "Autre" ? `Autre (${data.sortCadeauPrecision})` : data.sortCadeau;
+
+  addRow("Type de cadeau :", data.typeCadeau);
   addRow("Description :", data.description);
+  addRow("Nature du tiers :", natureTiersLabel);
   addRow("Émetteur :", data.emetteur);
   addRow("Destinataire :", data.destinataire);
+  addRow("Opération en cours :", data.operationEnCours);
   addRow("Date :", dateFr);
   addRow("Valeur estimée :", data.valeur ? `${data.valeur} €` : "Non renseignée");
+  addRow("Sort du cadeau :", sortCadeauLabel);
 
   y += 6;
   doc.setFillColor(232, 244, 244);
