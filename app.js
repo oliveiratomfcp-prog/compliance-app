@@ -992,6 +992,37 @@ function toggleTooltip() {
 // FORMULAIRE CADEAU
 // -----------------------------------------------
 
+// Résout dynamiquement les noms internes des colonnes SharePoint à partir de leurs libellés
+// affichés (les noms internes générés par SharePoint diffèrent des libellés dès qu'ils
+// contiennent espaces, accents ou tirets). Le résultat est mis en cache pour la session.
+let giftColumnMap = null;
+async function getGiftColumnMap() {
+  if (giftColumnMap) return giftColumnMap;
+
+  const REQUIRED_DISPLAY_NAMES = [
+    "Type de cadeau",
+    "Nature du tiers",
+    "Nature du tiers - Précision",
+    "Opération en cours",
+    "Sort du cadeau",
+    "Sort du cadeau - Précision"
+  ];
+
+  const res = await callGraphAPI(
+    `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listGifts)}/columns?$select=name,displayName`
+  );
+  const map = {};
+  (res?.value || []).forEach(c => { map[c.displayName] = c.name; });
+
+  const missing = REQUIRED_DISPLAY_NAMES.filter(n => !map[n]);
+  if (missing.length) {
+    throw new Error(`Colonnes introuvables dans la liste "Registre cadeaux" : ${missing.join(", ")}. Vérifiez les libellés des colonnes SharePoint.`);
+  }
+
+  giftColumnMap = map;
+  return giftColumnMap;
+}
+
 // Affiche/masque le champ de précision "Autre" pour la nature du tiers
 document.getElementById("g-nature-tiers").addEventListener("change", (e) => {
   const group = document.getElementById("g-nature-tiers-precision-group");
@@ -1051,21 +1082,22 @@ document.getElementById("btn-submit-gift").addEventListener("click", async () =>
   btn.disabled = true;
 
   try {
+    const col = await getGiftColumnMap();
     await callGraphAPI(
       `/sites/${siteIdHistory}/lists/${encodeURIComponent(CONFIG.sharepointHistory.listGifts)}/items`,
       "POST",
       { fields: {
         Title: description,
-        TypeCadeau: typeCadeau,
-        NatureTiers: natureTiers,
-        NatureTiersPrecision: natureTiers === "Autre" ? natureTiersPrecision : null,
+        [col["Type de cadeau"]]: typeCadeau,
+        [col["Nature du tiers"]]: natureTiers,
+        [col["Nature du tiers - Précision"]]: natureTiers === "Autre" ? natureTiersPrecision : null,
         Emetteur: emetteur,
         Destinataire: destinataire,
-        OperationEnCours: operationEnCours,
+        [col["Opération en cours"]]: operationEnCours,
         Date: date ? new Date(date + "T00:00:00").toISOString() : null,
         Valeur: valeur ? parseFloat(valeur) : null,
-        SortCadeau: sortCadeau,
-        SortCadeauPrecision: sortCadeau === "Autre" ? sortCadeauPrecision : null
+        [col["Sort du cadeau"]]: sortCadeau,
+        [col["Sort du cadeau - Précision"]]: sortCadeau === "Autre" ? sortCadeauPrecision : null
       }}
     );
 
