@@ -114,6 +114,23 @@ const TRANSLATIONS = {
     badge_declaration: "Déclaration",
     badge_restricted: "Restreint",
     badge_clean: "Non restreint",
+
+    // GIFT FORM (Registre cadeaux)
+    gift_alert: "Il n'existe aucun seuil de déclaration : tout cadeau ou invitation reçu(e) ou offert(e) doit être déclaré(e), quel que soit son montant.",
+    gift_intro: "Avant d'accepter ou d'offrir un cadeau ou une invitation, il convient de s'assurer que sa valeur reste raisonnable au regard du niveau de vie local, qu'il s'inscrit dans un contexte professionnel, et qu'il ne risque pas d'influencer une décision. Demandez-vous également si vous seriez capable d'en parler librement à votre manager ? Si vous hésitez à le mentionner spontanément, c'est probablement le signe qu'il pose problème.<br><br>En cas de doute ou de réponse négative à l'un de ces points, il est recommandé de refuser le cadeau ou l'invitation et de solliciter l'avis de votre manager ou du département Conformité.",
+    gift_label_type_cadeau: "Type de cadeau *",
+    gift_opt_select: "-- Sélectionner --",
+    gift_opt_type: ["Cadeau matériel", "Repas", "Invitation sportive", "Invitation culturelle", "Séminaire", "Conférence", "Formation", "Déplacement", "Hébergement", "Remise commerciale", "Autre"],
+    gift_label_nature_tiers: "Nature du tiers *",
+    gift_opt_nature_tiers: ["Investisseur", "Prospect investisseur", "Société en portefeuille", "Cible d'investissement", "Dépositaire/Valorisateur", "Banque d'affaires", "Contrepartie/Broker", "Autre Prestataire", "Fournisseur", "Distributeur", "Conseil juridique/fiscal", "Autre"],
+    gift_label_nature_tiers_precision: "Précisez la nature du tiers *",
+    gift_label_operation_en_cours: "Une opération, négociation, levée de fonds, due diligence ou renouvellement de contrat est-elle en cours avec ce tiers ? *",
+    gift_radio_oui: "Oui",
+    gift_radio_non: "Non",
+    gift_label_date: "Date à laquelle le cadeau a été reçu/offert *",
+    gift_label_sort_cadeau: "Sort du cadeau *",
+    gift_opt_sort_cadeau: ["Conservé à titre personnel", "Partagé avec l'équipe", "Mis à disposition de l'ensemble des collaborateurs", "Utilisé dans le cadre professionnel", "Refusé", "Autre"],
+    gift_label_sort_cadeau_precision: "Précisez le sort du cadeau *",
   },
 
   en: {
@@ -226,6 +243,23 @@ const TRANSLATIONS = {
     badge_declaration: "Declaration",
     badge_restricted: "Restricted",
     badge_clean: "Approved",
+
+    // GIFT FORM (Gift register)
+    gift_alert: "There is no reporting threshold: any gift or invitation received or given must be declared, regardless of its value.",
+    gift_intro: "Before accepting or offering a gift or invitation, make sure its value remains reasonable given the local standard of living, that it takes place in a professional context, and that it is not likely to influence a decision. Also ask yourself whether you would be comfortable talking about it openly with your manager. If you hesitate to mention it spontaneously, that is probably a sign that it is a problem.<br><br>In case of doubt or a negative answer to any of these points, it is recommended to decline the gift or invitation and to seek the advice of your manager or the Compliance department.",
+    gift_label_type_cadeau: "Type of gift *",
+    gift_opt_select: "-- Select --",
+    gift_opt_type: ["Material gift", "Meal", "Sports invitation", "Cultural invitation", "Seminar", "Conference", "Training", "Travel", "Accommodation", "Commercial discount", "Other"],
+    gift_label_nature_tiers: "Nature of the third party *",
+    gift_opt_nature_tiers: ["Investor", "Prospective investor", "Portfolio company", "Investment target", "Depositary/Valuation agent", "Investment bank", "Counterparty/Broker", "Other service provider", "Supplier", "Distributor", "Legal/tax adviser", "Other"],
+    gift_label_nature_tiers_precision: "Specify the nature of the third party *",
+    gift_label_operation_en_cours: "Is a transaction, negotiation, fundraising, due diligence or contract renewal currently in progress with this third party? *",
+    gift_radio_oui: "Yes",
+    gift_radio_non: "No",
+    gift_label_date: "Date the gift was received/given *",
+    gift_label_sort_cadeau: "Outcome of the gift *",
+    gift_opt_sort_cadeau: ["Kept for personal use", "Shared with the team", "Made available to all employees", "Used for professional purposes", "Declined", "Other"],
+    gift_label_sort_cadeau_precision: "Specify the outcome of the gift *",
   }
 };
 
@@ -330,6 +364,25 @@ function applyTranslations() {
   setText("col-h-date-tx-el", t("col_h_date_tx"));
   setText("col-h-date-decl-el", t("col_h_date_decl"));
   setText("col-h-pdf-el", t("col_h_pdf"));
+
+  // Gift form (Registre cadeaux)
+  setText("gift-alert-el", t("gift_alert"));
+  setHTML("gift-intro-el", t("gift_intro"));
+  setText("form-label-type-cadeau", t("gift_label_type_cadeau"));
+  setOptionText("g-type-cadeau", 0, t("gift_opt_select"));
+  TRANSLATIONS[currentLang].gift_opt_type.forEach((label, i) => setOptionText("g-type-cadeau", i + 1, label));
+  setText("form-label-nature-tiers", t("gift_label_nature_tiers"));
+  setOptionText("g-nature-tiers", 0, t("gift_opt_select"));
+  TRANSLATIONS[currentLang].gift_opt_nature_tiers.forEach((label, i) => setOptionText("g-nature-tiers", i + 1, label));
+  setText("form-label-nature-tiers-precision", t("gift_label_nature_tiers_precision"));
+  setText("form-label-operation-en-cours", t("gift_label_operation_en_cours"));
+  setText("radio-operation-oui-el", t("gift_radio_oui"));
+  setText("radio-operation-non-el", t("gift_radio_non"));
+  setText("form-label-date-gift", t("gift_label_date"));
+  setText("form-label-sort-cadeau", t("gift_label_sort_cadeau"));
+  setOptionText("g-sort-cadeau", 0, t("gift_opt_select"));
+  TRANSLATIONS[currentLang].gift_opt_sort_cadeau.forEach((label, i) => setOptionText("g-sort-cadeau", i + 1, label));
+  setText("form-label-sort-cadeau-precision", t("gift_label_sort_cadeau_precision"));
 
   // Lang button
   const btn = document.getElementById("lang-toggle-btn");

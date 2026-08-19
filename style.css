@@ -726,6 +726,24 @@ body {
 .form-message.success { background: var(--success-bg); color: var(--success); }
 .form-message.error { background: var(--error-bg); color: var(--error); }
 
+.radio-toggle-group { display: flex; gap: 10px; }
+
+.radio-toggle-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.radio-toggle-option input[type="radio"] { accent-color: #006660; cursor: pointer; }
+.radio-toggle-option.active { border-color: #006660; background: rgba(0,102,96,0.06); }
+
 /* =============================================
    ONGLET DÉCLARER — 3 CARTES
    ============================================= */
