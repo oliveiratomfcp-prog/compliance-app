@@ -134,16 +134,15 @@ async function getMeshToken(baseUrl, accessKey, accessSecret) {
     return cachedToken;
   }
 
-  // Corps de requête À CONFIRMER (cf. en-tête du fichier) : hypothèse basée sur
-  // un flux client_credentials standard avec les identifiants Mesh nommés
-  // access_key / access_secret.
+  // Corps de requête confirmé par un appel de test à l'API Mesh : le champ
+  // secret s'appelle "secret", pas "access_secret" (une valeur "access_secret"
+  // provoque un 400 "access_key is missing or cannot be decoded").
   const response = await fetch(`${baseUrl}${TOKEN_PATH}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      grant_type: 'client_credentials',
       access_key: accessKey,
-      access_secret: accessSecret
+      secret: accessSecret
     })
   });
 
