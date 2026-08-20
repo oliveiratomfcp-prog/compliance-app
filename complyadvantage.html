@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ComplyAdvantage — Compliance Portal</title>
+<link rel="stylesheet" href="style.css" />
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+/* ── ComplyAdvantage — styles spécifiques (mêmes conventions que counterflow.html) ── */
+.page-content{max-width:none !important;padding:28px 32px 40px !important}
+.ca-toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.ca-toolbar-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.ca-filter-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.ca-filter-row label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted)}
+.ca-filter-row select{padding:6px 10px;border-radius:6px;border:1px solid var(--border);font-size:12.5px;font-family:inherit;background:#fff;color:var(--text-primary);min-width:200px}
+.ca-count-pill{font-size:11.5px;color:var(--text-secondary)}
+.ca-table{min-width:1050px;width:100%}
+.ca-td-muted{font-size:11.5px;color:var(--text-secondary);white-space:nowrap}
+.btn-primary:disabled,.btn-secondary:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary .spinner-sm{width:14px;height:14px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+</style>
+</head>
+<body>
+
+<!-- ===== ÉCRAN DE CONNEXION ===== -->
+<div id="screen-login" class="screen active">
+  <div class="login-card">
+    <div class="login-logo">
+      <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="72" />
+    </div>
+    <div class="login-divider"></div>
+    <h1 class="login-title">ComplyAdvantage</h1>
+    <p class="login-desc">Connectez-vous avec votre compte d'entreprise Microsoft pour accéder au suivi des cas et alertes ComplyAdvantage.</p>
+    <button id="btn-login" class="btn-microsoft">
+      <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+        <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+        <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+        <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+        <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+      </svg>
+      <span>Se connecter avec Microsoft</span>
+    </button>
+    <p class="login-footer">Accès réservé aux collaborateurs Eiffel IG</p>
+  </div>
+</div>
+
+<!-- ===== APPLICATION ===== -->
+<div id="screen-app" class="screen">
+  <div class="app-shell">
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar eiffel-rays">
+      <div class="sidebar-logo">
+        <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="30" />
+      </div>
+      <div class="sidebar-divider"></div>
+      <div class="sidebar-nav-label">Navigation</div>
+      <nav style="position:relative;z-index:1;display:flex;flex-direction:column;gap:2px">
+        <a class="sidebar-item" href="index.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <span>Restricted List</span>
+        </a>
+        <a class="sidebar-item" href="index.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          <span>Déclarer</span>
+        </a>
+        <a class="sidebar-item" href="doc-review.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span>Doc Review</span>
+        </a>
+        <a class="sidebar-item" href="tracker-cpl.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
+          <span>Tracker CPL</span>
+        </a>
+        <a class="sidebar-item" href="deontohub.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          <span>DeontoHub</span>
+        </a>
+        <a class="sidebar-item" href="counterflow.html">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="9 13 11 15 15 11"/></svg>
+          <span>CounterFlow</span>
+        </a>
+        <button class="sidebar-item active" style="cursor:default">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span>ComplyAdvantage</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-spacer"></div>
+
+      <div class="sidebar-user">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="sidebar-user-avatar" id="user-avatar">--</div>
+          <div style="min-width:0;flex:1">
+            <div class="sidebar-user-name" id="user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chargement...</div>
+            <div class="sidebar-user-role">Collaborateur</div>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn-sidebar-logout" title="Se déconnecter">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>Se déconnecter</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="page-content">
+      <div class="section-header">
+        <div>
+          <div class="eyebrow" style="margin-bottom:9px">AML · Suivi des cas</div>
+          <h1 class="page-title" style="margin:0 0 7px">ComplyAdvantage</h1>
+          <p class="section-desc" id="ca-desc">Cliquez sur "Lancer la collecte" pour récupérer les cas ComplyAdvantage en cours.</p>
+        </div>
+        <div class="ca-toolbar-actions">
+          <button id="btn-run" class="btn-primary">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            <span id="btn-run-label">Lancer la collecte</span>
+          </button>
+          <button id="btn-pdf" class="btn-secondary" disabled>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+            <span>Générer le rapport PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <div id="ca-loading" class="loading-state hidden">
+        <div class="spinner"></div>
+        <p>Collecte en cours auprès de ComplyAdvantage Mesh... cela peut prendre plusieurs secondes selon le volume de cas.</p>
+      </div>
+
+      <div id="ca-error" class="error-state hidden"></div>
+
+      <div id="ca-empty" class="empty-state hidden">
+        <p>Aucun cas n'a encore été collecté. Lancez une collecte pour afficher les résultats.</p>
+      </div>
+
+      <div id="ca-results" class="hidden">
+        <div class="ca-filter-row">
+          <label for="ca-status-filter">Statut</label>
+          <select id="ca-status-filter">
+            <option value="all">Tous</option>
+          </select>
+          <span class="ca-count-pill" id="ca-count-pill"></span>
+        </div>
+
+        <div id="ca-table-container" class="table-wrapper">
+          <table class="data-table ca-table">
+            <thead>
+              <tr>
+                <th style="width:150px">ID du cas</th>
+                <th style="width:170px">Type de cas</th>
+                <th>Client / tiers concerné</th>
+                <th style="width:150px">Statut</th>
+                <th style="width:150px">Assigné à</th>
+                <th style="width:90px">Alertes</th>
+                <th style="width:110px">Créé le</th>
+                <th style="width:110px">Délai (j)</th>
+              </tr>
+            </thead>
+            <tbody id="ca-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </main>
+
+  </div>
+</div>
+
+<script>
+const msalConfig = {
+  auth: {
+    clientId: "56c83db2-7fc6-4826-8073-82077e91ae27",
+    authority: "https://login.microsoftonline.com/eb5288b6-5ccb-4f5d-88fb-346db1317a4f",
+    redirectUri: window.location.origin
+  },
+  cache: { cacheLocation: "sessionStorage" }
+};
+</script>
+<script>
+'use strict';
+
+// Tampon de version — permet de vérifier en console que le navigateur exécute
+// bien le dernier build déployé.
+const CA_BUILD = '2026-08-20.1 — création du module';
+console.info(`ComplyAdvantage — build ${CA_BUILD}`);
+
+// ═══════════════════════════════════════════════════════════
+// CONFIGURATION
+// ═══════════════════════════════════════════════════════════
+const GRAPH_SCOPES_LOGIN = ['User.Read'];
+
+// Libellés techniques -> lisibles pour case_type (miroir du mapping serveur,
+// gardé côté front pour ne jamais afficher une valeur brute à l'utilisateur
+// même si le serveur renvoie un type non mappé).
+const CASE_TYPE_LABELS = {
+  CUSTOMER_ONBOARDING: 'Onboarding client',
+  CUSTOMER_MONITORING: 'Surveillance client',
+  PAYMENT_SCREENING: 'Filtrage paiement',
+  TRANSACTION_MONITORING: 'Surveillance transaction'
+};
+
+// ═══════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════
+let msalInst = null;
+let currentUser = null; // { displayName, mail, account }
+let allCases = [];      // dernier résultat de collecte — remplacé à chaque clic, jamais persisté
+let statusFilter = 'all';
+
+// ═══════════════════════════════════════════════════════════
+// AUTH MSAL
+// ═══════════════════════════════════════════════════════════
+async function initApp() {
+  msalInst = new msal.PublicClientApplication(msalConfig);
+  await msalInst.initialize();
+
+  const accounts = msalInst.getAllAccounts();
+  if (accounts.length > 0) {
+    await loginWithAccount(accounts[0]);
+  } else {
+    showScreen('login');
+  }
+
+  document.getElementById('btn-login').onclick = async () => {
+    try {
+      const result = await msalInst.loginPopup({ scopes: GRAPH_SCOPES_LOGIN });
+      await loginWithAccount(result.account);
+    } catch (e) { console.error('Login failed:', e); }
+  };
+
+  document.getElementById('btn-logout').onclick = async () => {
+    try { await msalInst.logoutPopup(); } catch (e) {}
+    showScreen('login');
+  };
+
+  document.getElementById('btn-run').onclick = runCollecte;
+  document.getElementById('btn-pdf').onclick = generateComplyAdvantagePDF;
+  document.getElementById('ca-status-filter').onchange = (e) => {
+    statusFilter = e.target.value;
+    renderTable();
+  };
+}
+
+async function loginWithAccount(account) {
+  try {
+    const token = await getToken(GRAPH_SCOPES_LOGIN, account);
+    const p = await graphGet('/me', token);
+    setUser({ displayName: p.displayName, mail: p.mail || p.userPrincipalName, account });
+  } catch (e) {
+    console.error('Token error:', e);
+    showScreen('login');
+  }
+}
+
+function setUser(u) {
+  currentUser = u;
+  const ini = (u.displayName || '?').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+  document.getElementById('user-avatar').textContent = ini;
+  document.getElementById('user-name').textContent = u.displayName || u.mail;
+  showScreen('app');
+}
+
+async function getToken(scopes, account) {
+  const acc = account || currentUser?.account || msalInst.getAllAccounts()[0];
+  try {
+    const res = await msalInst.acquireTokenSilent({ scopes, account: acc });
+    return res.accessToken;
+  } catch (e) {
+    if (e.name === 'InteractionRequiredAuthError' || e instanceof msal.InteractionRequiredAuthError) {
+      const res = await msalInst.acquireTokenPopup({ scopes, account: acc });
+      return res.accessToken;
+    }
+    throw e;
+  }
+}
+
+async function graphGet(path, token) {
+  const t = token || await getToken(GRAPH_SCOPES_LOGIN);
+  const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, { headers: { Authorization: `Bearer ${t}` } });
+  if (!res.ok) throw new Error(`Graph GET ${path} → ${res.status}`);
+  return res.json();
+}
+
+// ═══════════════════════════════════════════════════════════
+// COLLECTE — appel de la Function api/complyadvantage-cases
+// ═══════════════════════════════════════════════════════════
+async function runCollecte() {
+  const btn = document.getElementById('btn-run');
+  const label = document.getElementById('btn-run-label');
+
+  btn.disabled = true;
+  label.innerHTML = '<span class="spinner-sm"></span> Collecte en cours...';
+  hideElement('ca-error');
+  hideElement('ca-empty');
+  hideElement('ca-results');
+  showElement('ca-loading');
+  document.getElementById('btn-pdf').disabled = true;
+
+  try {
+    const res = await fetch('/api/complyadvantage-cases', { method: 'GET' });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error?.message || `Erreur API : ${res.status}`);
+    }
+    const data = await res.json();
+
+    // Un nouveau clic remplace intégralement le tableau précédent — aucune
+    // sauvegarde, rien n'est envoyé vers SharePoint.
+    allCases = data.cases || [];
+    statusFilter = 'all';
+
+    hideElement('ca-loading');
+
+    if (allCases.length === 0) {
+      showElement('ca-empty');
+      return;
+    }
+
+    populateStatusFilter();
+    renderTable();
+    showElement('ca-results');
+    document.getElementById('btn-pdf').disabled = false;
+
+    if (data.meta?.alertsSkipped) {
+      showToastLike(`Volume important (${data.meta.total} cas) : le comptage des alertes a été mis de côté pour ne pas surcharger l'API ComplyAdvantage. Colonne "Alertes" affichée comme "à charger".`);
+    }
+  } catch (e) {
+    console.error('Erreur collecte ComplyAdvantage:', e);
+    hideElement('ca-loading');
+    const errEl = document.getElementById('ca-error');
+    errEl.textContent = `Erreur lors de la collecte : ${e.message}`;
+    showElement('ca-error');
+  } finally {
+    btn.disabled = false;
+    label.textContent = 'Lancer la collecte';
+  }
+}
+
+function populateStatusFilter() {
+  const statuses = Array.from(new Set(allCases.map(c => c.status).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'fr'));
+  const select = document.getElementById('ca-status-filter');
+  select.innerHTML = '<option value="all">Tous</option>' +
+    statuses.map(s => `<option value="${escAttr(s)}">${escHtml(s)}</option>`).join('');
+  select.value = 'all';
+}
+
+function renderTable() {
+  const filtered = statusFilter === 'all' ? allCases : allCases.filter(c => c.status === statusFilter);
+  const tbody = document.getElementById('ca-tbody');
+
+  tbody.innerHTML = filtered.map(c => `
+    <tr>
+      <td class="ca-td-muted">${escHtml(c.caseIdentifier || '—')}</td>
+      <td>${escHtml(CASE_TYPE_LABELS[c.caseType] || c.caseTypeLabel || c.caseType || '—')}</td>
+      <td>${escHtml(c.customerRef || '—')}</td>
+      <td>${escHtml(c.status || '—')}</td>
+      <td>${escHtml(c.assignee || 'Non assigné')}</td>
+      <td>${c.alertsCount === null || c.alertsCount === undefined ? '<span class="ca-td-muted">à charger</span>' : c.alertsCount}</td>
+      <td class="ca-td-muted">${formatDate(c.createdAt)}</td>
+      <td>${c.delayDays === null || c.delayDays === undefined ? '—' : c.delayDays}</td>
+    </tr>`).join('') ||
+    `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucun cas pour ce statut</td></tr>`;
+
+  document.getElementById('ca-count-pill').textContent =
+    `${filtered.length} cas affiché${filtered.length > 1 ? 's' : ''} sur ${allCases.length} au total`;
+}
+
+// ═══════════════════════════════════════════════════════════
+// GÉNÉRATION DU RAPPORT PDF (habillage identique à generateGiftPDF, app.js)
+// ═══════════════════════════════════════════════════════════
+async function generateComplyAdvantagePDF() {
+  const btn = document.getElementById('btn-pdf');
+  if (btn.disabled) return;
+  const originalLabel = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner-sm" style="border-color:rgba(0,20,59,.25);border-top-color:var(--navy)"></span> Génération...';
+
+  try {
+    const tableEl = document.getElementById('ca-table-container');
+    const canvas = await html2canvas(tableEl, { scale: 2, backgroundColor: '#ffffff' });
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr = now.toLocaleTimeString('fr-FR');
+    const userName = currentUser?.displayName || currentUser?.mail || '—';
+
+    // En-tête (même habillage que generateGiftPDF dans app.js)
+    doc.setFillColor(0, 20, 59);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(209, 143, 65);
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EIFFEL INVESTMENT GROUP', 20, 16);
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Compliance Portal', 20, 26);
+
+    // Titre
+    doc.setTextColor(0, 20, 59);
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SUIVI DES CAS COMPLYADVANTAGE', 105, 55, { align: 'center' });
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text('Rapport généré depuis le Compliance Portal — Eiffel Investment Group', 105, 63, { align: 'center' });
+
+    doc.setDrawColor(0, 102, 96);
+    doc.setLineWidth(0.8);
+    doc.line(20, 68, 190, 68);
+
+    let y = 80;
+    const addRow = (label, value) => {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10.5);
+      doc.setTextColor(0, 20, 59);
+      doc.text(label, 20, y);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(50, 50, 50);
+      doc.text(String(value || '—'), 80, y);
+      y += 7;
+    };
+    addRow('Généré par :', userName);
+    addRow('Date de génération :', dateStr);
+    addRow('Heure :', timeStr);
+    addRow('Nombre de cas :', String(allCases.length));
+
+    y += 6;
+
+    // Image du tableau, redimensionnée à la largeur utile de la page A4,
+    // répartie sur plusieurs pages si elle dépasse la hauteur disponible.
+    const marginX = 15;
+    const usableWidthMm = 210 - marginX * 2;
+    const pxPerMm = canvas.width / usableWidthMm;
+    const firstPageUsableHeightMm = 297 - y - 20; // marge basse ~20mm (bandeau pied de page)
+    const nextPageStartYMm = 20;
+    const nextPageUsableHeightMm = 297 - nextPageStartYMm - 20;
+
+    let sy = 0; // position source (px) dans le canvas
+    let firstPage = true;
+
+    while (sy < canvas.height) {
+      const usableHeightMm = firstPage ? firstPageUsableHeightMm : nextPageUsableHeightMm;
+      const sliceHeightPx = Math.min(Math.floor(usableHeightMm * pxPerMm), canvas.height - sy);
+      if (sliceHeightPx <= 0) break;
+
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sliceHeightPx;
+      const ctx = sliceCanvas.getContext('2d');
+      ctx.drawImage(canvas, 0, sy, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+
+      const imgData = sliceCanvas.toDataURL('image/png');
+      const imgHeightMm = sliceHeightPx / pxPerMm;
+      const startY = firstPage ? y : nextPageStartYMm;
+      doc.addImage(imgData, 'PNG', marginX, startY, usableWidthMm, imgHeightMm);
+
+      sy += sliceHeightPx;
+      firstPage = false;
+      if (sy < canvas.height) doc.addPage();
+    }
+
+    // Pied de page sur la dernière page
+    doc.setFillColor(0, 20, 59);
+    doc.rect(0, 282, 210, 15, 'F');
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text('Document généré automatiquement — Eiffel Investment Group Compliance Portal', 105, 291, { align: 'center' });
+
+    doc.save(`reporting-complyadvantage-${now.toISOString().slice(0, 10)}.pdf`);
+  } catch (e) {
+    console.error('Erreur génération PDF ComplyAdvantage:', e);
+    alert(`Erreur lors de la génération du PDF : ${e.message}`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = originalLabel;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + id).classList.add('active');
+}
+function showElement(id) { document.getElementById(id).classList.remove('hidden'); }
+function hideElement(id) { document.getElementById(id).classList.add('hidden'); }
+function formatDate(d) {
+  if (!d) return '—';
+  try { return new Date(d).toLocaleDateString('fr-FR'); } catch { return '—'; }
+}
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+function escAttr(s) {
+  return escHtml(s).replace(/"/g, '&quot;');
+}
+// Message discret non bloquant (pas de toast partagé sur cette page — simple info console + bandeau).
+function showToastLike(message) {
+  console.info('[ComplyAdvantage]', message);
+  const desc = document.getElementById('ca-desc');
+  if (desc) desc.textContent = message;
+}
+
+document.addEventListener('DOMContentLoaded', initApp);
+</script>
+</body>
+</html>
