@@ -627,12 +627,15 @@ function countPiecesDossier(broker) {
 }
 
 // Le nom d'une contrepartie clignote (tableau ET fiche détail) dès que l'une de
-// ces deux conditions est vraie : KYC expiré OU dossier incomplet (moins de pièces
-// que celles attendues pour son niveau de risque).
+// ces deux conditions est vraie : KYC expiré OU dernière mise à jour rejetée par
+// compliance. Le nombre de pièces cochées n'a plus aucune influence ici — il reste
+// affiché à titre informatif via dossierBadge(), sans effet sur le clignotement.
 function needsBlinking(broker) {
-  return computeStatus(broker) === 'expiré' || countPiecesDossier(broker) < getPiecesRequisesPourRisque(broker.niveauRisque).length;
+  return computeStatus(broker) === 'expiré' || broker.statutValidationKYC === 'Rejeté';
 }
 
+// Le badge dossier (ex. "10/13") reste purement informatif : nombre de pièces
+// cochées sur le total attendu pour le niveau de risque de la contrepartie.
 function dossierBadge(broker) {
   const n = countPiecesDossier(broker);
   const total = getPiecesRequisesPourRisque(broker.niveauRisque).length;
@@ -771,22 +774,22 @@ function openDetail(spId) {
   const st = computeStatus(b);
   const nameCls = needsBlinking(b) ? 'name-blink-expired' : '';
 
-  // Raisons du clignotement, affichées sous le nom : KYC expiré et/ou dossier incomplet.
+  // Raisons du clignotement, affichées sous le nom : KYC expiré et/ou dernière
+  // mise à jour rejetée par compliance. Le dossier incomplet n'en fait plus partie
+  // (voir needsBlinking) — il reste visible, à titre informatif, via dossierBadge().
+  const days = daysToExpiration(b);
   const blinkReasons = [];
   if (st === 'expiré') {
-    const days = daysToExpiration(b);
-    blinkReasons.push(days === null
-      ? "KYC expiré : date d'expiration non renseignée"
-      : `KYC expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`);
+    blinkReasons.push(days === null ? "Aucune date d'expiration renseignée" : `KYC expiré depuis ${Math.abs(days)} jour(s)`);
   }
-  const piecesRequises = getPiecesRequisesPourRisque(b.niveauRisque);
-  const nbPieces = countPiecesDossier(b);
-  if (nbPieces < piecesRequises.length) {
-    blinkReasons.push(`Dossier incomplet : ${nbPieces}/${piecesRequises.length} pièces`);
+  if (b.statutValidationKYC === 'Rejeté') {
+    blinkReasons.push(`Mise à jour KYC rejetée par compliance${b.motifRejet ? ' : ' + b.motifRejet : ''}`);
   }
   const blinkReasonsHtml = blinkReasons.length
     ? `<div style="margin-top:4px;font-size:12px;font-weight:600;color:#DC2626">${blinkReasons.map(esc).join(' · ')}</div>`
     : '';
+  const piecesRequises = getPiecesRequisesPourRisque(b.niveauRisque);
+  const nbPieces = countPiecesDossier(b);
 
   const piecesChecklist = piecesRequises.map(p => {
     const ok = (b.piecesDossier || []).includes(p);
@@ -984,20 +987,22 @@ async function submitCommentaire() {
 // Section "Pièces du dossier" partagée entre les deux formulaires (MAJ KYC et
 // création). La checklist elle-même vit dans un conteneur identifié (containerId)
 // afin d'être recalculée à la volée par refreshPiecesChecklist() dès que
-// l'utilisateur change le niveau de risque, sans rechargement de page.
+// l'utilisateur change le niveau de risque, sans rechargement de page. viewId
+// permet à chaque case de savoir quel formulaire mettre à jour (commentaire
+// obligatoire) au moment où elle est (dé)cochée.
 // checkedList : libellés déjà enregistrés, pour pré-cocher en édition.
-function piecesDossierFormSection(containerId, niveauRisque, checkedList) {
+function piecesDossierFormSection(viewId, containerId, niveauRisque, checkedList) {
   return `
     <div class="form-group full-width">
       <label class="form-label">Pièces du dossier</label>
-      <div id="${containerId}">${piecesChecklistInnerHtml(niveauRisque, checkedList)}</div>
+      <div id="${containerId}">${piecesChecklistInnerHtml(viewId, niveauRisque, checkedList)}</div>
     </div>`;
 }
 
 // Contenu de la checklist pour un niveau de risque donné. Si aucun niveau de
 // risque n'est encore choisi, aucune checklist n'est affichée : on invite
 // l'utilisateur à choisir le niveau de risque d'abord.
-function piecesChecklistInnerHtml(niveauRisque, checkedList) {
+function piecesChecklistInnerHtml(viewId, niveauRisque, checkedList) {
   if (!niveauRisque) {
     return `<p style="font-size:12.5px;color:var(--text-muted);font-style:italic;padding:4px 0">Choisissez d'abord le niveau de risque pour afficher les pièces attendues.</p>`;
   }
@@ -1005,7 +1010,7 @@ function piecesChecklistInnerHtml(niveauRisque, checkedList) {
   return `<div style="display:flex;flex-direction:column;gap:2px">
     ${getPiecesRequisesPourRisque(niveauRisque).map(p => `
       <label style="display:flex;align-items:flex-start;gap:8px;font-size:12.5px;color:var(--text-secondary);cursor:pointer;padding:4px 0;font-weight:500">
-        <input type="checkbox" class="cf-piece" value="${esc(p)}" ${checked.has(p)?'checked':''} style="width:15px;height:15px;flex-shrink:0;margin-top:1px">
+        <input type="checkbox" class="cf-piece" value="${esc(p)}" ${checked.has(p)?'checked':''} onchange="updateCommentaireRequirement('${viewId}')" style="width:15px;height:15px;flex-shrink:0;margin-top:1px">
         <span>${esc(p)}</span>
       </label>`).join('')}
   </div>`;
@@ -1014,16 +1019,65 @@ function piecesChecklistInnerHtml(niveauRisque, checkedList) {
 // Recalcule la checklist affichée dans containerId pour le nouveau niveau de
 // risque, en pré-cochant les libellés de checkedList qui existent encore dans le
 // référentiel du nouveau niveau (les cases déjà cochées par l'utilisateur ne sont
-// donc pas perdues lors du changement de niveau de risque).
-function refreshPiecesChecklist(containerId, niveauRisque, checkedList) {
+// donc pas perdues lors du changement de niveau de risque). Le changement de
+// niveau de risque modifie aussi le total de pièces attendues : on recalcule donc
+// systématiquement le caractère obligatoire du commentaire dans la foulée.
+function refreshPiecesChecklist(viewId, containerId, niveauRisque, checkedList) {
   const el = document.getElementById(containerId);
-  if (el) el.innerHTML = piecesChecklistInnerHtml(niveauRisque, checkedList);
+  if (el) el.innerHTML = piecesChecklistInnerHtml(viewId, niveauRisque, checkedList);
+  updateCommentaireRequirement(viewId);
 }
 
 // viewId : conteneur du formulaire actif — les vues gardant leur HTML après
 // navigation, un sélecteur global ramasserait les cases de l'autre formulaire.
 function selectedPiecesDossier(viewId) {
   return Array.from(document.querySelectorAll(`#${viewId} .cf-piece:checked`)).map(c => c.value);
+}
+
+// ── Commentaire obligatoire si dossier incomplet ────────────────────────────
+// Champ "Commentaire" partagé entre "Nouvelle contrepartie" et "Mettre à jour le
+// KYC" (futur formulaire du workflow de validation compliance inclus, puisqu'il
+// s'agit du même formulaire). initialValue : valeur existante à pré-remplir
+// (ex. commentaire déjà enregistré sur la contrepartie), vide pour une création.
+function commentaireFormSection(viewId, fieldId, initialValue) {
+  return `
+    <div class="form-group full-width">
+      <label class="form-label" id="${fieldId}-label">Commentaire</label>
+      <textarea id="${fieldId}" class="form-input form-textarea" style="width:100%;min-height:90px"
+        placeholder="Contexte, pièces manquantes, dérogation temporaire...">${esc(initialValue || '')}</textarea>
+      <p id="${fieldId}-help" class="hidden" style="font-size:11.5px;color:#DC2626;margin-top:5px;font-weight:500">
+        Dossier incomplet : merci de préciser les pièces manquantes ou le contexte.
+      </p>
+    </div>`;
+}
+
+// Un seul champ commentaire par formulaire, identifié par le viewId. Pas de
+// variable dédiée : le niveau de risque en cours est lu directement dans
+// nouvelleRisqueSel / majKycRisqueSel selon la vue.
+function commentaireFieldIdFor(viewId) {
+  return viewId === 'view-nouvelle' ? 'cf-commentaire' : 'kyc-commentaire';
+}
+
+// Vrai si le nombre de pièces cochées est inférieur au total attendu pour le
+// niveau de risque actuellement choisi dans ce formulaire. Faux tant qu'aucun
+// niveau de risque n'est choisi (aucune checklist affichée à ce stade).
+function commentaireRequisPour(viewId) {
+  const niveauRisque = viewId === 'view-nouvelle' ? nouvelleRisqueSel : majKycRisqueSel;
+  if (!niveauRisque) return false;
+  return selectedPiecesDossier(viewId).length < getPiecesRequisesPourRisque(niveauRisque).length;
+}
+
+// Met à jour l'indicateur visuel (astérisque rouge + texte d'aide) dès que le
+// dossier passe incomplet/complet — appelé au premier affichage du formulaire, à
+// chaque case (dé)cochée et à chaque changement de niveau de risque, pour que
+// l'obligation ne soit jamais une surprise découverte seulement à la soumission.
+function updateCommentaireRequirement(viewId) {
+  const fieldId = commentaireFieldIdFor(viewId);
+  const requis = commentaireRequisPour(viewId);
+  const label = document.getElementById(`${fieldId}-label`);
+  const help = document.getElementById(`${fieldId}-help`);
+  if (label) label.innerHTML = requis ? 'Commentaire <span style="color:#DC2626">*</span>' : 'Commentaire';
+  if (help) help.classList.toggle('hidden', !requis);
 }
 
 // Niveau de risque sélectionné dans le formulaire "Mettre à jour le KYC". Distinct
@@ -1060,7 +1114,8 @@ function goMajKYC() {
             <label class="form-label">Nouvelle date d'expiration *</label>
             <input type="date" id="kyc-date-exp" class="form-input">
           </div>
-          ${piecesDossierFormSection('majkyc-pieces-checklist', majKycRisqueSel, b.piecesDossier)}
+          ${piecesDossierFormSection('view-maj-kyc', 'majkyc-pieces-checklist', majKycRisqueSel, b.piecesDossier)}
+          ${commentaireFormSection('view-maj-kyc', 'kyc-commentaire', b.commentaire)}
         </div>
         <div class="form-actions">
           <button class="btn-primary" onclick="submitMajKYC()" style="width:100%;justify-content:center">
@@ -1072,13 +1127,14 @@ function goMajKYC() {
     </div>`;
   showView('maj-kyc');
   window.scrollTo(0,0);
+  updateCommentaireRequirement('view-maj-kyc');
 }
 
 function setMajKycRisque(r) {
   const dejaCochees = selectedPiecesDossier('view-maj-kyc');
   majKycRisqueSel = r;
   document.querySelectorAll('#view-maj-kyc .prio-row .prio-btn').forEach(btn => btn.classList.toggle('sel', btn.textContent.trim() === r));
-  refreshPiecesChecklist('majkyc-pieces-checklist', majKycRisqueSel, dejaCochees);
+  refreshPiecesChecklist('view-maj-kyc', 'majkyc-pieces-checklist', majKycRisqueSel, dejaCochees);
 }
 
 async function submitMajKYC() {
@@ -1086,9 +1142,18 @@ async function submitMajKYC() {
   // autre écran resté dans le DOM.
   const lien = document.querySelector('#view-maj-kyc #kyc-lien').value.trim();
   const dateExp = document.querySelector('#view-maj-kyc #kyc-date-exp').value;
+  const commentaireVal = document.querySelector('#view-maj-kyc #kyc-commentaire').value.trim();
+  const piecesCochees = selectedPiecesDossier('view-maj-kyc');
   if (!majKycRisqueSel) { showToast('Le niveau de risque est obligatoire.', 'error'); return; }
   if (!lien || !dateExp) { showToast('Le lien KYC et la date d\'expiration sont obligatoires.', 'error'); return; }
   if (!validateExternalLink(lien, 'Lien KYC')) return;
+  // Dossier incomplet pour le niveau de risque choisi : le commentaire devient
+  // obligatoire (contexte des pièces manquantes), y compris pour cette demande
+  // qui sera de toute façon soumise à la validation compliance.
+  if (piecesCochees.length < getPiecesRequisesPourRisque(majKycRisqueSel).length && !commentaireVal) {
+    showToast('Dossier incomplet : un commentaire expliquant les pièces manquantes est obligatoire.', 'error');
+    return;
+  }
 
   const btn = document.querySelector('#view-maj-kyc [onclick="submitMajKYC()"]');
   btn.disabled = true;
@@ -1110,7 +1175,7 @@ async function submitMajKYC() {
     else console.warn('Colonne DateExpirationKYC_Pending absente de la liste Brokers : non enregistrée.');
     if (hasColumn('PiecesDossier_Pending')) {
       fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
-      fields.PiecesDossier_Pending = selectedPiecesDossier('view-maj-kyc');
+      fields.PiecesDossier_Pending = piecesCochees;
     } else {
       console.warn('Colonne PiecesDossier_Pending absente de la liste Brokers : cases non enregistrées.');
     }
@@ -1118,6 +1183,9 @@ async function submitMajKYC() {
     else console.warn('Colonne StatutValidationKYC absente de la liste Brokers : statut non enregistré.');
     if (hasColumn('DemandeParEmail')) fields.DemandeParEmail = currentUser.email;
     if (hasColumn('DateDemande')) fields.DateDemande = new Date().toISOString();
+    // Le commentaire n'est pas soumis à validation (comme le niveau de risque) :
+    // il s'applique immédiatement, qu'il ait été rendu obligatoire ou non.
+    fields.commentaire = commentaireVal; // nom interne SharePoint en minuscules
 
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, fields);
     showToast(`Demande de mise à jour du KYC de ${selectedBroker.nom} envoyée à la validation compliance.`, 'success');
@@ -1271,7 +1339,8 @@ function goNouvelle() {
             <label class="form-label">Date d'expiration du KYC</label>
             <input type="date" id="cf-date-exp" class="form-input">
           </div>
-          ${piecesDossierFormSection('nouvelle-pieces-checklist', nouvelleRisqueSel, [])}
+          ${piecesDossierFormSection('view-nouvelle', 'nouvelle-pieces-checklist', nouvelleRisqueSel, [])}
+          ${commentaireFormSection('view-nouvelle', 'cf-commentaire', '')}
         </div>
         <div class="form-actions">
           <button class="btn-primary" onclick="submitNouvelle()" style="width:100%;justify-content:center">
@@ -1283,6 +1352,7 @@ function goNouvelle() {
     </div>`;
   showView('nouvelle');
   window.scrollTo(0,0);
+  updateCommentaireRequirement('view-nouvelle');
 }
 
 function setNouvelleRisque(r, btn) {
@@ -1290,7 +1360,7 @@ function setNouvelleRisque(r, btn) {
   nouvelleRisqueSel = r;
   document.querySelectorAll('#view-nouvelle .prio-row .prio-btn').forEach(b => b.classList.remove('sel'));
   btn.classList.add('sel');
-  refreshPiecesChecklist('nouvelle-pieces-checklist', nouvelleRisqueSel, dejaCochees);
+  refreshPiecesChecklist('view-nouvelle', 'nouvelle-pieces-checklist', nouvelleRisqueSel, dejaCochees);
 }
 
 function toggleClasseAutre() {
@@ -1305,6 +1375,8 @@ async function submitNouvelle() {
   const classeAutre = document.querySelector('#view-nouvelle #cf-classe-autre').value.trim();
   const kycLien = document.querySelector('#view-nouvelle #cf-kyc-lien').value.trim();
   const dateExp = document.querySelector('#view-nouvelle #cf-date-exp').value;
+  const commentaireVal = document.querySelector('#view-nouvelle #cf-commentaire').value.trim();
+  const piecesCochees = selectedPiecesDossier('view-nouvelle');
 
   if (!nom || !equipes.length || !classes.length) {
     showToast('Le nom, au moins une équipe et au moins une classe d\'actif sont obligatoires.', 'error');
@@ -1312,6 +1384,12 @@ async function submitNouvelle() {
   }
   if (!nouvelleRisqueSel) {
     showToast('Le niveau de risque est obligatoire.', 'error');
+    return;
+  }
+  // Dossier incomplet pour le niveau de risque choisi : le commentaire devient
+  // obligatoire (contexte des pièces manquantes).
+  if (piecesCochees.length < getPiecesRequisesPourRisque(nouvelleRisqueSel).length && !commentaireVal) {
+    showToast('Dossier incomplet : un commentaire expliquant les pièces manquantes est obligatoire.', 'error');
     return;
   }
   // Le Title "__CONFIG__" est réservé à l'élément de configuration interne :
@@ -1338,12 +1416,13 @@ async function submitNouvelle() {
     };
     if (hasColumn('PiecesDossier')) {
       fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
-      fields.PiecesDossier = selectedPiecesDossier('view-nouvelle');
+      fields.PiecesDossier = piecesCochees;
     } else {
       console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
     }
     if (kycLien) fields.KYC = kycLien; // colonne texte : chaîne directe
     if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
+    if (commentaireVal) fields.commentaire = commentaireVal; // nom interne SharePoint en minuscules
 
     await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
     showToast(`${nom} ajoutée aux contreparties.`, 'success');
