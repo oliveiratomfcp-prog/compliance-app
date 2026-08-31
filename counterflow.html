@@ -229,6 +229,10 @@ const NIVEAUX_RISQUE = ['Faible', 'Moyen', 'Élevé'];
 const CLASSES_ACTIF = ['Actions', 'Obligations', 'Autres'];
 const SEUIL_BIENTOT_JOURS = 60;
 
+// Valeurs exactes de la colonne SharePoint "StatutValidationKYC" (choix). Utilisées
+// par le contrôle de statut manuel (compliance) — voir applyStatutManuel().
+const STATUTS_VALIDATION_KYC = ['Aucune demande', 'En attente de validation', 'Validé', 'Rejeté'];
+
 // Pièces attendues dans le dossier de chaque contrepartie. Ces libellés doivent
 // correspondre EXACTEMENT aux 15 valeurs de la colonne SharePoint "PiecesDossier"
 // (et "PiecesDossier_Pending") de la liste Brokers. Le socle commun s'applique à
@@ -872,6 +876,7 @@ function openDetail(spId) {
                 ${b.niveauRisque ? bdg(`Risque ${b.niveauRisque.toLowerCase()}`, RISQUE_CLASS[b.niveauRisque]) : ''}
                 ${b.equipes.map(e => bdg(e,'bdg-equipe')).join(' ')}
               </div>
+              ${isCPL ? statutManuelHtml(b) : ''}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:#374151">
@@ -1205,6 +1210,33 @@ async function submitMajKYC() {
 // ═══════════════════════════════════════════════════════════
 // VALIDATION COMPLIANCE KYC — bloc affiché sur la fiche détail (isCPL uniquement)
 // ═══════════════════════════════════════════════════════════
+// Reprend le dossier proposé (*_Pending) d'un broker dans les champs principaux.
+// Partagé entre le bouton "Valider" du workflow (qui n'apparaît que si une
+// demande est en attente, donc les *_Pending sont toujours renseignés) et le
+// contrôle de statut manuel (qui peut viser "Validé" même sans demande en
+// attente — voir ecrireStatutManuel()), d'où le nom générique.
+function appliquerDossierPendingAuxChampsPrincipaux(fields, b) {
+  if (hasColumn('KYC')) fields.KYC = b.kycPending || '';
+  if (hasColumn('DateExpirationKYC')) fields.DateExpirationKYC = b.dateExpirationPending || null;
+  if (hasColumn('PiecesDossier')) {
+    fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
+    fields.PiecesDossier = b.piecesDossierPending || [];
+  }
+  if (hasColumn('DernierKYCPar')) fields.DernierKYCPar = b.demandeParEmail || currentUser.name;
+  if (hasColumn('DateDernierKYC')) fields.DateDernierKYC = new Date().toISOString();
+}
+
+// Vide les trois colonnes "*_Pending" : toute proposition en cours est refermée,
+// qu'elle ait été validée, rejetée, ou effacée par une réinitialisation manuelle.
+function viderChampsPending(fields) {
+  if (hasColumn('DateExpirationKYC_Pending')) fields.DateExpirationKYC_Pending = null;
+  if (hasColumn('PiecesDossier_Pending')) {
+    fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
+    fields.PiecesDossier_Pending = [];
+  }
+  if (hasColumn('KYC_Pending')) fields.KYC_Pending = '';
+}
+
 // Valider : reprend le dossier proposé (*_Pending) dans les colonnes principales,
 // puis vide les champs *_Pending et MotifRejet. Chaque colonne reste gardée par
 // hasColumn() : une colonne absente de la liste ne doit jamais faire échouer
@@ -1215,24 +1247,12 @@ async function validerKYCPending() {
 
   try {
     const fields = {};
-    if (hasColumn('KYC')) fields.KYC = b.kycPending || '';
-    if (hasColumn('DateExpirationKYC')) fields.DateExpirationKYC = b.dateExpirationPending || null;
-    if (hasColumn('PiecesDossier')) {
-      fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
-      fields.PiecesDossier = b.piecesDossierPending || [];
-    }
-    if (hasColumn('DernierKYCPar')) fields.DernierKYCPar = b.demandeParEmail || currentUser.name;
-    if (hasColumn('DateDernierKYC')) fields.DateDernierKYC = new Date().toISOString();
+    appliquerDossierPendingAuxChampsPrincipaux(fields, b);
     if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'Validé';
     if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
     if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
-    if (hasColumn('DateExpirationKYC_Pending')) fields.DateExpirationKYC_Pending = null;
-    if (hasColumn('PiecesDossier_Pending')) {
-      fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
-      fields.PiecesDossier_Pending = [];
-    }
-    if (hasColumn('KYC_Pending')) fields.KYC_Pending = '';
     if (hasColumn('MotifRejet')) fields.MotifRejet = '';
+    viderChampsPending(fields);
 
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
     showToast(`KYC de ${b.nom} validé.`, 'success');
@@ -1275,16 +1295,126 @@ async function confirmRejeterKYCPending() {
     if (hasColumn('MotifRejet')) fields.MotifRejet = motif;
     if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
     if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
-    if (hasColumn('DateExpirationKYC_Pending')) fields.DateExpirationKYC_Pending = null;
-    if (hasColumn('PiecesDossier_Pending')) {
-      fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
-      fields.PiecesDossier_Pending = [];
-    }
-    if (hasColumn('KYC_Pending')) fields.KYC_Pending = '';
+    viderChampsPending(fields);
 
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
     closeModal();
     showToast(`Mise à jour du KYC de ${b.nom} rejetée.`, 'success');
+    await loadBrokers();
+    openDetail(b.spId);
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${e.message}`, 'error');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+// STATUT DE VALIDATION KYC — contrôle manuel (compliance uniquement)
+// ═══════════════════════════════════════════════════════════
+// Permet à la compliance de fixer StatutValidationKYC indépendamment de
+// l'existence d'une demande en attente (ex. réinitialiser un rejet traité,
+// rouvrir une demande close par erreur, valider un dossier sans être passé par
+// le workflow "Mettre à jour le KYC"). Double vérification isCPL : le bloc n'est
+// jamais rendu dans le DOM si isCPL est faux (voir statutManuelHtml(), appelée
+// uniquement depuis openDetail() sous condition), ET chacune des fonctions
+// d'écriture ci-dessous revérifie isCPL avant tout appel Graph — un appel direct
+// depuis la console (ex. ecrireStatutManuel('Validé')) ne peut donc rien écrire
+// si l'utilisateur n'est pas compliance.
+function statutManuelHtml(b) {
+  const current = b.statutValidationKYC || 'Aucune demande';
+  return `
+    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <span style="font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:.06em;text-transform:uppercase">Statut (compliance)</span>
+      <select id="statut-manuel-select" class="form-input" style="width:auto;flex:0 0 auto;padding:5px 8px;font-size:12.5px">
+        ${STATUTS_VALIDATION_KYC.map(s => `<option value="${esc(s)}" ${s===current?'selected':''}>${esc(s)}</option>`).join('')}
+      </select>
+      <button class="btn-secondary" style="padding:5px 12px;font-size:12.5px" onclick="applyStatutManuel()">Appliquer</button>
+    </div>`;
+}
+
+// Lit la valeur choisie dans le menu, demande confirmation (recap de l'action)
+// avant tout écriture Graph, puis délègue à ecrireStatutManuel(). "Rejeté" passe
+// par une modal dédiée pour la saisie du motif obligatoire plutôt que par
+// confirm() : la saisie + le clic "Confirmer" y tiennent déjà lieu de confirmation.
+function applyStatutManuel() {
+  if (!isCPL) { showToast('Action réservée à la compliance.', 'error'); return; }
+  const b = selectedBroker;
+  const select = document.getElementById('statut-manuel-select');
+  if (!b || !select) return;
+  const nouveauStatut = select.value;
+
+  if (nouveauStatut === 'Rejeté') { openStatutManuelRejetModal(); return; }
+
+  const hasPending = !!(b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length);
+  const messages = {
+    'Aucune demande': `Réinitialiser le statut de ${b.nom} à "Aucune demande" ?\n\nLe motif de rejet et la demande en attente (le cas échéant) seront effacés. Le dossier officiel (KYC, date d'expiration, pièces) n'est pas modifié.`,
+    'En attente de validation': `Repasser ${b.nom} en "En attente de validation" ?\n\nAucune autre donnée n'est modifiée.`,
+    'Validé': hasPending
+      ? `Valider le statut de ${b.nom} ?\n\nLe dossier proposé en attente (KYC, date d'expiration, pièces) sera repris dans le dossier officiel.`
+      : `Marquer ${b.nom} comme "Validé" ?\n\nAucun dossier proposé n'est en attente : seul le statut sera modifié.`
+  };
+  if (!confirm(messages[nouveauStatut])) return;
+
+  ecrireStatutManuel(nouveauStatut, '');
+}
+
+function openStatutManuelRejetModal() {
+  if (!isCPL || !selectedBroker) return; // pas de bloc CPL affiché : rien à faire si contourné
+  document.getElementById('modal-slot').innerHTML = `
+    <div class="cf-modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="cf-modal">
+        <h3 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">Changer le statut vers "Rejeté"</h3>
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">Le dossier officiel de ${esc(selectedBroker.nom)} n'est pas modifié. Précisez le motif du rejet.</p>
+        <textarea id="statut-manuel-motif-textarea" class="form-input form-textarea" style="width:100%;min-height:100px" placeholder="Motif du rejet..."></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button class="btn-secondary" onclick="closeModal()">Annuler</button>
+          <button class="btn-primary" style="background:#DC2626;border-color:#DC2626" onclick="confirmStatutManuelRejet()">Confirmer</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('statut-manuel-motif-textarea').focus();
+}
+
+function confirmStatutManuelRejet() {
+  if (!isCPL) { showToast('Action réservée à la compliance.', 'error'); return; }
+  const motif = document.getElementById('statut-manuel-motif-textarea').value.trim();
+  if (!motif) { showToast('Le motif de rejet est obligatoire.', 'error'); return; }
+  ecrireStatutManuel('Rejeté', motif);
+}
+
+// Écriture Graph effective. isCPL est revérifié ici en dernier ressort : c'est ce
+// contrôle, pas l'affichage du bouton, qui empêche une écriture non autorisée.
+async function ecrireStatutManuel(nouveauStatut, motif) {
+  if (!isCPL) { showToast('Action réservée à la compliance.', 'error'); return; }
+  const b = selectedBroker;
+  if (!b || !STATUTS_VALIDATION_KYC.includes(nouveauStatut)) return;
+
+  try {
+    const fields = {};
+    if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = nouveauStatut;
+
+    if (nouveauStatut === 'Validé') {
+      if (b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length) {
+        appliquerDossierPendingAuxChampsPrincipaux(fields, b);
+      }
+      if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
+      if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
+      if (hasColumn('MotifRejet')) fields.MotifRejet = '';
+      viderChampsPending(fields);
+    } else if (nouveauStatut === 'Rejeté') {
+      if (hasColumn('MotifRejet')) fields.MotifRejet = motif;
+      if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
+      if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
+      viderChampsPending(fields);
+    } else if (nouveauStatut === 'Aucune demande') {
+      if (hasColumn('MotifRejet')) fields.MotifRejet = '';
+      viderChampsPending(fields);
+    }
+    // 'En attente de validation' : uniquement le statut, aucun autre champ touché.
+
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
+    closeModal();
+    showToast(`Statut de ${b.nom} changé manuellement en "${nouveauStatut}".`, 'success');
     await loadBrokers();
     openDetail(b.spId);
   } catch(e) {
