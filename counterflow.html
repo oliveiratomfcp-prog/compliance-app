@@ -595,13 +595,15 @@ function esc(s) {
 }
 
 // Statut calculé — jamais stocké, toujours recalculé à l'affichage.
-// Une demande de mise à jour du KYC en attente de validation compliance prime sur
-// le calcul habituel par date : le dossier réel n'a pas encore changé, mais l'état
-// "à traiter" par la compliance doit rester visible tant qu'elle n'a pas tranché.
+// Une demande de mise à jour du KYC en attente de validation compliance, ou déjà
+// rejetée par elle, prime sur le calcul habituel par date : le dossier réel n'a pas
+// (ou plus) changé, mais l'état "à traiter" par la compliance doit rester visible
+// tant qu'une nouvelle demande n'a pas été soumise et validée.
 // Une contrepartie sans date d'expiration est traitée comme "expiré" (pas de KYC
 // valide démontrable = à traiter en priorité).
 function computeStatus(broker, today) {
   if (broker.statutValidationKYC === 'En attente de validation') return 'en attente de validation';
+  if (broker.statutValidationKYC === 'Rejeté') return 'rejeté';
   today = today || new Date();
   if (!broker._expTs) return 'expiré';
   const days = Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
@@ -614,7 +616,7 @@ function daysToExpiration(broker, today) {
   if (!broker._expTs) return null;
   return Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
 }
-const STATUS_CLASS = { 'à jour':'bdg-a-jour', 'bientôt expiré':'bdg-bientot', 'expiré':'bdg-expire', 'en attente de validation':'bdg-attente-validation' };
+const STATUS_CLASS = { 'à jour':'bdg-a-jour', 'bientôt expiré':'bdg-bientot', 'expiré':'bdg-expire', 'en attente de validation':'bdg-attente-validation', 'rejeté':'bdg-rejete' };
 const RISQUE_CLASS = { 'Faible':'bdg-risque-faible', 'Moyen':'bdg-risque-moyen', 'Élevé':'bdg-risque-eleve' };
 
 // Nombre de pièces du référentiel présentes dans le dossier de la contrepartie,
@@ -672,7 +674,8 @@ function renderListe() {
     pill('À jour','à jour',statusFilter,'setStatusFilter',nbByStatus('à jour')),
     pill('Bientôt expiré','bientôt expiré',statusFilter,'setStatusFilter',nbByStatus('bientôt expiré')),
     pill('Expiré','expiré',statusFilter,'setStatusFilter',nbByStatus('expiré')),
-    pill('En attente de validation','en attente de validation',statusFilter,'setStatusFilter',nbByStatus('en attente de validation'))
+    pill('En attente de validation','en attente de validation',statusFilter,'setStatusFilter',nbByStatus('en attente de validation')),
+    pill('Rejeté','rejeté',statusFilter,'setStatusFilter',nbByStatus('rejeté'))
   ].join('');
   const equipePills = [pill('Tous','all',equipeFilter,'setEquipeFilter')]
     .concat(EQUIPES.map(e => pill(e, e, equipeFilter, 'setEquipeFilter'))).join('');
