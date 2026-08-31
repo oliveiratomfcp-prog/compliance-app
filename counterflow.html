@@ -808,7 +808,23 @@ function openDetail(spId) {
 
   // Bloc "Validation compliance" : visible uniquement pour la compliance (isCPL) et
   // uniquement lorsqu'une demande de mise à jour du KYC est en attente pour cette
-  // contrepartie. Le dossier principal (validé) n'est pas encore modifié à ce stade.
+  // contrepartie. Le dossier principal (validé) n'est pas encore modifié à ce stade
+  // — SAUF cas particulier de la création (voir hasPendingProposal ci-dessous).
+  const hasPendingProposal = !!(b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length);
+  // Contrepartie fraîchement créée (voir submitNouvelle()) : aucun historique de
+  // validation, aucun *_Pending, car les champs principaux SONT déjà la proposition
+  // à valider — il n'y a pas de "avant" à comparer, seulement une saisie initiale.
+  const estNouvelleContrepartie = !b.dateValidation && !hasPendingProposal;
+  const dossierPanel = (titre, titreColor, dateExpVal, kycVal, piecesVal) => `
+    <div>
+      <div style="font-size:11px;font-weight:700;color:${titreColor};text-transform:uppercase;margin-bottom:6px">${titre}</div>
+      <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Expiration :</strong> ${formatDate(dateExpVal)}</div>
+      <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Dossier KYC :</strong> ${renderLienCliquable(kycVal, 'Ouvrir →', 'Aucun lien')}</div>
+      <div style="font-size:12.5px;color:#374151;margin-bottom:4px"><strong style="color:var(--navy)">Pièces (${(piecesVal||[]).length}) :</strong></div>
+      <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text-secondary)">
+        ${(piecesVal||[]).map(p => `<li>${esc(p)}</li>`).join('') || '<li>Aucune</li>'}
+      </ul>
+    </div>`;
   const validationBlockHtml = (isCPL && b.statutValidationKYC === 'En attente de validation') ? `
     <div class="form-card validation-card" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
@@ -816,28 +832,18 @@ function openDetail(spId) {
         ${bdg('En attente de validation','bdg-attente-validation')}
       </div>
       <p style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">
-        Demande envoyée par ${esc(b.demandeParEmail || '—')} le ${formatDate(b.dateDemande)}.
+        ${estNouvelleContrepartie
+          ? `Nouvelle contrepartie créée par ${esc(b.demandeParEmail || '—')} le ${formatDate(b.dateDemande)}.`
+          : `Demande envoyée par ${esc(b.demandeParEmail || '—')} le ${formatDate(b.dateDemande)}.`}
       </p>
-      <div class="validation-compare">
-        <div>
-          <div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;margin-bottom:6px">Dossier actuel (validé)</div>
-          <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Expiration :</strong> ${formatDate(b.dateExpiration)}</div>
-          <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Dossier KYC :</strong> ${renderLienCliquable(b.kycLink, 'Ouvrir →', 'Aucun lien')}</div>
-          <div style="font-size:12.5px;color:#374151;margin-bottom:4px"><strong style="color:var(--navy)">Pièces (${(b.piecesDossier||[]).length}) :</strong></div>
-          <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text-secondary)">
-            ${(b.piecesDossier||[]).map(p => `<li>${esc(p)}</li>`).join('') || '<li>Aucune</li>'}
-          </ul>
-        </div>
-        <div>
-          <div style="font-size:11px;font-weight:700;color:#2563EB;text-transform:uppercase;margin-bottom:6px">Nouveau dossier proposé</div>
-          <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Expiration :</strong> ${formatDate(b.dateExpirationPending)}</div>
-          <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Dossier KYC :</strong> ${renderLienCliquable(b.kycPending, 'Ouvrir →', 'Aucun lien')}</div>
-          <div style="font-size:12.5px;color:#374151;margin-bottom:4px"><strong style="color:var(--navy)">Pièces (${(b.piecesDossierPending||[]).length}) :</strong></div>
-          <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text-secondary)">
-            ${(b.piecesDossierPending||[]).map(p => `<li>${esc(p)}</li>`).join('') || '<li>Aucune</li>'}
-          </ul>
-        </div>
-      </div>
+      ${estNouvelleContrepartie
+        ? `<div class="validation-compare" style="grid-template-columns:1fr">
+             ${dossierPanel('Dossier proposé (nouvelle contrepartie)', '#2563EB', b.dateExpiration, b.kycLink, b.piecesDossier)}
+           </div>`
+        : `<div class="validation-compare">
+             ${dossierPanel('Dossier actuel (validé)', 'var(--text-muted)', b.dateExpiration, b.kycLink, b.piecesDossier)}
+             ${dossierPanel('Nouveau dossier proposé', '#2563EB', b.dateExpirationPending, b.kycPending, b.piecesDossierPending)}
+           </div>`}
       <div style="display:flex;gap:8px;margin-top:16px">
         <button class="btn-primary" style="flex:1;justify-content:center;background:#15803D;border-color:#15803D" onclick="validerKYCPending()">
           ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}Valider
@@ -1247,7 +1253,13 @@ async function validerKYCPending() {
 
   try {
     const fields = {};
-    appliquerDossierPendingAuxChampsPrincipaux(fields, b);
+    // Cas d'une nouvelle contrepartie (voir submitNouvelle()) : les champs
+    // principaux sont déjà la proposition à valider, les *_Pending sont vides par
+    // construction — rien à copier, sous peine d'écraser les bonnes valeurs avec
+    // du vide. On ne copie que s'il existe réellement une proposition en attente.
+    if (b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length) {
+      appliquerDossierPendingAuxChampsPrincipaux(fields, b);
+    }
     if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'Validé';
     if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
     if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
@@ -1556,9 +1568,19 @@ async function submitNouvelle() {
     if (kycLien) fields.KYC = kycLien; // colonne texte : chaîne directe
     if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
     if (commentaireVal) fields.commentaire = commentaireVal; // nom interne SharePoint en minuscules
+    // Toute nouvelle contrepartie part "En attente de validation" : même si un
+    // lien KYC, une date d'expiration et des pièces sont déjà saisis à la
+    // création, Compliance n'a pas encore revu le dossier. Les champs principaux
+    // (KYC, DateExpirationKYC, PiecesDossier) contiennent directement la
+    // proposition à valider — il n'y a pas de *_Pending à part pour une création
+    // (voir statutManuelHtml/validationBlockHtml dans openDetail()).
+    if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'En attente de validation';
+    else console.warn('Colonne StatutValidationKYC absente de la liste Brokers : statut non enregistré.');
+    if (hasColumn('DemandeParEmail')) fields.DemandeParEmail = currentUser.email;
+    if (hasColumn('DateDemande')) fields.DateDemande = new Date().toISOString();
 
     await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
-    showToast(`${nom} ajoutée aux contreparties.`, 'success');
+    showToast(`${nom} ajoutée aux contreparties, en attente de validation compliance.`, 'success');
     await loadBrokers();
     goListe();
   } catch(e) {
