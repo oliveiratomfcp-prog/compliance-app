@@ -13,6 +13,12 @@ front-end, ni dans `api/local.settings.json`).
 |---|---|---|
 | `OPENAI_API_KEY` | Functions Doc Review | Clé de l'API OpenAI (Doc Review). |
 | `OPENAI_BASE_URL` | Functions Doc Review | *(Optionnel)* URL de base de l'API OpenAI. Par défaut `https://api.openai.com/v1` ; `https://eu.api.openai.com/v1` pour le point d'accès UE (projet OpenAI configuré en résidence UE). |
+| `OPENAI_MODEL_PAGES` | `api/docreview-start` | *(Optionnel)* Modèle de l'étape 1 (analyse par lots de pages). Par défaut `gpt-5.6-terra`. |
+| `OPENAI_MODEL_SYNTHESE` | `api/docreview-start` | *(Optionnel)* Modèle de l'étape 2 (synthèse). Par défaut `gpt-5.6-terra`. |
+| `OPENAI_EFFORT_PAGES` | `api/docreview-start` | *(Optionnel)* Effort de raisonnement de l'étape 1 (`none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max` selon le modèle). Par défaut `low`. |
+| `OPENAI_EFFORT_SYNTHESE` | `api/docreview-start` | *(Optionnel)* Effort de raisonnement de l'étape 2. Par défaut `medium`. |
+
+Le navigateur ne choisit jamais le modèle : seuls les modèles configurés ci-dessus sont utilisés.
 
 ### Authentification des Functions
 
@@ -35,6 +41,24 @@ Pour tester une Function en local (Azure Functions Core Tools / SWA CLI), créer
   }
 }
 ```
+
+## Doc Review : pré-contrôle IA de la documentation marketing
+
+- **Lecture complète** : PDF, PPTX, DOCX (et texte collé). Les PPTX et DOCX sont convertis en PDF par
+  SharePoint (`?format=pdf`) ; chaque page est rendue en image (pdf.js) et son texte extrait. Toutes
+  les pages sont analysées. Les slides masquées et les pages sans couche texte sont signalées.
+- **Analyse en deux étapes**, en mode background de l'API Responses d'OpenAI (les Functions intégrées
+  coupent les requêtes après 45 secondes) : `api/docreview-start` démarre une étape,
+  `api/docreview-status` renvoie son état, `api/docreview-cancel` l'annule. Étape 1 : lots de pages
+  (images + texte). Étape 2 : synthèse sur l'ensemble du document. Sorties structurées en JSON strict.
+- **Règles** : `api/shared/regles.md`, fichier lisible et commenté, lu à chaque analyse. Les prompts
+  sont construits côté serveur ; le navigateur n'envoie que les données du document.
+- **Score** : calculé par le code (`docreview-core.js`, `SCORE_CONFIG`) : 100 moins 20 par point
+  bloquant et 5 par point d'attention, minimum 0. Les citations sont contrôlées mot pour mot dans le
+  texte extrait.
+- **Traçabilité** : liste "Doc Review Analyses" et bibliothèque "Doc Review" (site CPLDashboard), un
+  dossier par analyse (`DR-AAAA-NNNN`) contenant le fichier d'origine, le PDF converti, le rapport PDF
+  et le rapport JSON. Statuts : En cours, Analysé, Erreur (motif dans le rapport JSON), Soumis.
 
 ## Restricted List : positions en portefeuille
 

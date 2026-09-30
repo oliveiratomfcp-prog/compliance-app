@@ -8,95 +8,95 @@
   <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="translations.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="cpl-config.js"></script>
+  <script src="docreview-core.js"></script>
   <style>
-    .dr-content { max-width: 900px; margin: 0 auto; }
+    .dr-content { max-width: 980px; margin: 0 auto; }
     .dr-card { background: white; border-radius: 12px; border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 20px; }
     .dr-card-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .dr-card-title { font-size: 14px; font-weight: 600; color: var(--navy); display: flex; align-items: center; gap: 8px; }
     .dr-card-body { padding: 22px; }
     .dr-tab-nav { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
-    .dr-tab-btn { padding: 9px 18px; font-size: 13px; font-weight: 500; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -1px; transition: all 0.15s; }
-    .dr-tab-btn:hover { color: var(--navy); }
+    .dr-tab-btn { padding: 9px 18px; font-size: 13px; font-weight: 500; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -1px; }
     .dr-tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); }
     .dr-upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 36px 24px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.2s; }
     .dr-upload-zone:hover, .dr-upload-zone.dragover { border-color: var(--teal); background: #f0f9f8; }
-    .dr-upload-icon { width: 44px; height: 44px; border-radius: 10px; background: white; border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
     .dr-upload-zone h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--navy); }
     .dr-upload-zone p { font-size: 12px; color: var(--text-secondary); }
-    .dr-formats { display: flex; gap: 6px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+    .dr-formats { display: flex; gap: 6px; justify-content: center; margin-top: 10px; }
     .dr-fmt { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; background: white; border: 1px solid var(--border); color: var(--text-secondary); }
     .dr-file-selected { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: #f0f9f8; border: 1px solid #b2ddd9; border-radius: 10px; margin-top: 12px; }
-    .dr-file-badge { width: 34px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; }
+    .dr-file-badge { width: 38px; height: 34px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: white; flex-shrink: 0; background: #6c757d; }
     .dr-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 18px; }
-    .dr-select { font-size: 13px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--navy); cursor: pointer; font-family: inherit; }
-    .dr-select:focus { outline: none; border-color: var(--teal); }
+    .dr-select { font-size: 13px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; background: white; color: var(--navy); font-family: inherit; }
     .dr-market-toggle { display: flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .dr-market-btn { padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: white; color: var(--text-secondary); transition: all 0.15s; }
+    .dr-market-btn { padding: 8px 16px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; background: white; color: var(--text-secondary); }
     .dr-market-btn.active { background: var(--navy); color: white; }
     .dr-market-btn:first-child { border-right: 1px solid var(--border); }
-    .dr-market-info { display: flex; align-items: flex-start; gap: 8px; padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
+    .dr-market-info { padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 16px; line-height: 1.5; }
     .dr-market-info.retail { background: #fff8e6; border: 1px solid #f5cba7; color: #7d6608; }
     .dr-market-info.pro { background: #e8f4f8; border: 1px solid #85b7eb; color: #185fa5; }
     .dr-progress { margin-top: 18px; }
     .dr-progress-label { font-size: 12px; color: var(--text-secondary); margin-bottom: 7px; display: flex; align-items: center; gap: 8px; }
     .dr-progress-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); animation: drBlink 1s ease-in-out infinite; flex-shrink: 0; }
     @keyframes drBlink { 0%,100%{opacity:0.3} 50%{opacity:1} }
-    .dr-progress-track { height: 4px; background: #e9ecef; border-radius: 2px; overflow: hidden; }
-    .dr-progress-fill { height: 100%; border-radius: 2px; background: var(--teal); transition: width 0.5s ease; }
+    .dr-progress-track { height: 5px; background: #e9ecef; border-radius: 3px; overflow: hidden; }
+    .dr-progress-fill { height: 100%; background: var(--teal); transition: width 0.4s ease; width: 0; }
     .dr-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 22px; }
     .dr-metric { background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; }
     .dr-metric-label { font-size: 10px; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
     .dr-metric-val { font-size: 26px; font-weight: 700; line-height: 1; }
-    .dr-metric-sub { font-size: 11px; color: #adb5bd; margin-top: 4px; }
+    .dr-metric-sub { font-size: 11px; color: #8a9ab0; margin-top: 4px; }
     .dr-score-bar { height: 5px; background: #e9ecef; border-radius: 3px; overflow: hidden; margin-top: 8px; }
-    .dr-score-fill { height: 100%; border-radius: 3px; transition: width 0.7s ease; }
-    .dr-summary { background: var(--navy); color: rgba(255,255,255,0.88); border-radius: 10px; padding: 16px 20px; font-size: 13px; line-height: 1.75; margin-bottom: 20px; }
-    .dr-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #adb5bd; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .dr-score-fill { height: 100%; border-radius: 3px; }
+    .dr-summary { background: var(--navy); color: rgba(255,255,255,0.9); border-radius: 10px; padding: 16px 20px; font-size: 13px; line-height: 1.75; margin-bottom: 20px; white-space: pre-wrap; }
+    .dr-summary-meta { font-size: 11px; color: rgba(255,255,255,0.6); margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.15); }
+    .dr-section-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #8a9ab0; margin: 18px 0 12px; display: flex; align-items: center; gap: 8px; }
     .dr-section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-    .dr-finding { border-radius: 10px; border: 1px solid; padding: 14px 16px; margin-bottom: 10px; }
-    .dr-finding.danger { background: #fdedec; border-color: #f1948a; }
-    .dr-finding.warning { background: #fef9ec; border-color: #f5cba7; }
-    .dr-finding.ok { background: #eafaf1; border-color: #a9dfbf; }
-    .dr-finding-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 7px; flex-wrap: wrap; }
-    .dr-finding-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 4px; color: white; white-space: nowrap; flex-shrink: 0; text-transform: uppercase; letter-spacing: 0.05em; margin-top: 1px; }
-    .dr-finding.danger .dr-finding-badge { background: #c0392b; }
-    .dr-finding.warning .dr-finding-badge { background: #b7770d; }
-    .dr-finding.ok .dr-finding-badge { background: #1e7e4a; }
-    .dr-finding-title { font-size: 13px; font-weight: 600; color: #212529; line-height: 1.4; flex: 1; }
-    .dr-page-ref { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
-    .dr-finding.danger .dr-page-ref { background: #fadbd8; color: #922b21; }
-    .dr-finding.warning .dr-page-ref { background: #fdebd0; color: #7d6608; }
-    .dr-finding.ok .dr-page-ref { background: #d5f5e3; color: #1e7e4a; }
-    .dr-finding-detail { font-size: 12px; line-height: 1.65; margin-bottom: 8px; }
-    .dr-finding.danger .dr-finding-detail { color: #922b21; }
-    .dr-finding.warning .dr-finding-detail { color: #7d6608; }
-    .dr-finding.ok .dr-finding-detail { color: #1a5276; }
-    .dr-citation { font-size: 12px; font-style: italic; padding: 7px 12px; border-radius: 0 6px 6px 0; border-left: 3px solid; margin-bottom: 8px; }
-    .dr-finding.danger .dr-citation { background: #fadbd8; border-color: #c0392b; color: #922b21; }
-    .dr-finding.warning .dr-citation { background: #fdebd0; border-color: #b7770d; color: #7d6608; }
-    .dr-correction { font-size: 12px; margin-top: 6px; padding: 8px 12px; border-radius: 6px; background: rgba(0,0,0,0.04); }
-    .dr-correction-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.6; display: block; margin-bottom: 3px; }
-    .dr-challenger { margin-top: 20px; border: 1px solid #b2ddd9; border-radius: 10px; background: #f0f9f8; overflow: hidden; }
-    .dr-challenger-header { padding: 12px 16px; display: flex; align-items: center; gap: 8px; border-bottom: 1px solid #b2ddd9; cursor: pointer; user-select: none; }
-    .dr-challenger-title { font-size: 13px; font-weight: 600; color: var(--teal); flex: 1; }
-    .dr-challenger-badge { font-size: 10px; font-weight: 700; background: var(--teal); color: white; padding: 2px 8px; border-radius: 20px; }
-    .dr-challenger-body { padding: 16px; font-size: 13px; line-height: 1.7; color: #155a56; }
-    .dr-challenger-item { display: flex; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #b2ddd9; align-items: flex-start; }
-    .dr-challenger-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
-    .dr-challenger-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--teal); flex-shrink: 0; margin-top: 7px; }
+    .dr-box { border-radius: 8px; padding: 10px 14px; font-size: 12.5px; line-height: 1.6; margin-bottom: 14px; }
+    .dr-box ul { margin: 4px 0 0 18px; }
+    .dr-box-warning { background: #fffbeb; border: 1px solid #fde68a; color: #92400e; }
+    .dr-box-error { background: var(--error-bg); border: 1px solid #f5c6c6; color: var(--error); }
+    .dr-box-info { background: #f1f5f9; border: 1px solid #cbd5e1; color: #334155; }
+    .dr-group { display: grid; grid-template-columns: 170px 1fr; gap: 16px; padding: 16px 0; border-top: 1px solid var(--border); }
+    .dr-group:first-child { border-top: none; }
+    .dr-group-side { font-size: 12px; font-weight: 600; color: var(--navy); }
+    .dr-thumb { width: 100%; border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; display: block; background: #f8f9fa; }
+    .dr-finding { border-radius: 10px; border: 1px solid; padding: 12px 14px; margin-bottom: 10px; }
+    .dr-finding.bloquant { background: #fdedec; border-color: #f1948a; }
+    .dr-finding.attention { background: #fef9ec; border-color: #f5cba7; }
+    .dr-finding.conforme { background: #eafaf1; border-color: #a9dfbf; }
+    .dr-finding-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
+    .dr-finding-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 4px; color: white; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
+    .dr-finding.bloquant .dr-finding-badge { background: #c0392b; }
+    .dr-finding.attention .dr-finding-badge { background: #b7770d; }
+    .dr-finding.conforme .dr-finding-badge { background: #1e7e4a; }
+    .dr-finding-title { font-size: 13px; font-weight: 600; color: #212529; flex: 1; }
+    .dr-finding-pages { font-size: 11px; font-weight: 600; color: #475569; }
+    .dr-finding-line { font-size: 12px; line-height: 1.6; margin-top: 5px; color: #374151; white-space: pre-wrap; }
+    .dr-citation { font-style: italic; padding: 6px 10px; border-left: 3px solid #94a3b8; background: rgba(0,0,0,0.03); }
+    .dr-flag { display: inline-block; font-size: 10.5px; font-weight: 600; color: #92400e; background: #fef3c7; border-radius: 4px; padding: 1px 6px; margin-left: 6px; font-style: normal; }
+    .dr-label { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-right: 4px; }
     .dr-tags { display: flex; flex-wrap: wrap; gap: 7px; }
     .dr-tag { font-size: 11px; padding: 4px 12px; border-radius: 20px; background: #f1f3f5; color: #6c757d; border: 1px solid var(--border); }
     .dr-report-title { font-size: 17px; font-weight: 700; color: var(--navy); }
-    .dr-report-meta { font-size: 12px; color: #adb5bd; margin-top: 3px; }
-    .dr-market-pill { display: inline-flex; align-items: center; font-size: 11px; font-weight: 600; padding: 2px 10px; border-radius: 20px; margin-left: 8px; vertical-align: middle; }
-    .dr-market-pill.retail { background: #fff3cd; color: #856404; }
-    .dr-market-pill.pro { background: #cfe2ff; color: #084298; }
+    .dr-report-meta { font-size: 12px; color: #8a9ab0; margin-top: 3px; }
+    .dr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .dr-table th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); padding: 8px; border-bottom: 1px solid var(--border); }
+    .dr-table td { padding: 8px; border-bottom: 1px solid var(--row-sep); vertical-align: middle; }
+    .dr-status { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 12px; background: #f1f5f9; color: #334155; }
+    .dr-status.analyse { background: #e8f4f4; color: #006660; }
+    .dr-status.soumis { background: #eff6ff; color: #2563eb; }
+    .dr-status.erreur { background: #fdf0ee; color: #c0392b; }
+    .dr-status.encours { background: #fff7ed; color: #c2410c; }
+    .dr-link-btn { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 9px; font-size: 11.5px; cursor: pointer; color: var(--navy); margin-right: 4px; }
+    .dr-link-btn:disabled { opacity: 0.5; cursor: default; }
     .dr-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: drSpin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes drSpin { to { transform: rotate(360deg); } }
-    .hidden { display: none !important; }
-    textarea.dr-textarea { width: 100%; min-height: 160px; font-size: 13px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; color: var(--navy); background: white; resize: vertical; }
-    textarea.dr-textarea:focus { outline: none; border-color: var(--teal); }
+    textarea.dr-textarea { width: 100%; min-height: 160px; font-size: 13px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; color: var(--navy); resize: vertical; }
+    .login-error { margin-top: 14px; font-size: 12.5px; color: #fecaca; }
+    @media (max-width: 760px) { .dr-group { grid-template-columns: 1fr; } .dr-metrics { grid-template-columns: 1fr; } }
   </style>
 </head>
 <body>
@@ -114,6 +114,7 @@
         <svg width="20" height="20" viewBox="0 0 21 21" fill="none"><rect x="1" y="1" width="9" height="9" fill="#F25022"/><rect x="11" y="1" width="9" height="9" fill="#7FBA00"/><rect x="1" y="11" width="9" height="9" fill="#00A4EF"/><rect x="11" y="11" width="9" height="9" fill="#FFB900"/></svg>
         Se connecter avec Microsoft
       </button>
+      <p class="login-error hidden" id="login-error"></p>
       <p class="login-footer">Accès réservé aux collaborateurs Eiffel IG</p>
     </div>
   </div>
@@ -122,7 +123,6 @@
   <div id="screen-app" class="screen">
     <div class="app-shell">
 
-    <!-- SIDEBAR -->
     <aside class="sidebar eiffel-rays">
       <div class="sidebar-logo">
         <img src="LOGO_EIFFEL_DIGI_BLANC.png" alt="Eiffel Investment Group" height="30" />
@@ -151,15 +151,13 @@
           <span>CounterFlow</span>
         </a>
       </nav>
-
       <div class="sidebar-spacer"></div>
-
       <div class="sidebar-user" style="position:relative;z-index:1">
         <div style="display:flex;align-items:center;gap:10px">
           <div class="sidebar-user-avatar" id="user-avatar">--</div>
           <div style="min-width:0;flex:1">
             <div class="sidebar-user-name" id="user-name" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Chargement...</div>
-            <div class="sidebar-user-role">Collaborateur</div>
+            <div class="sidebar-user-role" id="user-role">Collaborateur</div>
           </div>
         </div>
         <button id="btn-logout" class="btn-sidebar-logout" title="Se déconnecter">
@@ -174,26 +172,22 @@
 
         <div class="section-header">
           <div>
-            <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px">
-              <div class="eyebrow">Analyse documentaire</div>
-              <span class="sidebar-badge-new" style="margin-left:0">NEW</span>
-            </div>
+            <div class="eyebrow" style="margin-bottom:9px">Analyse documentaire</div>
             <h1 class="page-title">Doc Review</h1>
             <p class="section-desc">Pré-contrôle de conformité AMF / MIF II de la documentation marketing</p>
           </div>
-          <button class="btn-secondary" onclick="resetAll()">
+          <button class="btn-secondary" id="btn-reset">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 102.13-9.36L1 10"/></svg>
             Nouveau document
           </button>
         </div>
 
-        <!-- CARTE UPLOAD -->
+        <div id="config-error" class="dr-box dr-box-error hidden"></div>
+
+        <!-- CARTE DÉPÔT -->
         <div class="dr-card" id="inputCard">
           <div class="dr-card-header">
-            <div class="dr-card-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Soumettre un document
-            </div>
+            <div class="dr-card-title">Soumettre un document</div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
               <select class="dr-select" id="docType">
                 <option value="présentation commerciale">Présentation commerciale (PPTX/PDF)</option>
@@ -206,103 +200,64 @@
                 <option value="communiqué de presse">Communiqué de presse</option>
               </select>
               <div class="dr-market-toggle">
-                <button class="dr-market-btn active" id="btnRetail" onclick="setMarket('retail')">Retail</button>
-                <button class="dr-market-btn" id="btnPro" onclick="setMarket('professionnel')">Professionnel</button>
+                <button class="dr-market-btn active" id="btnRetail">Retail</button>
+                <button class="dr-market-btn" id="btnPro">Professionnel</button>
               </div>
             </div>
           </div>
           <div class="dr-card-body">
-
-            <div id="marketInfo" class="dr-market-info retail">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-              <span id="marketInfoText">Marché <strong>Retail</strong> — règles AMF renforcées : mentions légales exhaustives, avertissements obligatoires, équilibre risque/rendement strict.</span>
-            </div>
-
+            <div id="marketInfo" class="dr-market-info retail"></div>
             <div class="dr-tab-nav">
-              <button class="dr-tab-btn active" id="tabBtnFile" onclick="switchTab('file')">Fichier</button>
-              <button class="dr-tab-btn" id="tabBtnText" onclick="switchTab('text')">Texte / Email</button>
+              <button class="dr-tab-btn active" id="tabBtnFile">Fichier</button>
+              <button class="dr-tab-btn" id="tabBtnText">Texte / Email</button>
             </div>
-
             <div id="panelFile">
-              <div class="dr-upload-zone" id="dropZone"
-                   onclick="document.getElementById('fileInput').click()"
-                   ondragover="handleDragOver(event)"
-                   ondragleave="handleDragLeave(event)"
-                   ondrop="handleDrop(event)">
-                <div class="dr-upload-icon">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#006660" stroke-width="1.8"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                </div>
+              <div class="dr-upload-zone" id="dropZone">
                 <h3>Déposer ou sélectionner un fichier</h3>
                 <p>Glissez votre document ici ou cliquez pour parcourir</p>
-                <div class="dr-formats">
-                  <span class="dr-fmt">PDF</span>
-                  <span class="dr-fmt">PPTX</span>
-                  <span class="dr-fmt">DOCX</span>
-                  <span class="dr-fmt">TXT</span>
-                  <span class="dr-fmt">HTML</span>
-                </div>
+                <div class="dr-formats"><span class="dr-fmt">PDF</span><span class="dr-fmt">PPTX</span><span class="dr-fmt">DOCX</span></div>
               </div>
-              <input type="file" id="fileInput" accept=".pdf,.pptx,.docx,.txt,.html" class="hidden" onchange="handleFile(this.files[0])" />
+              <input type="file" id="fileInput" accept=".pdf,.pptx,.docx" class="hidden" />
               <div id="fileInfoBar" class="hidden"></div>
             </div>
-
             <div id="panelText" class="hidden">
-              <textarea class="dr-textarea" id="pastedText" placeholder="Collez ici le contenu de votre email, newsletter ou extrait de document marketing…"></textarea>
+              <textarea class="dr-textarea" id="pastedText" placeholder="Collez ici le contenu de votre email, newsletter ou post…"></textarea>
               <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
                 <span style="font-size:12px;color:var(--text-secondary);" id="charCount">0 caractère</span>
-                <button class="btn-secondary" onclick="clearText()" style="padding:5px 12px;font-size:12px;">Effacer</button>
+                <button class="btn-secondary" id="btn-clear-text" style="padding:5px 12px;font-size:12px;">Effacer</button>
               </div>
             </div>
-
             <div class="dr-controls">
-              <button class="btn-primary" id="analyzeBtn" onclick="runAnalysis()">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                Analyser le document
-              </button>
+              <button class="btn-primary" id="analyzeBtn">Analyser le document</button>
+              <button class="btn-secondary hidden" id="cancelBtn">Annuler l'analyse</button>
             </div>
-
             <div id="progressWrap" class="dr-progress hidden">
-              <div class="dr-progress-label">
-                <span class="dr-progress-dot"></span>
-                <span id="progressMsg">Analyse en cours…</span>
-              </div>
-              <div class="dr-progress-track">
-                <div class="dr-progress-fill" id="progressFill" style="width:0%;"></div>
-              </div>
+              <div class="dr-progress-label"><span class="dr-progress-dot"></span><span id="progressMsg">Analyse en cours…</span></div>
+              <div class="dr-progress-track"><div class="dr-progress-fill" id="progressFill"></div></div>
             </div>
-
+            <div id="runError" class="dr-box dr-box-error hidden" style="margin-top:16px"></div>
           </div>
         </div>
 
         <!-- CARTE RÉSULTATS -->
         <div class="dr-card hidden" id="resultsCard">
           <div class="dr-card-header">
-            <div class="dr-card-title">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-              Rapport de pré-contrôle
-            </div>
-            <div style="display:flex;gap:8px;">
-              <button class="btn-primary" onclick="exportPDF()" style="padding:7px 14px;font-size:12px;">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                Exporter PDF
-              </button>
-              <button class="btn-secondary" onclick="resetAll()" style="padding:7px 14px;font-size:12px;">Nouveau</button>
+            <div class="dr-card-title">Rapport de pré-contrôle</div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap" id="resultsActions">
+              <button class="btn-secondary" id="btn-open-report" style="padding:7px 14px;font-size:12px;">Rapport PDF</button>
             </div>
           </div>
           <div class="dr-card-body">
-
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px;">
-              <div>
-                <div class="dr-report-title" id="reportTitle">Rapport de conformité</div>
-                <div class="dr-report-meta" id="reportMeta"></div>
-              </div>
+            <div style="margin-bottom:18px">
+              <div class="dr-report-title" id="reportTitle"></div>
+              <div class="dr-report-meta" id="reportMeta"></div>
             </div>
-
             <div class="dr-metrics">
               <div class="dr-metric">
                 <div class="dr-metric-label">Score de conformité</div>
-                <div class="dr-metric-val" id="scoreVal" style="color:#006660;">—</div>
-                <div class="dr-score-bar"><div class="dr-score-fill" id="scoreBar" style="width:0%;"></div></div>
+                <div class="dr-metric-val" id="scoreVal">-</div>
+                <div class="dr-score-bar"><div class="dr-score-fill" id="scoreBar"></div></div>
+                <div class="dr-metric-sub" id="scoreSub"></div>
               </div>
               <div class="dr-metric">
                 <div class="dr-metric-label">Points bloquants</div>
@@ -315,16 +270,24 @@
                 <div class="dr-metric-sub">à vérifier</div>
               </div>
             </div>
-
+            <div id="reportWarnings"></div>
             <div class="dr-section-label">Synthèse</div>
             <div class="dr-summary" id="summaryBox"></div>
-
-            <div class="dr-section-label">Points de contrôle AMF / MIF II</div>
+            <div class="dr-section-label">Constats par page</div>
             <div id="findingsList"></div>
-
-            <div class="dr-section-label" style="margin-top:20px;">Thèmes détectés</div>
+            <div class="dr-section-label">Thèmes détectés</div>
             <div class="dr-tags" id="tagsList"></div>
+          </div>
+        </div>
 
+        <!-- MES ANALYSES -->
+        <div class="dr-card" id="historyCard">
+          <div class="dr-card-header">
+            <div class="dr-card-title" id="historyTitle">Mes analyses</div>
+            <button class="btn-secondary" id="btn-refresh-history" style="padding:6px 12px;font-size:12px;">Rafraîchir</button>
+          </div>
+          <div class="dr-card-body" id="historyBody">
+            <p style="font-size:12.5px;color:var(--text-secondary)">Chargement…</p>
           </div>
         </div>
 
@@ -333,523 +296,881 @@
     </div>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script>
+  'use strict';
+  const Core = DocReviewCore;
+  const CFG = Core.ANALYSE_CONFIG;
+
+  // pdf.js : isEvalSupported désactivé à chaque ouverture (protection contre les PDF piégés, CVE-2024-4367)
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
   const msalConfig = {
     auth: {
       clientId: '56c83db2-7fc6-4826-8073-82077e91ae27',
       authority: 'https://login.microsoftonline.com/eb5288b6-5ccb-4f5d-88fb-346db1317a4f',
-      redirectUri: window.location.origin,
+      redirectUri: window.location.origin
     },
     cache: { cacheLocation: 'sessionStorage', storeAuthStateInCookie: false }
   };
-  const msalInstance = new msal.PublicClientApplication(msalConfig);
-  let currentUser = null;
-  let extractedText = '';
-  let activeTab = 'file';
-  let selectedMarket = 'retail';
-  let progressInterval = null;
+  const GRAPH = 'https://graph.microsoft.com/v1.0';
+  const GRAPH_SCOPES = ['User.Read', 'Sites.ReadWrite.All'];
+  const SP = {
+    hostname: 'eiffelinvestmentgroup.sharepoint.com',
+    sitePath: '/sites/CPLDashboard',
+    listName: 'Doc Review Analyses',
+    libName: 'Doc Review'
+  };
+  const REQUIRED_COLUMNS = ['Title', 'NomFichier', 'TypeDocument', 'Marche', 'Statut', 'Score', 'NbBloquants', 'NbAttention',
+    'Modele', 'Demandeur', 'DemandeurEmail', 'DateAnalyse', 'HashFichier', 'RefTracker'];
+  const STATUTS = { enCours: 'En cours', analyse: 'Analysé', erreur: 'Erreur', soumis: 'Soumis' };
+  const MARCHE_LIBELLE = { retail: 'Retail', professionnel: 'Professionnel' };
 
-  window.addEventListener('DOMContentLoaded', async () => {
-    const ta = document.getElementById('pastedText');
-    if (ta) ta.addEventListener('input', function() {
-      const n = this.value.length;
-      document.getElementById('charCount').textContent = n.toLocaleString('fr-FR') + ' caractère' + (n > 1 ? 's' : '');
-    });
+  let msalInstance = null;
+  let me = null;               // { name, email }
+  let isCPL = false;
+  const sp = { siteId: null, listId: null, driveId: null, ready: false, error: null };
+  let selectedMarket = 'retail';
+  let activeTab = 'file';
+  let selectedFile = null;
+  let running = false;
+  let cancelRequested = false;
+  const inFlight = new Map();  // identifiant de réponse -> ticket
+  let currentReport = null;
+
+  const $ = id => document.getElementById(id);
+  const show = id => $(id).classList.remove('hidden');
+  const hide = id => $(id).classList.add('hidden');
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+  class CancelledError extends Error { constructor() { super('Analyse annulée par l\'utilisateur.'); this.name = 'CancelledError'; } }
+
+  // =====================================================================
+  // AUTHENTIFICATION
+  // =====================================================================
+  function showLogin(message) {
+    $('screen-app').classList.remove('active');
+    $('screen-login').classList.add('active');
+    const box = $('login-error');
+    box.textContent = message || '';
+    box.classList.toggle('hidden', !message);
+  }
+
+  async function getGraphToken(scopes) {
+    const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
+    if (!account) throw new Error('Session expirée : reconnectez-vous.');
+    const request = { scopes: scopes || GRAPH_SCOPES, account };
     try {
+      return (await msalInstance.acquireTokenSilent(request)).accessToken;
+    } catch (e) {
+      if (e instanceof msal.InteractionRequiredAuthError) return (await msalInstance.acquireTokenPopup(request)).accessToken;
+      throw e;
+    }
+  }
+
+  async function init() {
+    $('btn-login').onclick = () => msalInstance.loginRedirect({ scopes: GRAPH_SCOPES });
+    $('btn-logout').onclick = () => msalInstance.logoutRedirect();
+    try {
+      msalInstance = new msal.PublicClientApplication(msalConfig);
       await msalInstance.initialize();
       const resp = await msalInstance.handleRedirectPromise();
-      if (resp) msalInstance.setActiveAccount(resp.account);
+      if (resp && resp.account) msalInstance.setActiveAccount(resp.account);
       const accounts = msalInstance.getAllAccounts();
-      if (accounts.length === 0) {
-        document.getElementById('btn-login').onclick = () => msalInstance.loginRedirect({ scopes: ['User.Read'] });
-        return;
-      }
-      msalInstance.setActiveAccount(accounts[0]);
-      currentUser = accounts[0];
-      const initials = (currentUser.name || 'U').split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
-      document.getElementById('user-avatar').textContent = initials;
-      document.getElementById('user-name').textContent = currentUser.name || currentUser.username;
-      document.getElementById('screen-login').classList.remove('active');
-      document.getElementById('screen-app').classList.add('active');
+      if (!accounts.length) { showLogin(); return; }
+      if (!msalInstance.getActiveAccount()) msalInstance.setActiveAccount(accounts[0]);
+      const profile = await graphJson('/me?$select=displayName,userPrincipalName,mail');
+      me = { name: profile.displayName || profile.userPrincipalName, email: String(profile.userPrincipalName || '').toLowerCase() };
+      if (!me.email) throw new Error('profil Microsoft incomplet');
+      isCPL = isCPLUser(profile.userPrincipalName) || isCPLUser(profile.mail);
     } catch (e) {
-      console.warn('Auth:', e);
-      document.getElementById('screen-login').classList.remove('active');
-      document.getElementById('screen-app').classList.add('active');
+      console.error('Authentification :', e);
+      showLogin('Connexion impossible : ' + (e.message || e) + '. Réessayez.');
+      return;
     }
-    document.getElementById('btn-logout').onclick = () => msalInstance.logoutRedirect();
-  });
+    $('user-name').textContent = me.name;
+    $('user-avatar').textContent = me.name.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase();
+    $('user-role').textContent = isCPL ? 'Compliance' : 'Collaborateur';
+    $('historyTitle').textContent = isCPL ? 'Analyses (toutes, vue Compliance)' : 'Mes analyses';
+    $('screen-login').classList.remove('active');
+    $('screen-app').classList.add('active');
+    await initSharePoint();
+    loadHistory();
+  }
 
+  // =====================================================================
+  // MICROSOFT GRAPH
+  // =====================================================================
+  async function graphFetch(path, options) {
+    const opts = options || {};
+    const token = await getGraphToken();
+    return fetch(GRAPH + path, Object.assign({}, opts, { headers: Object.assign({ Authorization: 'Bearer ' + token }, opts.headers || {}) }));
+  }
+
+  async function graphErrorMessage(res, path) {
+    let msg = 'HTTP ' + res.status;
+    try { const j = await res.json(); if (j && j.error && j.error.message) msg = j.error.message; } catch (e) { /* corps non JSON */ }
+    return 'Microsoft Graph (' + path.split('?')[0] + ') : ' + msg;
+  }
+
+  async function graphJson(path, options) {
+    const res = await graphFetch(path, options);
+    if (!res.ok) throw new Error(await graphErrorMessage(res, path));
+    return res.status === 204 ? null : res.json();
+  }
+
+  async function graphAll(path, headers) {
+    let items = [];
+    let next = path;
+    while (next) {
+      const data = await graphJson(next, { headers: headers || {} });
+      items = items.concat(data.value || []);
+      next = data['@odata.nextLink'] ? data['@odata.nextLink'].replace(GRAPH, '') : null;
+    }
+    return items;
+  }
+
+  const encodePath = p => p.split('/').map(encodeURIComponent).join('/');
+
+  async function initSharePoint() {
+    try {
+      const site = await graphJson(`/sites/${SP.hostname}:${SP.sitePath}`);
+      sp.siteId = site.id;
+      const lists = (await graphAll(`/sites/${sp.siteId}/lists?$select=id,displayName`)).filter(l => l.displayName === SP.listName);
+      if (lists.length !== 1) throw new Error(`liste "${SP.listName}" ${lists.length ? 'en double' : 'introuvable'} sur CPLDashboard`);
+      sp.listId = lists[0].id;
+      const cols = await graphAll(`/sites/${sp.siteId}/lists/${sp.listId}/columns?$select=name`);
+      const names = cols.map(c => c.name);
+      const missing = REQUIRED_COLUMNS.filter(c => names.indexOf(c) === -1);
+      if (missing.length) throw new Error(`colonnes absentes dans "${SP.listName}" : ${missing.join(', ')}`);
+      const drives = (await graphAll(`/sites/${sp.siteId}/drives?$select=id,name`)).filter(d => d.name === SP.libName);
+      if (drives.length !== 1) throw new Error(`bibliothèque "${SP.libName}" ${drives.length ? 'en double' : 'introuvable'} sur CPLDashboard`);
+      sp.driveId = drives[0].id;
+      sp.ready = true;
+    } catch (e) {
+      sp.error = e.message;
+      const box = $('config-error');
+      box.textContent = 'Doc Review indisponible : ' + e.message + '. Contactez la Compliance.';
+      box.classList.remove('hidden');
+      $('analyzeBtn').disabled = true;
+    }
+  }
+
+  async function createFolder(name) {
+    return graphJson(`/drives/${sp.driveId}/root/children`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' })
+    });
+  }
+
+  // Upload par session d'upload : jamais d'écrasement (conflictBehavior fail ou rename)
+  async function uploadFile(folder, fileName, data, conflict) {
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    if (!bytes.length) throw new Error('Fichier vide : ' + fileName);
+    const session = await graphJson(`/drives/${sp.driveId}/root:/${encodePath(folder)}/${encodeURIComponent(fileName)}:/createUploadSession`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': conflict || 'fail', name: fileName } })
+    });
+    const CHUNK = 320 * 1024 * 16;
+    let result = null;
+    for (let start = 0; start < bytes.length; start += CHUNK) {
+      const end = Math.min(start + CHUNK, bytes.length);
+      const res = await fetch(session.uploadUrl, { method: 'PUT', headers: { 'Content-Range': `bytes ${start}-${end - 1}/${bytes.length}` }, body: bytes.slice(start, end) });
+      if (!res.ok) throw new Error(`Enregistrement de "${fileName}" impossible (HTTP ${res.status}).`);
+      if (end === bytes.length) result = await res.json();
+    }
+    if (!result || !result.id) throw new Error(`Enregistrement de "${fileName}" non confirmé par SharePoint.`);
+    return result;
+  }
+
+  async function downloadItem(itemId, format) {
+    const res = await graphFetch(`/drives/${sp.driveId}/items/${encodeURIComponent(itemId)}/content${format ? '?format=' + format : ''}`);
+    if (!res.ok) throw new Error(format === 'pdf' ? `Conversion en PDF impossible (HTTP ${res.status}).` : `Téléchargement impossible (HTTP ${res.status}).`);
+    return res.arrayBuffer();
+  }
+
+  async function patchAnalysis(itemId, fields) {
+    return graphJson(`/sites/${sp.siteId}/lists/${sp.listId}/items/${itemId}/fields`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields)
+    });
+  }
+
+  // =====================================================================
+  // API DOC REVIEW (Functions)
+  // =====================================================================
+  async function apiHeaders() {
+    const token = await getGraphToken(['User.Read']);
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-EIG-Graph-Token': token };
+  }
+
+  async function apiErrorMessage(res) {
+    try { const j = await res.json(); if (j && j.error && j.error.message) return j.error.message; } catch (e) { /* corps non JSON */ }
+    return 'HTTP ' + res.status;
+  }
+
+  // Lance une étape (lot ou synthèse) puis suit son état jusqu'à la fin
+  async function runStep(payload, ctx) {
+    if (cancelRequested) throw new CancelledError();
+    const res = await fetch('/api/docreview-start', { method: 'POST', headers: await apiHeaders(), body: JSON.stringify(payload) });
+    if (res.status === 413) { const e = new Error('Lot trop volumineux.'); e.tooLarge = true; throw e; }
+    if (!res.ok) throw new Error('Démarrage de l\'analyse impossible : ' + await apiErrorMessage(res));
+    const started = await res.json();
+    ctx.modeles.add(started.modele);
+    inFlight.set(started.id, started.ticket);
+    const deadline = Date.now() + CFG.delaiMaxEtapeMs;
+    let transientErrors = 0;
+    try {
+      for (;;) {
+        await sleep(CFG.intervalleSuiviMs);
+        if (cancelRequested) throw new CancelledError();
+        const q = `id=${encodeURIComponent(started.id)}&ticket=${encodeURIComponent(started.ticket)}&etape=${payload.etape}`;
+        const s = await fetch('/api/docreview-status?' + q, { headers: await apiHeaders() });
+        if (!s.ok) {
+          if (s.status >= 500 && ++transientErrors <= 5) continue;
+          throw new Error('Suivi de l\'analyse impossible : ' + await apiErrorMessage(s));
+        }
+        transientErrors = 0;
+        const st = await s.json();
+        if (st.status === 'pending') {
+          if (Date.now() > deadline) throw new Error('Délai dépassé pour une étape de l\'analyse.');
+          continue;
+        }
+        if (st.status === 'completed') return st.resultat;
+        if (st.status === 'cancelled') throw new CancelledError();
+        throw new Error(st.message || 'Échec de l\'analyse.');
+      }
+    } finally {
+      inFlight.delete(started.id);
+    }
+  }
+
+  function cancelInFlight() {
+    inFlight.forEach((ticket, id) => {
+      apiHeaders().then(h => fetch('/api/docreview-cancel', { method: 'POST', headers: h, body: JSON.stringify({ id, ticket }) })).catch(() => {});
+    });
+  }
+
+  // =====================================================================
+  // RENDU DES PAGES (pdf.js)
+  // =====================================================================
+  async function openPdf(bytes) {
+    // copie : pdf.js peut transférer le tampon au worker
+    return pdfjsLib.getDocument({ data: new Uint8Array(bytes).slice(), isEvalSupported: false }).promise;
+  }
+
+  async function pageText(pdf, n) {
+    const page = await pdf.getPage(n);
+    const content = await page.getTextContent();
+    return content.items.map(it => (it.str || '') + (it.hasEOL ? '\n' : ' ')).join('').replace(/[ \t]+/g, ' ').trim();
+  }
+
+  // Image de la page pour l'IA (grand côté ~1800 px) et vignette pour le rapport
+  async function renderPage(pdf, n) {
+    const page = await pdf.getPage(n);
+    const base = page.getViewport({ scale: 1 });
+    const scale = CFG.grandCotePx / Math.max(base.width, base.height);
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(viewport.width);
+    canvas.height = Math.round(viewport.height);
+    const g = canvas.getContext('2d');
+    g.fillStyle = '#ffffff';
+    g.fillRect(0, 0, canvas.width, canvas.height);
+    // intent "print" : rendu sans requestAnimationFrame, qui ne progresse pas quand l'onglet est
+    // en arrière-plan (sinon l'analyse s'interromprait si l'utilisateur change d'onglet)
+    await page.render({ canvasContext: g, viewport, intent: 'print' }).promise;
+    let quality = CFG.qualiteJpeg;
+    let image = canvas.toDataURL('image/jpeg', quality);
+    while (image.length * 0.75 > 2.8 * 1024 * 1024 && quality > 0.4) {
+      quality -= 0.15;
+      image = canvas.toDataURL('image/jpeg', quality);
+    }
+    const t = document.createElement('canvas');
+    const ts = CFG.vignettePx / Math.max(canvas.width, canvas.height);
+    t.width = Math.max(1, Math.round(canvas.width * ts));
+    t.height = Math.max(1, Math.round(canvas.height * ts));
+    t.getContext('2d').drawImage(canvas, 0, 0, t.width, t.height);
+    const vignette = t.toDataURL('image/jpeg', CFG.qualiteVignette);
+    canvas.width = canvas.height = 0;
+    page.cleanup();
+    return { image, vignette };
+  }
+
+  // Texte collé : découpé en parties (sans troncature) aux fins de paragraphe
+  function splitPastedText(text) {
+    const max = CFG.maxTexteParPage - 500;
+    const parts = [];
+    let rest = text;
+    while (rest.length > max) {
+      let cut = rest.lastIndexOf('\n', max);
+      if (cut < max * 0.5) cut = rest.lastIndexOf(' ', max);
+      if (cut < max * 0.5) cut = max;
+      parts.push(rest.slice(0, cut));
+      rest = rest.slice(cut).replace(/^\s+/, '');
+    }
+    if (rest.trim()) parts.push(rest);
+    return parts;
+  }
+
+  // Exécute des tâches avec un nombre limité en parallèle ; résultats dans l'ordre
+  async function runPool(items, limit, worker) {
+    const results = new Array(items.length);
+    let next = 0;
+    let firstError = null;
+    async function lane() {
+      while (next < items.length && !firstError) {
+        const i = next++;
+        try { results[i] = await worker(items[i], i); }
+        catch (e) { if (!firstError) firstError = e; }
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, lane));
+    if (firstError) throw firstError;
+    return results;
+  }
+
+  // =====================================================================
+  // INTERFACE : saisie
+  // =====================================================================
   function setMarket(market) {
     selectedMarket = market;
-    document.getElementById('btnRetail').classList.toggle('active', market === 'retail');
-    document.getElementById('btnPro').classList.toggle('active', market === 'professionnel');
-    const info = document.getElementById('marketInfo');
+    $('btnRetail').classList.toggle('active', market === 'retail');
+    $('btnPro').classList.toggle('active', market === 'professionnel');
+    const info = $('marketInfo');
     info.className = 'dr-market-info ' + (market === 'retail' ? 'retail' : 'pro');
-    document.getElementById('marketInfoText').innerHTML = market === 'retail'
-      ? 'Marché <strong>Retail</strong> — règles AMF renforcées : mentions légales exhaustives, avertissements obligatoires, équilibre risque/rendement strict.'
-      : 'Marché <strong>Professionnel</strong> — règles MIF II allégées : certaines mentions simplifiées, mais les garanties de rendement restent strictement interdites.';
+    info.textContent = market === 'retail'
+      ? 'Marché Retail : règles AMF renforcées, mentions légales exhaustives, avertissements obligatoires, équilibre risque / rendement strict.'
+      : 'Marché Professionnel : règles MIF II allégées, certaines mentions simplifiées, mais les garanties de rendement restent strictement interdites.';
   }
 
   function switchTab(tab) {
     activeTab = tab;
-    document.getElementById('panelFile').classList.toggle('hidden', tab !== 'file');
-    document.getElementById('panelText').classList.toggle('hidden', tab !== 'text');
-    document.getElementById('tabBtnFile').classList.toggle('active', tab === 'file');
-    document.getElementById('tabBtnText').classList.toggle('active', tab === 'text');
+    $('panelFile').classList.toggle('hidden', tab !== 'file');
+    $('panelText').classList.toggle('hidden', tab !== 'text');
+    $('tabBtnFile').classList.toggle('active', tab === 'file');
+    $('tabBtnText').classList.toggle('active', tab === 'text');
   }
 
-  function clearText() {
-    document.getElementById('pastedText').value = '';
-    document.getElementById('charCount').textContent = '0 caractère';
+  function showRunError(msg) {
+    const box = $('runError');
+    box.textContent = msg;
+    box.classList.remove('hidden');
   }
 
-  function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); }
-  function handleDragLeave(e) { document.getElementById('dropZone').classList.remove('dragover'); }
-  function handleDrop(e) {
-    e.preventDefault();
-    document.getElementById('dropZone').classList.remove('dragover');
-    if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
-  }
-
-  async function handleFile(file) {
-    if (!file) return;
-    const ext = file.name.split('.').pop().toLowerCase();
-    const colors = { pdf: '#c0392b', pptx: '#D85A30', docx: '#185FA5', txt: '#1e7e4a', html: '#b7770d' };
-    const bar = document.getElementById('fileInfoBar');
-    bar.innerHTML = `<div class="dr-file-selected">
-      <div class="dr-file-badge" style="background:${colors[ext]||'#6c757d'}">${ext.toUpperCase()}</div>
-      <div>
-        <div style="font-size:13px;font-weight:600;color:var(--navy);">${file.name}</div>
-        <div style="font-size:11px;color:var(--text-secondary);" id="fileStatus">${Math.round(file.size/1024)} Ko · extraction en cours…</div>
-      </div>
-    </div>`;
-    bar.classList.remove('hidden');
-
-    try {
-      if (ext === 'pdf') {
-        const ab = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: ab }).promise;
-        let text = '';
-        for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          text += `[Page ${i}]\n` + content.items.map(s => s.str).join(' ') + '\n\n';
-        }
-        extractedText = text;
-
-      } else if (ext === 'pptx') {
-        const ab = await file.arrayBuffer();
-        const zip = await JSZip.loadAsync(ab);
-        const slideFiles = Object.keys(zip.files)
-          .filter(n => n.match(/^ppt\/slides\/slide\d+\.xml$/))
-          .sort((a, b) => {
-            const na = parseInt(a.match(/slide(\d+)/)[1]);
-            const nb = parseInt(b.match(/slide(\d+)/)[1]);
-            return na - nb;
-          });
-        let text = '';
-        for (let i = 0; i < slideFiles.length; i++) {
-          const xml = await zip.files[slideFiles[i]].async('string');
-          const parser = new DOMParser();
-          const doc = parser.parseFromString(xml, 'text/xml');
-          const nodes = doc.querySelectorAll('t');
-          const slideText = Array.from(nodes).map(n => n.textContent).filter(t => t.trim()).join(' ');
-          if (slideText.trim()) text += `[Slide ${i+1}]\n${slideText}\n\n`;
-        }
-        extractedText = text || '[Aucun texte extrait des slides]';
-
-      } else if (ext === 'docx') {
-        const ab = await file.arrayBuffer();
-        const zip = await JSZip.loadAsync(ab);
-        const xmlFile = zip.files['word/document.xml'];
-        if (!xmlFile) throw new Error('Format DOCX invalide');
-        const xml = await xmlFile.async('string');
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(xml, 'text/xml');
-        const paras = doc.querySelectorAll('p');
-        let text = '';
-        let paraNum = 0;
-        paras.forEach(p => {
-          const t = Array.from(p.querySelectorAll('t')).map(n => n.textContent).join('');
-          if (t.trim()) { text += t + '\n'; paraNum++; }
-        });
-        extractedText = text || '[Aucun texte extrait du document]';
-
-      } else {
-        extractedText = await file.text();
-      }
-
-      const status = document.getElementById('fileStatus');
-      if (status) {
-        const lines = extractedText.split('\n').filter(l => l.trim()).length;
-        status.textContent = `${Math.round(file.size/1024)} Ko · ${extractedText.length} caractères extraits · prêt à analyser`;
-      }
-
-    } catch (e) {
-      alert('Erreur lors de la lecture du fichier : ' + e.message);
-      extractedText = '';
-    }
-  }
-
-  function loadDemo() {
-    switchTab('text');
-    const demo = `PRÉSENTATION COMMERCIALE — FONDS EIFFEL RENDEMENT 2027
-
-[Page 1 — Introduction]
-Performance remarquable : +12,4% en 2023. Ce fonds obligataire offre des rendements exceptionnels et une sécurité totale pour votre capital.
-
-[Page 2 — Caractéristiques produit]
-Investissez dès maintenant et profitez de gains garantis sur 3 ans. Notre stratégie éprouvée génère systématiquement des performances supérieures au marché.
-- Rendement cible : 6% par an
-- Notation : BBB (Investment Grade)
-- Durée recommandée : 3 ans minimum
-- ISIN : FR0013412285
-
-[Page 3 — Cible investisseurs]
-Pour les investisseurs souhaitant une rentabilité maximale sans contrainte de marché.
-Contact : equipe-commerciale@eiffel-ig.com`;
-    document.getElementById('pastedText').value = demo;
-    document.getElementById('charCount').textContent = demo.length + ' caractères';
-  }
-
-  function startProgress(steps) {
-    document.getElementById('progressWrap').classList.remove('hidden');
-    document.getElementById('progressFill').style.width = '5%';
-    let i = 0;
-    progressInterval = setInterval(() => {
-      if (i < steps.length) {
-        document.getElementById('progressMsg').textContent = steps[i++];
-        document.getElementById('progressFill').style.width = Math.min(88, 5 + (i / steps.length) * 83) + '%';
-      }
-    }, 1800);
-  }
-
-  function endProgress() {
-    clearInterval(progressInterval);
-    document.getElementById('progressFill').style.width = '100%';
-    setTimeout(() => document.getElementById('progressWrap').classList.add('hidden'), 400);
-  }
-
-  function buildMainPrompt(content, docType, market) {
-    const marketRules = market === 'retail'
-      ? `MARCHÉ CIBLE : Clientèle non professionnelle (Retail)
-Règles renforcées AMF / Procédure Eiffel IG V4 :
-- Mention "Ceci est une communication publicitaire. Veuillez-vous référer au prospectus du fonds et au document d'informations clés (si applicable) avant de prendre toute décision finale d'investissement." : OBLIGATOIRE en première page
-- Avertissement en bas de chaque slide/page : OBLIGATOIRE
-- Avertissement complet en dernière page (disclaimer légal Eiffel IG) : OBLIGATOIRE pour présentations
-- Mention "Les performances passées ne préjugent pas des performances futures" : OBLIGATOIRE si performance citée, bien visible, pas en note de bas de page
-- Avertissement risque de perte en capital : OBLIGATOIRE et explicite (formulation "risque de perte en capital" obligatoire — "OPC non garanti en capital" seul est INSUFFISANT)
-- Équilibre strict risques/avantages : risques en police identique aux avantages, pas en note de bas de page
-- Association "performance + sécurité/garantie/risque maîtrisé" : STRICTEMENT INTERDITE
-- Durée de placement recommandée : OBLIGATOIRE si objectif chiffré cité
-- Profil de risque SRI : OBLIGATOIRE, cohérent avec la documentation réglementaire
-- Frais : mention OBLIGATOIRE si coûts évoqués
-- Performances passées : OBLIGATOIRE sur 10 ans (ou historique complet si fonds < 10 ans), par périodes de 12 mois complets, avec source et période de référence
-- FIA non professionnels / FCPR evergreen : mention du caractère non liquide OBLIGATOIRE
-- Fonds FCPI : avertissement spécifique blocage/risque/fiscal OBLIGATOIRE en gras et encadré
-- Fonds ELTIF : avertissement ELTIF OBLIGATOIRE`
-      : `MARCHÉ CIBLE : Investisseurs professionnels (MIF II)
-Règles Procédure Eiffel IG V4 :
-- Mention "Ceci est une communication publicitaire..." : OBLIGATOIRE en première page même pour les pros
-- Avertissement en bas de chaque slide : OBLIGATOIRE
-- Disclaimer légal complet en dernière page : OBLIGATOIRE pour présentations
-- Garanties de rendement ou de capital : STRICTEMENT INTERDITES même pour les pros
-- Performances passées : doivent être factuelles, avec période de référence et source
-- Mention "performances passées ne préjugent pas..." : OBLIGATOIRE si performance citée
-- Langage promotionnel excessif, formulations optimistes non étayées : NON CONFORME
-- Association "performance + sécurité" sans explication : NON CONFORME
-- Documents en anglais : acceptables après consentement du client professionnel`;
-
-    // Le format est piloté par le menu déroulant, pas par détection approximative
-    const shortFormats = ['email marketing', 'post linkedin', 'post réseaux sociaux', 'communiqué de presse', 'document publicitaire'];
-    const isShortFormat = shortFormats.includes(docType.toLowerCase());
-
-    const formatContext = isShortFormat
-      ? `FORMAT : Communication courte (${docType})
-Règles adaptées au format court — Position AMF DOC-2011-24 :
-- La mention "#CommunicationPublicitaire" ou "Communication publicitaire" suffit pour identifier le caractère publicitaire
-- Un lien vers plus d'information est la bonne pratique attendue
-- NE PAS exiger de disclaimer multi-pages, d'avertissement en bas de chaque slide, ou de disclaimer légal complet — inadapté à ce format
-- Pour un post LinkedIn ou tweet : le contenu doit être neutre, factuel, et pointer vers un document complet
-- L'essentiel : pas de garantie de rendement, pas de performance comme élément principal, pas de formulation trompeuse`
-      : `FORMAT : Document long (${docType})
-Exigences complètes de la Procédure Eiffel IG V4 :
-- Mention publicitaire obligatoire en première page/slide
-- Avertissement en bas de chaque slide pour les présentations PPTX
-- Disclaimer légal complet en dernière page
-- Équilibre risques/avantages sur l'ensemble du document
-- Mentions légales exhaustives adaptées au marché cible`;
-
-    return `Tu es le RCCI (Responsable de la Conformité et du Contrôle Interne) d'Eiffel Investment Group, SGP française agréée AMF. Tu révises ce document avant diffusion.
-
-Ton rôle n'est PAS de cocher une liste de cases mécaniquement. Tu dois analyser ce document comme un professionnel expérimenté : comprendre son intention, son contexte, son format, et juger si l'esprit de la réglementation est respecté. Un point qui n'est pas pertinent pour ce type de document ne doit pas être signalé.
-
-TYPE DE DOCUMENT : ${docType}
-MARCHÉ CIBLE : ${market === 'retail' ? 'Clientèle non professionnelle (Retail)' : 'Investisseurs professionnels'}
-
-${formatContext}
-
-${marketRules}
-
-PRINCIPES FONDAMENTAUX (s'appliquent à TOUS les formats, sans exception) :
-Ces points sont non-négociables quel que soit le format ou la longueur du document :
-1. Toute garantie de rendement ou de capital est INTERDITE ("garanti", "sans risque", "gains assurés", "capital protégé", "sécurité totale")
-2. L'association "performance + sécurité/garantie/risque maîtrisé" sans nuance est INTERDITE
-3. Si une performance passée est citée, la mention "Les performances passées ne préjugent pas des performances futures" est OBLIGATOIRE — adaptée au format (dans le corps du texte pour un post court, visible dans le document pour une présentation)
-4. Toute performance doit être accompagnée de sa période de référence
-5. Les formulations optimistes sans base factuelle sont INTERDITES : "le meilleur fonds", "rendements sans effort", "stratégie éprouvée qui génère systématiquement"
-6. La performance ne peut pas être l'élément principal et unique de la communication
-
-RÈGLES CONTEXTUELLES (à appliquer avec discernement selon le format) :
-Ces règles s'appliquent quand elles ont du sens pour le format analysé :
-- Pour une présentation longue (PPTX, PDF) : vérifier disclaimers par slide, disclaimer dernière page, équilibre risques/avantages sur l'ensemble du document
-- Pour un document avec données chiffrées : vérifier les sources, les périodes de référence, la cohérence avec les documents réglementaires
-- Pour un document mentionnant des avantages fiscaux : vérifier la contrepartie (blocage + risque de perte en capital)
-- Pour un document citant des prix/labels : vérifier le mode d'attribution + disclaimer "ne préjugent pas des résultats futurs"
-- Pour un document avec exemples d'investissements réussis : vérifier la présence d'investissements moins favorables
-
-APPROCHE D'ANALYSE :
-- Commence par qualifier le document : quel est son objectif commercial réel ? À qui s'adresse-t-il concrètement ?
-- Évalue l'impression générale qu'aurait un investisseur à la lecture : est-il bien informé des risques ? Le document est-il équilibré ?
-- Ne signale un point que si tu considères qu'un régulateur AMF le noterait réellement lors d'un contrôle
-- Si un élément est absent mais non pertinent pour ce format, ne le signale pas
-- Si un document est globalement bien construit avec quelques ajustements mineurs, le score doit le refléter (ne pas systématiquement descendre sous 50)
-
-DOCUMENT À ANALYSER :
----
-${content.substring(0, 50000)}
----
-
-Réponds UNIQUEMENT en JSON valide brut (sans backticks, sans commentaires) :
-{
-  "format_detecte": "<description courte du format réel détecté et du contexte>",
-  "score": <entier 0-100>,
-  "synthese": "<3-4 phrases : qualification du document, principaux enjeux, recommandation de diffusion oui/non/avec corrections>",
-  "blockers": [{
-    "titre": "<problème court>",
-    "detail": "<pourquoi c'est non-conforme dans CE contexte précis, avec référence réglementaire>",
-    "citation": "<extrait verbatim du document ou null si mention absente>",
-    "page": "<Slide X / Page X / null>",
-    "correction": "<ce qu'il faut écrire ou ajouter, formulé concrètement pour le marketing>"
-  }],
-  "warnings": [{
-    "titre": "...", "detail": "...", "citation": "...", "page": "...", "correction": "..."
-  }],
-  "ok": [{"titre": "...", "detail": "...", "page": "..."}],
-  "themes": ["..."]
-}
-
-BARÈME (à appliquer avec discernement) :
-BLOQUANT (-20 à -30 pts) : garantie rendement/capital, promesse performance future, association performance+sécurité, absence totale de toute mention du caractère publicitaire sur un document long
-BLOQUANT (-10 à -20 pts) : performance sans avertissement "passées ne préjugent pas", performance sans période de référence, déséquilibre grave risques/avantages
-ATTENTION (-5 à -10 pts) : absence durée placement recommandée sur document long, frais non mentionnés sur document long, comparaison non sourcée
-ATTENTION (-2 à -5 pts) : formulation ambiguë, amélioration souhaitable mais non bloquante
-NE PAS PÉNALISER : absence d'un disclaimer complet sur un format court, éléments non pertinents pour le type de document`;
-  }
-
-  function buildChallengerPrompt(content, docType, market, firstResult) {
-    const existingTitles = [
-      ...(firstResult.blockers||[]).map(b=>b.titre),
-      ...(firstResult.warnings||[]).map(w=>w.titre)
-    ].join(' | ');
-
-    return `Tu es un RCCI senior chez Eiffel Investment Group. Une première analyse de conformité a été faite sur ce document. Ta mission est UNIQUEMENT d'identifier des points MANQUANTS que la première analyse n'a pas vus — pas de répéter ce qui est déjà détecté.
-
-Document (${docType}, marché ${market}) :
----
-${content.substring(0, 25000)}
----
-
-Points déjà identifiés — NE PAS répéter :
-${existingTitles || 'aucun'}
-
-Format détecté par la première analyse : ${firstResult.format_detecte || docType}
-
-En tant que RCCI expérimenté, vérifie ces points avec discernement selon le format réel du document :
-
-Pour une PRÉSENTATION (PPTX, PDF long) :
-- Y a-t-il bien une mention publicitaire en première slide ?
-- Y a-t-il un disclaimer légal en dernière page ?
-- Si performance cumulée citée : la performance annuelle par année est-elle présente ?
-- Les exemples d'investissements réussis sont-ils équilibrés par des investissements moins favorables ?
-
-Pour un EMAIL ou POST COURT :
-- Le contenu est-il neutre et renvoie-t-il vers plus d'information ?
-- Y a-t-il une mention "#CommunicationPublicitaire" ou équivalent ?
-- Ne pas signaler l'absence de disclaimers complets — inadapté au format
-
-Pour TOUS les formats :
-- Formulations interdites présentes : "risque maîtrisé", "rentabilité attractive avec risque modéré", "performance éprouvée qui génère systématiquement" ?
-- Avantage fiscal sans durée de blocage + risque de perte en capital mentionnés ?
-- Prix/label sans mode d'attribution + disclaimer "ne préjugent pas des résultats futurs" ?
-
-Ne signale que ce qu'un régulateur AMF noterait réellement pour CE type de document.
-
-JSON brut uniquement — uniquement les points non déjà couverts :
-{
-  "points_manquants": [
-    {
-      "titre": "<problème précis>",
-      "detail": "<pourquoi non-conforme dans ce contexte>",
-      "citation": "<extrait verbatim ou null>",
-      "page": "<Slide X / Page X / null>",
-      "correction": "<ce qu'il faut ajouter ou modifier concrètement>",
-      "severite": "bloquant|attention"
-    }
-  ]
-}`;
-  }
-
-  // En-tetes des appels a l'API : jeton Microsoft Graph de l'utilisateur, verifie par la Function
-  async function apiHeaders() {
-    const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
-    if (!account) throw new Error('Session expiree : reconnectez-vous.');
-    const res = await msalInstance.acquireTokenSilent({ scopes: ['User.Read'], account });
-    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + res.accessToken, 'X-EIG-Graph-Token': res.accessToken };
-  }
-
-  async function runAnalysis() {
-    const pastedContent = document.getElementById('pastedText').value.trim();
-    const content = activeTab === 'text' ? pastedContent : (extractedText || pastedContent);
-    if (!content || content.length < 20) {
-      alert('Veuillez fournir un document ou du texte à analyser.\n\nUtilisez "Charger un exemple" pour tester.');
+  function selectFile(file) {
+    if (!file || running) return;
+    const ext = Core.extensionOf(file.name);
+    const bar = $('fileInfoBar');
+    bar.textContent = '';
+    if (['pdf', 'pptx', 'docx'].indexOf(ext) === -1) {
+      selectedFile = null;
+      hide('fileInfoBar');
+      showRunError('Format non pris en charge : ' + file.name + ' (formats acceptés : PDF, PPTX, DOCX).');
       return;
     }
-    const docType = document.getElementById('docType').value;
-    const btn = document.getElementById('analyzeBtn');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="dr-spinner"></span>Analyse en cours…';
-    document.getElementById('resultsCard').classList.add('hidden');
-    startProgress([
-      'Extraction du contenu…',
-      'Application des règles AMF / MIF II…',
-      'Analyse des mentions légales…',
-      'Localisation des extraits problématiques…',
-      'Vérification du langage promotionnel…',
-      'Lancement analyse challenger GPT-4o mini…',
-      'Consolidation du rapport…'
-    ]);
-
-    try {
-      const res1 = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: await apiHeaders(),
-        body: JSON.stringify({
-          model: typeof APP_CONFIG !== 'undefined' ? (APP_CONFIG.OPENAI_MODEL || 'gpt-4o') : 'gpt-4o',
-          messages: [{ role: 'user', content: buildMainPrompt(content, docType, selectedMarket) }],
-          temperature: 0.1,
-          response_format: { type: 'json_object' }
-        })
-      });
-      if (!res1.ok) {
-        const err = await res1.json().catch(() => ({}));
-        throw new Error(err.error?.message || `HTTP ${res1.status}`);
-      }
-      const data1 = await res1.json();
-      const result = JSON.parse(data1.choices[0].message.content.replace(/```json|```/g, '').trim());
-
-      let challenger = null;
-      try {
-        const res2 = await fetch('/api/analyze', {
-          method: 'POST',
-          headers: await apiHeaders(),
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [{ role: 'user', content: buildChallengerPrompt(content, docType, selectedMarket, result) }],
-            temperature: 0.2,
-            response_format: { type: 'json_object' }
-          })
-        });
-        if (res2.ok) {
-          const data2 = await res2.json();
-          challenger = JSON.parse(data2.choices[0].message.content.replace(/```json|```/g, '').trim());
-        }
-      } catch (e) { console.warn('Challenger:', e); }
-
-      endProgress();
-      renderResults(result, challenger, docType, selectedMarket);
-
-    } catch (e) {
-      endProgress();
-      alert('Erreur lors de l\'analyse :\n\n' + e.message);
-    } finally {
-      btn.disabled = false;
-      btn.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg> Analyser le document`;
-    }
+    hide('runError');
+    selectedFile = file;
+    const box = document.createElement('div');
+    box.className = 'dr-file-selected';
+    const badge = document.createElement('div');
+    badge.className = 'dr-file-badge';
+    badge.style.background = { pdf: '#c0392b', pptx: '#D85A30', docx: '#185FA5' }[ext];
+    badge.textContent = ext.toUpperCase();
+    const txt = document.createElement('div');
+    const n = document.createElement('div');
+    n.style.cssText = 'font-size:13px;font-weight:600;color:var(--navy)';
+    n.textContent = file.name;
+    const s = document.createElement('div');
+    s.style.cssText = 'font-size:11px;color:var(--text-secondary)';
+    s.textContent = `${Math.max(1, Math.round(file.size / 1024))} Ko · prêt à analyser`;
+    txt.append(n, s);
+    box.append(badge, txt);
+    bar.appendChild(box);
+    bar.classList.remove('hidden');
   }
 
-  function renderResults(result, challenger, docType, market) {
-    // Fusionner les points du challenger directement dans les listes
-    const allBlockers = [...(result.blockers || [])];
-    const allWarnings = [...(result.warnings || [])];
-    if (challenger && (challenger.points_manquants || []).length > 0) {
-      challenger.points_manquants.forEach(p => {
-        const f = { titre: p.titre, detail: p.detail, citation: p.citation || null, page: p.page || null, correction: p.correction || null };
-        if (p.severite === 'bloquant') allBlockers.push(f);
-        else allWarnings.push(f);
-      });
+  function setProgress(msg, fraction) {
+    show('progressWrap');
+    $('progressMsg').textContent = msg;
+    $('progressFill').style.width = Math.round(Math.max(0, Math.min(1, fraction)) * 100) + '%';
+  }
+
+  function lockUi(on) {
+    running = on;
+    $('analyzeBtn').disabled = on || !sp.ready;
+    $('analyzeBtn').innerHTML = on ? '<span class="dr-spinner"></span>Analyse en cours…' : 'Analyser le document';
+    $('cancelBtn').classList.toggle('hidden', !on);
+    $('cancelBtn').disabled = false;
+    ['docType', 'btnRetail', 'btnPro', 'tabBtnFile', 'tabBtnText', 'pastedText', 'btn-reset'].forEach(id => { $(id).disabled = on; });
+  }
+
+  function beforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
+
+  // =====================================================================
+  // ANALYSE
+  // =====================================================================
+  async function runAnalysis() {
+    if (running) return;
+    hide('runError');
+    if (!sp.ready) { showRunError('Doc Review indisponible : ' + (sp.error || 'SharePoint non initialisé.')); return; }
+    const docType = $('docType').value;
+    if (Core.TYPES_DOCUMENT.indexOf(docType) === -1) { showRunError('Type de document invalide.'); return; }
+    let input;
+    if (activeTab === 'text') {
+      const text = $('pastedText').value.trim();
+      if (text.length < 20) { showRunError('Collez au moins quelques lignes de texte à analyser.'); return; }
+      input = { kind: 'texte', text };
+    } else {
+      if (!selectedFile) { showRunError('Sélectionnez un fichier PDF, PPTX ou DOCX.'); return; }
+      input = { kind: 'fichier', file: selectedFile, ext: Core.extensionOf(selectedFile.name) };
     }
 
-    const score = Math.min(100, Math.max(0, result.score || 0));
-    const scoreColor = score >= 75 ? '#1e7e4a' : score >= 50 ? '#b7770d' : '#c0392b';
-    document.getElementById('scoreVal').textContent = score + ' / 100';
-    document.getElementById('scoreVal').style.color = scoreColor;
-    document.getElementById('scoreBar').style.width = score + '%';
-    document.getElementById('scoreBar').style.background = scoreColor;
-    document.getElementById('blockerCount').textContent = allBlockers.length;
-    document.getElementById('warningCount').textContent = allWarnings.length;
-
+    cancelRequested = false;
+    lockUi(true);
+    hide('resultsCard');
+    window.addEventListener('beforeunload', beforeUnload);
     const now = new Date();
-    const pillClass = market === 'retail' ? 'retail' : 'pro';
-    const pillLabel = market === 'retail' ? 'Retail' : 'Professionnel';
-    document.getElementById('reportTitle').innerHTML =
-      `Analyse — ${docType.charAt(0).toUpperCase() + docType.slice(1)}<span class="dr-market-pill ${pillClass}">${pillLabel}</span>`;
-    document.getElementById('reportMeta').textContent =
-      `${now.toLocaleDateString('fr-FR')} à ${now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}` +
-      (currentUser ? ` · ${currentUser.name || currentUser.username}` : '');
-
-    document.getElementById('summaryBox').textContent = result.synthese || '';
-    if (result.format_detecte) {
-      const formatBadge = document.createElement('div');
-      formatBadge.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.55);margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,0.15);';
-      formatBadge.textContent = 'Format détecté : ' + result.format_detecte;
-      document.getElementById('summaryBox').prepend(formatBadge);
-    }
-
-    const list = document.getElementById('findingsList');
-    list.innerHTML = '';
-
-    const mkFinding = (type, label, f) => {
-      const pageRef = (f.page && f.page !== 'null') ? `<span class="dr-page-ref"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>${f.page}</span>` : '';
-      const citation = (f.citation && f.citation !== 'null') ? `<div class="dr-citation">"${f.citation}"</div>` : '';
-      const correction = (f.correction && f.correction !== 'null') ? `<div class="dr-correction"><span class="dr-correction-label">Correction suggérée</span>${f.correction}</div>` : '';
-      list.innerHTML += `<div class="dr-finding ${type}"><div class="dr-finding-header"><span class="dr-finding-badge">${label}</span><span class="dr-finding-title">${f.titre}</span>${pageRef}</div><p class="dr-finding-detail">${f.detail}</p>${citation}${correction}</div>`;
+    const ctx = {
+      itemId: null, ref: null, modeles: new Set(), avertissements: [],
+      fichiers: { original: null, pdf: null, rapportPdf: null, rapportJson: null },
+      nomFichier: input.kind === 'texte' ? 'Texte collé' : input.file.name,
+      hash: null
     };
 
-    allBlockers.forEach(f => mkFinding('danger', 'Bloquant', f));
-    allWarnings.forEach(f => mkFinding('warning', 'Attention', f));
-    (result.ok || []).forEach(f => mkFinding('ok', 'Conforme', f));
+    try {
+      // 1. Enregistrement de l'analyse et de son dossier
+      setProgress('Enregistrement de l\'analyse…', 0.01);
+      const created = await graphJson(`/sites/${sp.siteId}/lists/${sp.listId}/items`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fields: {
+          Title: 'DR-EN-COURS', NomFichier: ctx.nomFichier, TypeDocument: docType, Marche: MARCHE_LIBELLE[selectedMarket],
+          Statut: STATUTS.enCours, Demandeur: me.name, DemandeurEmail: me.email, DateAnalyse: now.toISOString()
+        } })
+      });
+      ctx.itemId = created.id;
+      ctx.ref = Core.makeRef('DR', now, created.id);
+      await patchAnalysis(ctx.itemId, { Title: ctx.ref });
+      await createFolder(ctx.ref);
 
-    document.getElementById('tagsList').innerHTML = (result.themes || []).map(t => `<span class="dr-tag">${t}</span>`).join('');
-    document.getElementById('resultsCard').classList.remove('hidden');
-    document.getElementById('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      // 2. Fichier d'origine (ou texte collé) et empreinte SHA-256
+      let sourceBytes;
+      if (input.kind === 'texte') {
+        sourceBytes = new TextEncoder().encode(input.text);
+        ctx.fichiers.original = 'texte-colle.txt';
+      } else {
+        sourceBytes = new Uint8Array(await input.file.arrayBuffer());
+        ctx.fichiers.original = Core.sanitizeFileName(input.file.name);
+      }
+      ctx.hash = await Core.sha256Hex(sourceBytes);
+      setProgress('Enregistrement du fichier d\'origine…', 0.03);
+      const originalItem = await uploadFile(ctx.ref, ctx.fichiers.original, sourceBytes, 'fail');
+      await patchAnalysis(ctx.itemId, { HashFichier: ctx.hash });
+      if (cancelRequested) throw new CancelledError();
+
+      // 3. Pages à analyser
+      let totalPages, labels, pdf = null, pptx = null, mapping = null;
+      const pageTexts = {};
+      const sansTexte = [];
+      if (input.kind === 'texte') {
+        const parts = splitPastedText(input.text);
+        totalPages = parts.length;
+        labels = parts.map((_, i) => ({ page: i + 1, libelle: parts.length > 1 ? 'Partie ' + (i + 1) : 'Texte' }));
+        parts.forEach((p, i) => { pageTexts[i + 1] = p; });
+        if (parts.length > 1) ctx.avertissements.push(`Texte long découpé en ${parts.length} parties analysées séparément puis ensemble.`);
+      } else {
+        let pdfBytes = sourceBytes;
+        if (input.ext !== 'pdf') {
+          setProgress('Conversion en PDF (SharePoint)…', 0.05);
+          pdfBytes = new Uint8Array(await downloadItem(originalItem.id, 'pdf'));
+          ctx.fichiers.pdf = Core.sanitizeFileName(Core.baseName(ctx.fichiers.original) + '.pdf');
+          await uploadFile(ctx.ref, ctx.fichiers.pdf, pdfBytes, 'fail');
+        }
+        if (input.ext === 'pptx') {
+          try { pptx = await Core.parsePptxStructure(JSZip, sourceBytes); }
+          catch (e) { ctx.avertissements.push('Structure PowerPoint non lue (' + e.message + ') : slides masquées non détectées.'); }
+        }
+        setProgress('Lecture du document…', 0.07);
+        pdf = await openPdf(pdfBytes);
+        totalPages = pdf.numPages;
+        mapping = Core.mapPdfPages(totalPages, input.ext, pptx);
+        labels = mapping.labels;
+        for (let n = 1; n <= totalPages; n++) {
+          let t = await pageText(pdf, n);
+          if (!t) sansTexte.push(n);
+          if (t.length > CFG.maxTexteParPage) {
+            ctx.avertissements.push(`Page ${n} : texte extrait limité à ${CFG.maxTexteParPage} caractères (l'image de la page reste analysée en entier).`);
+            t = t.slice(0, CFG.maxTexteParPage);
+          }
+          pageTexts[n] = t;
+        }
+        if (totalPages > CFG.seuilPagesAvertissement) ctx.avertissements.push(`Document long (${totalPages} pages) : toutes les pages sont analysées, l'analyse peut prendre plusieurs minutes.`);
+        if (pptx && pptx.hidden.length) ctx.avertissements.push(`Slides masquées dans le fichier d'origine : ${pptx.hidden.join(', ')} (${mapping.mode === 'visibles' ? 'absentes du PDF converti, donc non analysées' : 'présentes dans le PDF converti et analysées'}).`);
+        if (mapping.incertaine) ctx.avertissements.push('Correspondance entre pages du PDF et slides incertaine : les constats sont numérotés par page du PDF converti.');
+        if (sansTexte.length === totalPages) ctx.avertissements.push('Document sans couche texte (probablement scanné) : analyse réalisée sur les images seules.');
+        else if (sansTexte.length) ctx.avertissements.push(`Pages sans couche texte (analysées sur l'image seule) : ${sansTexte.join(', ')}.`);
+      }
+      const labelOf = n => (labels[n - 1] && labels[n - 1].libelle) || ('Page ' + n);
+      const common = {
+        typeDocument: docType, marche: selectedMarket, totalPages,
+        indications: {
+          sourceType: input.kind === 'texte' ? 'texte' : input.ext,
+          slidesMasquees: pptx ? pptx.hidden : [],
+          pagesSansTexte: sansTexte,
+          correspondanceIncertaine: !!(mapping && mapping.incertaine)
+        }
+      };
+
+      // 4. Étape 1 : lots de pages (images + texte)
+      const vignettes = {};
+      const batches = Core.buildBatches(totalPages, CFG.pagesParLot);
+      const totalSteps = batches.length + 1;
+      let done = 0;
+      const progressStep = () => setProgress(`Analyse des pages : ${done} lot(s) terminé(s) sur ${batches.length}`, 0.1 + 0.8 * done / totalSteps);
+      progressStep();
+
+      async function analyseBatch(pages, index, total) {
+        const payloadPages = [];
+        for (const n of pages) {
+          if (cancelRequested) throw new CancelledError();
+          let image = null;
+          if (pdf) {
+            const r = await renderPage(pdf, n);
+            image = r.image;
+            vignettes[n] = r.vignette;
+          }
+          payloadPages.push({ numero: n, libelle: labelOf(n), texte: pageTexts[n] || '', image });
+        }
+        const payload = Object.assign({ etape: 'pages', lot: { index, total }, pages: payloadPages }, common);
+        try {
+          return await runStep(payload, ctx);
+        } catch (e) {
+          if (e instanceof CancelledError) throw e;
+          if (e.tooLarge && pages.length > 1) {
+            const half = Math.ceil(pages.length / 2);
+            const a = await analyseBatch(pages.slice(0, half), index, total);
+            const b = await analyseBatch(pages.slice(half), index, total);
+            return { pages: [].concat(a.pages || [], b.pages || []) };
+          }
+          return runStep(payload, ctx);  // une nouvelle tentative, puis échec explicite
+        }
+      }
+
+      const step1 = await runPool(batches, CFG.lotsEnParallele, async (pages, i) => {
+        const r = await analyseBatch(pages, i + 1, batches.length);
+        done++;
+        progressStep();
+        return r;
+      });
+      let merged = Core.mergeStep1(step1, totalPages);
+      if (merged.manquantes.length) {
+        setProgress('Pages non relevées : nouvelle analyse de ces pages…', 0.1 + 0.8 * done / totalSteps);
+        const missingBatches = Core.buildBatches(merged.manquantes.length, CFG.pagesParLot).map(b => b.map(i => merged.manquantes[i - 1]));
+        const retry = await runPool(missingBatches, CFG.lotsEnParallele, (pages, i) => analyseBatch(pages, i + 1, missingBatches.length));
+        merged = Core.mergeStep1(step1.concat(retry), totalPages);
+        if (merged.manquantes.length) throw new Error(`L'IA n'a pas relevé les pages ${merged.manquantes.join(', ')} : analyse interrompue pour ne pas produire un rapport incomplet.`);
+      }
+
+      // 5. Étape 2 : synthèse (relevé complet + images de la première et de la dernière page)
+      setProgress('Synthèse sur l\'ensemble du document…', 0.1 + 0.8 * done / totalSteps);
+      const synthPages = [];
+      if (pdf) {
+        const firstLast = totalPages > 1 ? [1, totalPages] : [1];
+        for (const n of firstLast) synthPages.push({ numero: n, libelle: labelOf(n), image: (await renderPage(pdf, n)).image });
+      }
+      const synth = await runStep(Object.assign({ etape: 'synthese', pages: synthPages, releve: merged.releve }, common), ctx);
+
+      // 6. Consolidation, score, rapports
+      setProgress('Génération du rapport…', 0.95);
+      const final = Core.consolidate(synth, pageTexts, totalPages);
+      const nonRetrouvees = final.constats.filter(c => c.citationVerifiee === false).length;
+      if (nonRetrouvees) ctx.avertissements.push(`${nonRetrouvees} citation(s) non retrouvée(s) mot pour mot dans le texte extrait (texte présent dans une image, ou citation à vérifier) : signalées dans les constats.`);
+      ctx.fichiers.rapportPdf = `rapport-${ctx.ref}.pdf`;
+      ctx.fichiers.rapportJson = `rapport-${ctx.ref}.json`;
+      const report = {
+        version: 1, ref: ctx.ref, statut: STATUTS.analyse, nomFichier: ctx.nomFichier, fichiers: ctx.fichiers,
+        typeDocument: docType, marche: selectedMarket, marcheLibelle: MARCHE_LIBELLE[selectedMarket],
+        hashFichier: ctx.hash, demandeur: me.name, demandeurEmail: me.email,
+        date: now.toISOString(), dateLibelle: now.toLocaleString('fr-FR'), modeles: Array.from(ctx.modeles).join(' / '),
+        source: common.indications.sourceType, totalPages, labels: labels.map(l => l.libelle),
+        pptx: pptx ? { total: pptx.total, masquees: pptx.hidden } : null, correspondance: mapping ? mapping.mode : null,
+        pagesSansTexte: sansTexte, avertissements: ctx.avertissements,
+        synthese: final.synthese, formatDetecte: final.formatDetecte, recommandation: final.recommandation,
+        score: final.score, counts: final.counts, penalites: Core.SCORE_CONFIG,
+        constats: final.constats, pagesSansAvertissement: final.pagesSansAvertissement, themes: final.themes,
+        vignettes, releve: merged.releve
+      };
+      const pdfReport = Core.generateReportPdf(window.jspdf.jsPDF, report);
+      await uploadFile(ctx.ref, ctx.fichiers.rapportPdf, pdfReport, 'fail');
+      await uploadFile(ctx.ref, ctx.fichiers.rapportJson, new TextEncoder().encode(JSON.stringify(report)), 'fail');
+      await patchAnalysis(ctx.itemId, {
+        Statut: STATUTS.analyse, Score: final.score, NbBloquants: final.counts.bloquants, NbAttention: final.counts.attention,
+        Modele: report.modeles.slice(0, 250)
+      });
+      setProgress('Analyse terminée.', 1);
+      currentReport = Object.assign({ spItemId: ctx.itemId, refTracker: '' }, report);
+      renderReport(currentReport);
+      loadHistory();
+    } catch (e) {
+      const cancelled = e instanceof CancelledError || cancelRequested;
+      const motif = cancelled ? 'Analyse annulée par l\'utilisateur.' : (e.message || String(e));
+      console.error('Doc Review :', e);
+      if (cancelled) cancelInFlight();
+      showRunError((cancelled ? '' : 'Échec de l\'analyse : ') + motif + (ctx.ref ? ` (référence ${ctx.ref})` : ''));
+      if (ctx.itemId) {
+        try { await patchAnalysis(ctx.itemId, { Statut: STATUTS.erreur }); } catch (e2) { console.error('Statut Erreur non enregistré :', e2); }
+        if (ctx.ref) {
+          try {
+            const errReport = { version: 1, ref: ctx.ref, statut: STATUTS.erreur, motif, nomFichier: ctx.nomFichier, fichiers: ctx.fichiers,
+              typeDocument: docType, marche: selectedMarket, hashFichier: ctx.hash, demandeur: me.name, demandeurEmail: me.email, date: now.toISOString() };
+            await uploadFile(ctx.ref, `rapport-${ctx.ref}.json`, new TextEncoder().encode(JSON.stringify(errReport)), 'rename');
+          } catch (e3) { console.error('Motif d\'erreur non enregistré :', e3); }
+        }
+        loadHistory();
+      }
+      hide('progressWrap');
+    } finally {
+      window.removeEventListener('beforeunload', beforeUnload);
+      lockUi(false);
+    }
   }
 
-  function exportPDF() { window.print(); }
+  // =====================================================================
+  // AFFICHAGE DU RAPPORT (texte uniquement : aucune donnée insérée en HTML)
+  // =====================================================================
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text !== undefined && text !== null) e.textContent = text;
+    return e;
+  }
+
+  const GRAVITE_LIBELLE = { bloquant: 'Bloquant', attention: 'Attention', conforme: 'Conforme' };
+
+  function findingElement(c) {
+    const box = el('div', 'dr-finding ' + c.gravite);
+    const head = el('div', 'dr-finding-header');
+    head.append(el('span', 'dr-finding-badge', GRAVITE_LIBELLE[c.gravite]), el('span', 'dr-finding-title', c.titre));
+    head.append(el('span', 'dr-finding-pages', c.pages.length ? (c.pages.length > 1 ? 'Pages ' : 'Page ') + c.pages.join(', ') : 'Document entier'));
+    box.appendChild(head);
+    if (c.explication) box.appendChild(el('div', 'dr-finding-line', c.explication));
+    if (c.citation) {
+      const q = el('div', 'dr-finding-line dr-citation', '« ' + c.citation + ' »');
+      if (c.citationVerifiee === false) q.appendChild(el('span', 'dr-flag', 'citation non retrouvée dans le texte extrait'));
+      box.appendChild(q);
+    }
+    const line = (label, value) => {
+      if (!value) return;
+      const d = el('div', 'dr-finding-line');
+      d.append(el('span', 'dr-label', label), document.createTextNode(value));
+      box.appendChild(d);
+    };
+    line('Élément visuel', c.description_visuelle);
+    line('Référence', c.reference);
+    line('Incertitude', c.incertitude);
+    line('Correction suggérée', c.correction);
+    return box;
+  }
+
+  function safeImage(src) {
+    return typeof src === 'string' && src.indexOf('data:image/jpeg;base64,') === 0 ? src : null;
+  }
+
+  function renderReport(r) {
+    $('reportTitle').textContent = `${r.ref} · ${r.nomFichier}`;
+    $('reportMeta').textContent = `${r.typeDocument} · ${r.marcheLibelle || MARCHE_LIBELLE[r.marche] || ''} · ${new Date(r.date).toLocaleString('fr-FR')} · ${r.demandeur} · ${r.totalPages} page(s) · modèles : ${r.modeles}`;
+    const color = r.score >= 75 ? '#1e7e4a' : r.score >= 50 ? '#b7770d' : '#c0392b';
+    $('scoreVal').textContent = r.score + ' / 100';
+    $('scoreVal').style.color = color;
+    $('scoreBar').style.width = r.score + '%';
+    $('scoreBar').style.background = color;
+    $('scoreSub').textContent = `100 moins ${r.penalites.penaliteBloquant} par point bloquant et ${r.penalites.penaliteAttention} par point d'attention`;
+    $('blockerCount').textContent = r.counts.bloquants;
+    $('warningCount').textContent = r.counts.attention;
+
+    const warn = $('reportWarnings');
+    warn.textContent = '';
+    const notes = (r.avertissements || []).slice();
+    if (r.pagesSansAvertissement && r.pagesSansAvertissement.length) notes.push('Pages sans avertissement relevées par l\'IA : ' + r.pagesSansAvertissement.join(', ') + '.');
+    if (notes.length) {
+      const box = el('div', 'dr-box dr-box-warning');
+      box.appendChild(el('strong', null, 'À noter'));
+      const ul = el('ul');
+      notes.forEach(n => ul.appendChild(el('li', null, n)));
+      box.appendChild(ul);
+      warn.appendChild(box);
+    }
+    warn.appendChild(el('div', 'dr-box dr-box-info', 'Pré-contrôle automatisé : il ne remplace pas la validation par la Compliance. Référence, empreinte du fichier et rapport complet sont conservés dans SharePoint.'));
+
+    const summary = $('summaryBox');
+    summary.textContent = '';
+    if (r.formatDetecte) summary.appendChild(el('div', 'dr-summary-meta', 'Format détecté : ' + r.formatDetecte));
+    summary.appendChild(document.createTextNode(r.synthese || ''));
+
+    const list = $('findingsList');
+    list.textContent = '';
+    const groups = Core.groupByPage(r.constats);
+    if (!groups.length) list.appendChild(el('p', null, 'Aucun constat.'));
+    groups.forEach(g => {
+      const row = el('div', 'dr-group');
+      const side = el('div', 'dr-group-side', g.page ? (r.labels && r.labels[g.page - 1]) || ('Page ' + g.page) : 'Document entier');
+      const src = g.page && r.vignettes ? safeImage(r.vignettes[g.page]) : null;
+      if (src) { const img = el('img', 'dr-thumb'); img.src = src; img.alt = 'Aperçu ' + side.textContent; side.appendChild(img); }
+      const main = el('div');
+      g.constats.forEach(c => main.appendChild(findingElement(c)));
+      row.append(side, main);
+      list.appendChild(row);
+    });
+
+    const tags = $('tagsList');
+    tags.textContent = '';
+    (r.themes || []).forEach(t => tags.appendChild(el('span', 'dr-tag', t)));
+    onReportRendered(r);
+    show('resultsCard');
+    $('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // Point d'extension (soumission au Tracker)
+  function onReportRendered(r) { /* rien pour l'instant */ }
+
+  async function openReportPdf() {
+    if (!currentReport) return;
+    try {
+      const item = await graphJson(`/drives/${sp.driveId}/root:/${encodePath(currentReport.ref + '/' + currentReport.fichiers.rapportPdf)}?$select=webUrl`);
+      if (item && /^https:\/\/[a-z0-9-]+\.sharepoint\.com\//i.test(item.webUrl)) window.open(item.webUrl, '_blank', 'noopener');
+      else throw new Error('lien inattendu');
+    } catch (e) {
+      showRunError('Rapport PDF introuvable : ' + e.message);
+    }
+  }
+
+  // =====================================================================
+  // MES ANALYSES
+  // =====================================================================
+  function statusClass(s) {
+    return { 'Analysé': 'analyse', 'Soumis': 'soumis', 'Erreur': 'erreur', 'En cours': 'encours' }[s] || '';
+  }
+
+  function historyActions(f, cell) {
+    if ([STATUTS.analyse, STATUTS.soumis, STATUTS.erreur].indexOf(f.Statut) !== -1) {
+      const b = el('button', 'dr-link-btn', 'Ouvrir');
+      b.onclick = () => openAnalysis(f);
+      cell.appendChild(b);
+    }
+  }
+
+  async function loadHistory() {
+    const body = $('historyBody');
+    if (!sp.ready) { body.textContent = ''; body.appendChild(el('p', null, 'Historique indisponible.')); return; }
+    try {
+      const select = '$expand=fields($select=Title,NomFichier,TypeDocument,Marche,Statut,Score,NbBloquants,NbAttention,DateAnalyse,Demandeur,DemandeurEmail,RefTracker)&$top=500';
+      let items;
+      if (isCPL) {
+        items = await graphAll(`/sites/${sp.siteId}/lists/${sp.listId}/items?${select}`);
+      } else {
+        const filter = encodeURIComponent(`fields/DemandeurEmail eq '${me.email.replace(/'/g, "''")}'`);
+        items = await graphAll(`/sites/${sp.siteId}/lists/${sp.listId}/items?${select}&$filter=${filter}`, { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' });
+      }
+      const rows = items.map(i => Object.assign({ spItemId: i.id }, i.fields || {}))
+        .filter(f => isCPL || String(f.DemandeurEmail || '').toLowerCase() === me.email)
+        .filter(f => /^DR-\d{4}-\d{4,}$/.test(f.Title || ''))
+        .sort((a, b) => String(b.DateAnalyse || '').localeCompare(String(a.DateAnalyse || '')));
+      body.textContent = '';
+      if (!rows.length) { body.appendChild(el('p', null, 'Aucune analyse pour l\'instant.')); return; }
+      const table = el('table', 'dr-table');
+      const head = el('tr');
+      ['Référence', 'Fichier', 'Type', 'Date', isCPL ? 'Demandeur' : null, 'Statut', 'Score', 'B / A', 'Tracker', ''].filter(h => h !== null).forEach(h => head.appendChild(el('th', null, h)));
+      const thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
+      const tbody = el('tbody');
+      rows.forEach(f => {
+        const tr = el('tr');
+        tr.appendChild(el('td', null, f.Title));
+        tr.appendChild(el('td', null, f.NomFichier || ''));
+        tr.appendChild(el('td', null, (f.TypeDocument || '') + (f.Marche ? ' · ' + f.Marche : '')));
+        tr.appendChild(el('td', null, f.DateAnalyse ? new Date(f.DateAnalyse).toLocaleString('fr-FR') : ''));
+        if (isCPL) tr.appendChild(el('td', null, f.Demandeur || ''));
+        const st = el('td'); st.appendChild(el('span', 'dr-status ' + statusClass(f.Statut), f.Statut || '')); tr.appendChild(st);
+        tr.appendChild(el('td', null, f.Score === undefined || f.Score === null ? '' : String(f.Score)));
+        tr.appendChild(el('td', null, f.NbBloquants === undefined || f.NbBloquants === null ? '' : `${f.NbBloquants} / ${f.NbAttention}`));
+        tr.appendChild(el('td', null, f.RefTracker || ''));
+        const actions = el('td');
+        historyActions(f, actions);
+        tr.appendChild(actions);
+        tbody.appendChild(tr);
+      });
+      table.appendChild(tbody);
+      body.appendChild(table);
+    } catch (e) {
+      body.textContent = '';
+      body.appendChild(el('p', null, 'Historique indisponible : ' + e.message));
+    }
+  }
+
+  let openSeq = 0;
+  async function openAnalysis(f) {
+    if (running) return;
+    const seq = ++openSeq;  // seule la dernière analyse demandée est affichée
+    hide('runError');
+    try {
+      const res = await graphFetch(`/drives/${sp.driveId}/root:/${encodePath(f.Title + '/rapport-' + f.Title + '.json')}:/content`);
+      if (!res.ok) throw new Error(res.status === 404 ? 'rapport introuvable' : 'HTTP ' + res.status);
+      const report = JSON.parse(await res.text());
+      if (seq !== openSeq) return;
+      if (report.ref !== f.Title) throw new Error('rapport incohérent');
+      if (report.statut === STATUTS.erreur || f.Statut === STATUTS.erreur) {
+        showRunError(`Analyse ${f.Title} en erreur : ${report.motif || 'motif non enregistré'}.`);
+        hide('resultsCard');
+        return;
+      }
+      currentReport = Object.assign(report, { spItemId: f.spItemId, statut: f.Statut, refTracker: f.RefTracker || '' });
+      renderReport(currentReport);
+    } catch (e) {
+      if (seq === openSeq) showRunError(`Impossible d'ouvrir l'analyse ${f.Title} : ${e.message}.`);
+    }
+  }
 
   function resetAll() {
-    extractedText = '';
-    const ta = document.getElementById('pastedText');
-    if (ta) ta.value = '';
-    document.getElementById('charCount').textContent = '0 caractère';
-    document.getElementById('fileInfoBar').classList.add('hidden');
-    document.getElementById('resultsCard').classList.add('hidden');
-    document.getElementById('fileInput').value = '';
+    if (running) return;
+    selectedFile = null;
+    currentReport = null;
+    $('pastedText').value = '';
+    $('charCount').textContent = '0 caractère';
+    $('fileInfoBar').textContent = '';
+    hide('fileInfoBar');
+    hide('resultsCard');
+    hide('runError');
+    hide('progressWrap');
+    $('fileInput').value = '';
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
+
+  // =====================================================================
+  // ÉVÉNEMENTS
+  // =====================================================================
+  window.addEventListener('DOMContentLoaded', () => {
+    setMarket('retail');
+    $('btnRetail').onclick = () => setMarket('retail');
+    $('btnPro').onclick = () => setMarket('professionnel');
+    $('tabBtnFile').onclick = () => switchTab('file');
+    $('tabBtnText').onclick = () => switchTab('text');
+    $('btn-reset').onclick = resetAll;
+    $('btn-clear-text').onclick = () => { $('pastedText').value = ''; $('charCount').textContent = '0 caractère'; };
+    $('pastedText').addEventListener('input', function () {
+      const n = this.value.length;
+      $('charCount').textContent = n.toLocaleString('fr-FR') + ' caractère' + (n > 1 ? 's' : '');
+    });
+    const zone = $('dropZone');
+    zone.onclick = () => { if (!running) $('fileInput').click(); };
+    zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };
+    zone.ondragleave = () => zone.classList.remove('dragover');
+    zone.ondrop = e => { e.preventDefault(); zone.classList.remove('dragover'); if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]); };
+    $('fileInput').onchange = function () { selectFile(this.files[0]); };
+    $('analyzeBtn').onclick = runAnalysis;
+    $('cancelBtn').onclick = () => { cancelRequested = true; $('cancelBtn').disabled = true; setProgress('Annulation en cours…', 0); cancelInFlight(); };
+    $('btn-open-report').onclick = openReportPdf;
+    $('btn-refresh-history').onclick = loadHistory;
+    init();
+  });
   </script>
 </body>
 </html>
