@@ -11,7 +11,15 @@ front-end, ni dans `api/local.settings.json`).
 
 | Variable | Utilisée par | Rôle |
 |---|---|---|
-| `OPENAI_API_KEY` | `api/analyze` | Clé de l'API OpenAI (Doc Review). |
+| `OPENAI_API_KEY` | Functions Doc Review | Clé de l'API OpenAI (Doc Review). |
+| `OPENAI_BASE_URL` | Functions Doc Review | *(Optionnel)* URL de base de l'API OpenAI. Par défaut `https://api.openai.com/v1` ; `https://eu.api.openai.com/v1` pour le point d'accès UE (projet OpenAI configuré en résidence UE). |
+
+### Authentification des Functions
+
+Toutes les Functions exigent le jeton Microsoft Graph de l'utilisateur connecté (en-tête
+`X-EIG-Graph-Token` ou `Authorization: Bearer`). La Function appelle `/me` avec ce jeton et refuse
+la requête (401) si l'appel échoue ou si le `userPrincipalName` ne se termine pas par
+`@eiffel-ig.com`. Le résultat est mis en cache 5 minutes par jeton (code : `api/shared/auth.js`).
 
 ### Développement local
 

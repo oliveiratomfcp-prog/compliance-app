@@ -703,6 +703,14 @@ JSON brut uniquement — uniquement les points non déjà couverts :
 }`;
   }
 
+  // En-tetes des appels a l'API : jeton Microsoft Graph de l'utilisateur, verifie par la Function
+  async function apiHeaders() {
+    const account = msalInstance.getActiveAccount() || msalInstance.getAllAccounts()[0];
+    if (!account) throw new Error('Session expiree : reconnectez-vous.');
+    const res = await msalInstance.acquireTokenSilent({ scopes: ['User.Read'], account });
+    return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + res.accessToken, 'X-EIG-Graph-Token': res.accessToken };
+  }
+
   async function runAnalysis() {
     const pastedContent = document.getElementById('pastedText').value.trim();
     const content = activeTab === 'text' ? pastedContent : (extractedText || pastedContent);
@@ -728,7 +736,7 @@ JSON brut uniquement — uniquement les points non déjà couverts :
     try {
       const res1 = await fetch('/api/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await apiHeaders(),
         body: JSON.stringify({
           model: typeof APP_CONFIG !== 'undefined' ? (APP_CONFIG.OPENAI_MODEL || 'gpt-4o') : 'gpt-4o',
           messages: [{ role: 'user', content: buildMainPrompt(content, docType, selectedMarket) }],
@@ -747,7 +755,7 @@ JSON brut uniquement — uniquement les points non déjà couverts :
       try {
         const res2 = await fetch('/api/analyze', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: await apiHeaders(),
           body: JSON.stringify({
             model: 'gpt-4o-mini',
             messages: [{ role: 'user', content: buildChallengerPrompt(content, docType, selectedMarket, result) }],
