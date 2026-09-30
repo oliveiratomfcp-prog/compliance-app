@@ -70,7 +70,8 @@ const PositionsCore = (() => {
   }
 
   // Lit un classeur (.xlsx, .xls) : première feuille, ligne 1 ignorée (en-têtes),
-  // colonne A = nom, B = ISIN, C = fonds, lues par position. Seules les lignes où
+  // colonne A = nom, B = ISIN, C = stratégie (champ SharePoint interne "Fonds"), lues par
+  // position. Seules les lignes où
   // A, B et C sont toutes vides sont ignorées.
   function parsePositionsWorkbook(XLSX, fileName, arrayBuffer) {
     if (!XLSX || typeof XLSX.read !== 'function') throw new Error('Bibliothèque SheetJS non chargée.');
@@ -99,9 +100,9 @@ const PositionsCore = (() => {
       for (let r = 1; r <= lastRow; r++) {
         const nom = cellText(ws[XLSX.utils.encode_cell({ r, c: 0 })]);
         const isin = cellText(ws[XLSX.utils.encode_cell({ r, c: 1 })]);
-        const fonds = cellText(ws[XLSX.utils.encode_cell({ r, c: 2 })]);
-        if (nom === '' && isin === '' && fonds === '') continue;
-        rows.push({ nom, isin, fonds, file: fileName, line: r + 1 });
+        const strategie = cellText(ws[XLSX.utils.encode_cell({ r, c: 2 })]);
+        if (nom === '' && isin === '' && strategie === '') continue;
+        rows.push({ nom, isin, strategie, file: fileName, line: r + 1 });
       }
     }
     return { fileName, sheetName: sheetName || '', rows };
@@ -132,14 +133,14 @@ const PositionsCore = (() => {
     return sum % 10 === 0;
   }
 
-  function positionKey(nom, isin, fonds) {
-    return JSON.stringify([toText(nom).trim(), toText(isin).trim(), toText(fonds).trim()]);
+  function positionKey(nom, isin, strategie) {
+    return JSON.stringify([toText(nom).trim(), toText(isin).trim(), toText(strategie).trim()]);
   }
 
   function countKeys(list) {
     const m = new Map();
     list.forEach(p => {
-      const k = positionKey(p.nom, p.isin, p.fonds);
+      const k = positionKey(p.nom, p.isin, p.strategie);
       m.set(k, (m.get(k) || 0) + 1);
     });
     return m;
@@ -150,34 +151,34 @@ const PositionsCore = (() => {
     a.forEach((count, key) => {
       const diff = count - (b.get(key) || 0);
       if (diff > 0) {
-        const [nom, isin, fonds] = JSON.parse(key);
-        out.push({ nom, isin, fonds, count: diff });
+        const [nom, isin, strategie] = JSON.parse(key);
+        out.push({ nom, isin, strategie, count: diff });
       }
     });
     return out;
   }
 
-  // currentPositions : [{nom, isin, fonds}] (valeurs SharePoint actuelles)
+  // currentPositions : [{nom, isin, strategie}] (valeurs SharePoint actuelles)
   function buildPreview(parsedFiles, currentPositions) {
     const files = parsedFiles || [];
     const rows = mergeParsedFiles(files);
     const byFile = files.map(f => ({ fileName: f.fileName, count: (f.rows || []).length }));
 
-    const fundMap = new Map();
-    rows.forEach(r => fundMap.set(r.fonds, (fundMap.get(r.fonds) || 0) + 1));
-    const byFund = [...fundMap.entries()]
-      .map(([fonds, count]) => ({ fonds, count }))
-      .sort((x, y) => x.fonds.localeCompare(y.fonds, 'fr'));
+    const strategyMap = new Map();
+    rows.forEach(r => strategyMap.set(r.strategie, (strategyMap.get(r.strategie) || 0) + 1));
+    const byStrategy = [...strategyMap.entries()]
+      .map(([strategie, count]) => ({ strategie, count }))
+      .sort((x, y) => x.strategie.localeCompare(y.strategie, 'fr'));
 
-    const warnings = { isinSuspect: [], emptyName: [], emptyFund: [], duplicates: [] };
+    const warnings = { isinSuspect: [], emptyName: [], emptyStrategy: [], duplicates: [] };
     rows.forEach(r => {
       if (r.isin !== '' && !isinLooksValid(r.isin)) warnings.isinSuspect.push(r);
       if (r.nom === '') warnings.emptyName.push(r);
-      if (r.fonds === '') warnings.emptyFund.push(r);
+      if (r.strategie === '') warnings.emptyStrategy.push(r);
     });
     const dupGroups = new Map();
     rows.forEach(r => {
-      const k = positionKey(r.nom, r.isin, r.fonds);
+      const k = positionKey(r.nom, r.isin, r.strategie);
       if (!dupGroups.has(k)) dupGroups.set(k, []);
       dupGroups.get(k).push(r);
     });
@@ -185,12 +186,12 @@ const PositionsCore = (() => {
 
     const blocking = { empty: rows.length === 0, tooLong: [] };
     rows.forEach(r => {
-      ['nom', 'isin', 'fonds'].forEach(field => {
+      ['nom', 'isin', 'strategie'].forEach(field => {
         if (r[field].length > MAX_CELL_LENGTH) blocking.tooLong.push({ row: r, field, length: r[field].length });
       });
     });
 
-    const current = (currentPositions || []).map(p => ({ nom: toText(p.nom).trim(), isin: toText(p.isin).trim(), fonds: toText(p.fonds).trim() }));
+    const current = (currentPositions || []).map(p => ({ nom: toText(p.nom).trim(), isin: toText(p.isin).trim(), strategie: toText(p.strategie).trim() }));
     const newCounts = countKeys(rows);
     const curCounts = countKeys(current);
 
@@ -198,7 +199,7 @@ const PositionsCore = (() => {
       rows,
       total: rows.length,
       byFile,
-      byFund,
+      byStrategy,
       warnings,
       blocking,
       isBlocked: blocking.empty || blocking.tooLong.length > 0,
@@ -262,7 +263,8 @@ const PositionsCore = (() => {
       method: 'POST',
       url: itemsUrl(target),
       headers: { 'Content-Type': 'application/json' },
-      body: { fields: { Title: row.nom, ISIN: row.isin, Fonds: row.fonds, IdDepot: idDepot } }
+      // Colonne C (stratégie) écrite dans le champ interne "Fonds" (nom d'affichage "Stratégie")
+      body: { fields: { Title: row.nom, ISIN: row.isin, Fonds: row.strategie, IdDepot: idDepot } }
     };
   }
 
@@ -407,7 +409,7 @@ const PositionsCore = (() => {
   async function runReplacement({ graph, target, rows, idDepot, onProgress, sleep, maxAttempts }) {
     if (!target || !issuedTargets.has(target)) throw new GuardError('Remplacement refusé : cible non résolue.');
     if (!Array.isArray(rows) || rows.length === 0) throw new Error('Remplacement refusé : aucune ligne à déposer.');
-    const tooLong = rows.some(r => ['nom', 'isin', 'fonds'].some(f => toText(r[f]).length > MAX_CELL_LENGTH));
+    const tooLong = rows.some(r => ['nom', 'isin', 'strategie'].some(f => toText(r[f]).length > MAX_CELL_LENGTH));
     if (tooLong) throw new Error(`Remplacement refusé : cellule de plus de ${MAX_CELL_LENGTH} caractères.`);
     if (typeof idDepot !== 'string' || idDepot === '') throw new Error('IdDepot invalide.');
 
@@ -493,17 +495,17 @@ const PositionsCore = (() => {
   // RESTRICTED LIST : correspondances et affichage
   // -----------------------------------------------
 
-  // Élément SharePoint -> ligne de la Restricted List
+  // Élément SharePoint -> ligne de la Restricted List. La stratégie (champ interne
+  // "Fonds") s'affiche dans la colonne Équipe ; signataire et dates restent vides.
   function positionToRestrictedItem(item) {
     const f = (item && item.fields) || {};
     const val = v => (isEmptyValue(v) ? PLACEHOLDER : toText(v).trim());
     return {
       nom: val(f.Title),
       isin: val(f.ISIN),
-      fonds: val(f.Fonds),
       dateDebut: PLACEHOLDER,
       dateFin: PLACEHOLDER,
-      equipe: PLACEHOLDER,
+      equipe: val(f.Fonds),
       signataire: PLACEHOLDER,
       type: POSITION_TYPE,
       source: POSITION_SOURCE
@@ -528,32 +530,30 @@ const PositionsCore = (() => {
     return e !== '' && isin !== '' && e.includes(isin);
   }
 
-  // Recherche du tableau et export : nom, ISIN et nom du fonds.
+  // Recherche du tableau et export : nom et ISIN uniquement (la stratégie ne déclenche
+  // aucune correspondance). Une recherche vide renvoie tout.
   function matchesSearch(item, query) {
-    const q = norm(query);
-    if (!q) return true;
-    if (matchesSecurity(item, q)) return true;
-    const fonds = isEmptyValue(item.fonds) ? '' : norm(item.fonds);
-    return fonds !== '' && fonds.includes(q);
+    if (!norm(query)) return true;
+    return matchesSecurity(item, query);
   }
 
   function isPositionItem(item) { return !!item && item.source === POSITION_SOURCE; }
 
   // Libellé des types d'une liste de correspondances, sans doublon :
-  // "NDA, En portefeuille (Fonds A, Fonds B)"
+  // "NDA, En portefeuille (Stratégie A, Stratégie B)"
   function describeMatchTypes(matches) {
     const types = [];
-    const funds = [];
+    const strategies = [];
     (matches || []).forEach(m => {
       if (isPositionItem(m)) {
         if (!types.includes(POSITION_TYPE)) types.push(POSITION_TYPE);
-        const f = isEmptyValue(m.fonds) ? '' : toText(m.fonds).trim();
-        if (f && !funds.includes(f)) funds.push(f);
+        const s = isEmptyValue(m.equipe) ? '' : toText(m.equipe).trim();
+        if (s && !strategies.includes(s)) strategies.push(s);
       } else if (m && m.type && !types.includes(m.type)) {
         types.push(m.type);
       }
     });
-    return types.map(tp => (tp === POSITION_TYPE && funds.length ? `${tp} (${funds.join(', ')})` : tp)).join(', ');
+    return types.map(tp => (tp === POSITION_TYPE && strategies.length ? `${tp} (${strategies.join(', ')})` : tp)).join(', ');
   }
 
   // Nombre de dépôts distincts (IdDepot) présents dans la liste

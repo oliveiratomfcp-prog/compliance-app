@@ -194,7 +194,7 @@ function renderRestrictedTable(items) {
   tbody.innerHTML = "";
 
   if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
     return;
   }
 
@@ -210,13 +210,11 @@ function renderRestrictedTable(items) {
     const dateFinCell = isFutureEnd
       ? `<span class="pill-live"><span class="live-dot"></span>En cours</span>`
       : esc(formatDate(dateFin));
-    const fonds = item.fonds && item.fonds !== "\u2014" ? item.fonds : "\u2014";
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td><strong>${esc(item.nom)}</strong></td>
       <td style="font-family:monospace;font-size:13px">${esc(item.isin)}</td>
       <td><span class="badge ${badgeClass}">${esc(item.type)}</span></td>
-      <td>${esc(fonds)}</td>
       <td>${item.equipe && item.equipe !== "\u2014" ? `<span class="badge badge-active">${esc(item.equipe)}</span>` : "\u2014"}</td>
       <td>${item.signataire !== "\u2014" ? esc(item.signataire) : "\u2014"}</td>
       <td>${esc(formatDate(item.dateDebut))}</td>
@@ -227,7 +225,7 @@ function renderRestrictedTable(items) {
 }
 
 let currentSort = { col: null, dir: 1 };
-const RESTRICTED_SORT_COLUMNS = ["nom", "isin", "type", "fonds", "equipe", "signataire", "dateDebut", "dateFin"];
+const RESTRICTED_SORT_COLUMNS = ["nom", "isin", "type", "equipe", "signataire", "dateDebut", "dateFin"];
 
 function sortTable(col) {
   if (currentSort.col === col) {
@@ -257,10 +255,6 @@ function sortTable(col) {
   items.sort((a, b) => {
     let valA = a[col] || "";
     let valB = b[col] || "";
-    if (col === "fonds") {
-      valA = valA === "—" ? "" : valA;
-      valB = valB === "—" ? "" : valB;
-    }
     if (col === "dateDebut" || col === "dateFin") {
       valA = valA ? new Date(valA).getTime() : 0;
       valB = valB ? new Date(valB).getTime() : 0;
@@ -305,9 +299,9 @@ document.getElementById("btn-export-excel").addEventListener("click", () => {
 
   const bom = "\uFEFF";
   const csvCell = v => `"${String(v === undefined || v === null ? "" : v).replace(/"/g, '""')}"`;
-  const headers = ["Soci\u00e9t\u00e9 / Titre", "Code ISIN", "Type de restriction", "Fonds", "\u00c9quipe", "Date de d\u00e9but", "Date de fin"];
+  const headers = ["Soci\u00e9t\u00e9 / Titre", "Code ISIN", "Type de restriction", "\u00c9quipe", "Date de d\u00e9but", "Date de fin"];
   const rows = items.map(item => [
-    csvCell(item.nom), csvCell(item.isin), csvCell(item.type), csvCell(item.fonds || "\u2014"),
+    csvCell(item.nom), csvCell(item.isin), csvCell(item.type),
     csvCell(item.equipe || ""), csvCell(formatDate(item.dateDebut)), csvCell(formatDate(item.dateFin))
   ].join(";"));
 
@@ -574,7 +568,7 @@ function generateRestrictedPDF(query, opts = {}) {
       doc.setFontSize(10);
       doc.text(`\u2022 ${item.nom}${item.isin !== "\u2014" ? ` (ISIN: ${item.isin})` : ""} \u2014 ${item.type}`, 24, y);
       if (PositionsCore.isPositionItem(item)) {
-        doc.text(`  Fonds : ${item.fonds || "\u2014"}`, 24, y + 6);
+        doc.text(`  Strat\u00e9gie : ${item.equipe || "\u2014"}`, 24, y + 6);
       } else {
         doc.text(`  Date de fin : ${formatDate(item.dateFin)}`, 24, y + 6);
       }
@@ -1723,7 +1717,7 @@ async function handlePositionsFiles(files) {
   }
   const current = positionsState.rawItems.map(it => {
     const f = it.fields || {};
-    return { nom: f.Title, isin: f.ISIN, fonds: f.Fonds };
+    return { nom: f.Title, isin: f.ISIN, strategie: f.Fonds };
   });
   positionsPreview = PositionsCore.buildPreview(parsed, current);
   renderPositionsPreview(positionsPreview);
@@ -1741,8 +1735,8 @@ function renderPositionsPreview(p) {
     : "";
   const posTable = list => `
     <div class="table-wrapper positions-scroll"><table class="data-table">
-      <thead><tr><th>${t("pos_col_name")}</th><th>${t("pos_col_isin")}</th><th>${t("pos_col_fund")}</th><th>${t("pos_col_count")}</th></tr></thead>
-      <tbody>${list.map(x => `<tr><td>${cell(x.nom)}</td><td style="font-family:monospace">${cell(x.isin)}</td><td>${cell(x.fonds)}</td><td>${x.count}</td></tr>`).join("")}</tbody>
+      <thead><tr><th>${t("pos_col_name")}</th><th>${t("pos_col_isin")}</th><th>${t("pos_col_strategy")}</th><th>${t("pos_col_count")}</th></tr></thead>
+      <tbody>${list.map(x => `<tr><td>${cell(x.nom)}</td><td style="font-family:monospace">${cell(x.isin)}</td><td>${cell(x.strategie)}</td><td>${x.count}</td></tr>`).join("")}</tbody>
     </table></div>`;
 
   let html = `<h4 class="positions-section-title">${t("pos_prev_title")}</h4>
@@ -1759,10 +1753,10 @@ function renderPositionsPreview(p) {
         </table></div>
       </div>
       <div>
-        <h5 class="positions-subtitle">${t("pos_prev_by_fund")}</h5>
+        <h5 class="positions-subtitle">${t("pos_prev_by_strategy")}</h5>
         <div class="table-wrapper positions-scroll"><table class="data-table">
-          <thead><tr><th>${t("pos_col_fund")}</th><th>${t("pos_col_rows")}</th></tr></thead>
-          <tbody>${p.byFund.map(f => `<tr><td>${f.fonds === "" ? `<em>${t("pos_prev_no_fund")}</em>` : esc(f.fonds)}</td><td>${f.count}</td></tr>`).join("")}</tbody>
+          <thead><tr><th>${t("pos_col_strategy")}</th><th>${t("pos_col_rows")}</th></tr></thead>
+          <tbody>${p.byStrategy.map(s => `<tr><td>${s.strategie === "" ? `<em>${t("pos_prev_no_strategy")}</em>` : esc(s.strategie)}</td><td>${s.count}</td></tr>`).join("")}</tbody>
         </table></div>
       </div>
     </div>`;
@@ -1778,14 +1772,14 @@ function renderPositionsPreview(p) {
   }
 
   const w = p.warnings;
-  const hasWarnings = w.isinSuspect.length || w.duplicates.length || w.emptyName.length || w.emptyFund.length;
+  const hasWarnings = w.isinSuspect.length || w.duplicates.length || w.emptyName.length || w.emptyStrategy.length;
   if (hasWarnings) {
     html += `<div class="positions-box positions-box-warning">
       <strong>${t("pos_warn_title")}</strong>
       ${detailsList(tf("pos_warn_isin", { n: w.isinSuspect.length }), w.isinSuspect.map(r => `${lineRef(r)} : ${esc(r.isin)}`))}
-      ${detailsList(tf("pos_warn_dup", { n: w.duplicates.length }), w.duplicates.map(g => `${cell(g[0].nom)} / ${cell(g[0].isin)} / ${cell(g[0].fonds)} : ${g.map(lineRef).join(" ; ")}`))}
+      ${detailsList(tf("pos_warn_dup", { n: w.duplicates.length }), w.duplicates.map(g => `${cell(g[0].nom)} / ${cell(g[0].isin)} / ${cell(g[0].strategie)} : ${g.map(lineRef).join(" ; ")}`))}
       ${detailsList(tf("pos_warn_noname", { n: w.emptyName.length }), w.emptyName.map(lineRef))}
-      ${detailsList(tf("pos_warn_nofund", { n: w.emptyFund.length }), w.emptyFund.map(lineRef))}
+      ${detailsList(tf("pos_warn_nostrategy", { n: w.emptyStrategy.length }), w.emptyStrategy.map(lineRef))}
     </div>`;
   }
 
@@ -1795,8 +1789,8 @@ function renderPositionsPreview(p) {
 
     <h5 class="positions-subtitle">${t("pos_prev_rows")}</h5>
     <div class="table-wrapper positions-scroll"><table class="data-table">
-      <thead><tr><th>${t("pos_col_name")}</th><th>${t("pos_col_isin")}</th><th>${t("pos_col_fund")}</th><th>${t("pos_col_line")}</th></tr></thead>
-      <tbody>${p.rows.map(r => `<tr><td>${cell(r.nom)}</td><td style="font-family:monospace">${cell(r.isin)}</td><td>${cell(r.fonds)}</td><td>${lineRef(r)}</td></tr>`).join("")}</tbody>
+      <thead><tr><th>${t("pos_col_name")}</th><th>${t("pos_col_isin")}</th><th>${t("pos_col_strategy")}</th><th>${t("pos_col_line")}</th></tr></thead>
+      <tbody>${p.rows.map(r => `<tr><td>${cell(r.nom)}</td><td style="font-family:monospace">${cell(r.isin)}</td><td>${cell(r.strategie)}</td><td>${lineRef(r)}</td></tr>`).join("")}</tbody>
     </table></div>
 
     <div class="positions-box positions-box-info">${tf("pos_confirm_reminder", { n: p.total })}</div>
