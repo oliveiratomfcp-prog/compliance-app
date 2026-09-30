@@ -10,6 +10,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="cpl-validation-core.js"></script>
 <style>
 /* ── Tracker CPL — styles spécifiques ───────────────────────────── */
@@ -2527,6 +2528,57 @@ function buildValidationModal(req, files) {
 
 function validationBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
 
+// Option : marquer aussi le fichier d'origine (PPTX : zone de texte sur chaque slide ;
+// DOCX : mention dans les pieds de page existants). Case décochée par défaut.
+function onValidationModalBuilt(ui) {
+  const label = document.createElement('label');
+  label.style.cssText = 'display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer;margin-bottom:10px;line-height:1.5';
+  const box = document.createElement('input');
+  box.type = 'checkbox';
+  box.id = 'validation-mark-original';
+  box.checked = false;
+  box.style.marginTop = '3px';
+  const txt = document.createElement('span');
+  txt.textContent = 'Marquer aussi le fichier d\'origine (PPTX ou DOCX, enregistré sous un nouveau nom, l\'original n\'est pas modifié). Pour un DOCX, la mention est ajoutée aux pieds de page existants.';
+  label.append(box, txt);
+  ui.options.appendChild(label);
+}
+
+async function graphDeleteItem(itemId) {
+  const res = await graphFetchRaw(`/sites/${spSiteId}/drives/${spDriveId}/items/${encodeURIComponent(itemId)}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) throw new Error(`suppression impossible (HTTP ${res.status})`);
+}
+
+// Non bloquant : renvoie { name } si le fichier d'origine marqué est conforme, { warning } sinon.
+// Le fichier marqué est contrôlé par reconversion en PDF (mention sur chaque page) ; s'il n'est
+// pas conforme, seul ce nouveau fichier est supprimé.
+async function onMarkedPdfSaved(ctx) {
+  const box = document.getElementById('validation-mark-original');
+  if (!box || !box.checked) return null;
+  const ext = CplValidationCore.extensionOf(ctx.file.name);
+  if (ext !== 'pptx' && ext !== 'docx') return { warning: 'le document validé est un PDF, il n\'y a pas de fichier d\'origine PPTX ou DOCX à marquer' };
+  if (typeof JSZip === 'undefined') return { warning: 'bibliothèque JSZip non chargée, marquage du fichier d\'origine non effectué' };
+  let uploaded = null;
+  try {
+    ctx.ui.step('Marquage du fichier d\'origine…');
+    const out = ext === 'pptx'
+      ? await CplValidationCore.markPptx(JSZip, ctx.source, ctx.label)
+      : await CplValidationCore.markDocx(JSZip, ctx.source, ctx.label);
+    uploaded = await uploadNoOverwrite(ctx.req.ref, CplValidationCore.markedOriginalName(ctx.file.name, ctx.req.ref), out);
+    ctx.ui.step('Contrôle du fichier d\'origine marqué…');
+    const pdf = await graphGetBytes(`/sites/${spSiteId}/drives/${spDriveId}/items/${encodeURIComponent(uploaded.id)}/content?format=pdf`, 'version PDF du fichier d\'origine marqué');
+    await CplValidationCore.verifyMarkedPdf(pdfjsLib, pdf, ctx.label, ctx.pageCount);
+    return { name: uploaded.name };
+  } catch (e) {
+    console.warn('Marquage du fichier d\'origine :', e);
+    if (uploaded) {
+      try { await graphDeleteItem(uploaded.id); }
+      catch (e2) { return { warning: `fichier marqué non conforme (${e.message}) et non supprimé : supprimez « ${uploaded.name} » manuellement ; le PDF marqué reste la version officielle` }; }
+    }
+    return { warning: `marquage non effectué (${e.message}) ; le PDF marqué reste la version officielle` };
+  }
+}
+
 async function runValidation(req, file, ui) {
   if (validationBusy || !ui || !file || !canValidateDocument(req) || selectedReq !== req) return;
   validationBusy = true;
@@ -2562,7 +2614,7 @@ async function runValidation(req, file, ui) {
     ui.step('Enregistrement du PDF marqué…');
     const hashMarked = await sha256HexBytes(marked.bytes);
     uploaded = await uploadNoOverwrite(req.ref, CplValidationCore.markedFileName(file.name, req.ref), marked.bytes);
-    if (typeof onMarkedPdfSaved === 'function') await onMarkedPdfSaved({ req, file, source, pdfBytes, label, ui, pageCount: srcTexts.length });
+    const original = typeof onMarkedPdfSaved === 'function' ? await onMarkedPdfSaved({ req, file, source, label, ui, pageCount: srcTexts.length }) : null;
     // 6. Statut Traité, historique et notification (une seule mise à jour avec les empreintes)
     ui.step('Passage au statut Traité…');
     await applyStatusChange('Traité', {
@@ -2574,6 +2626,8 @@ async function runValidation(req, file, ui) {
     });
     ui.close();
     showToast(`Document validé et marqué : ${escHtml(uploaded.name)}. Demande passée au statut Traité.`, 'success');
+    if (original && original.name) showToast(`Fichier d'origine marqué : ${escHtml(original.name)}.`, 'success');
+    if (original && original.warning) showToast(`Fichier d'origine : ${escHtml(original.warning)}.`, 'error');
     await loadRequests();
     openDetail(req.ref);
   } catch (e) {
