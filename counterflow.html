@@ -6,6 +6,7 @@
 <title>CounterFlow — Compliance Portal</title>
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="cpl-config.js"></script>
 <style>
 /* ── CounterFlow — styles spécifiques ───────────── */
 .page-content{max-width:none !important;padding:28px 32px 40px !important}
@@ -194,12 +195,7 @@ console.info(`CounterFlow — build ${CF_BUILD}`);
 // CounterFlow est ouvert à tous les collaborateurs authentifiés (lecture + écriture
 // sur les contreparties). CPL_EMAILS ne sert ici qu'à conditionner l'affichage du
 // bouton "Envoyer les relances KYC" et du crayon d'édition du lien signé.
-const CPL_EMAILS = [
-  'thomas.oliveira@eiffel-ig.com',
-  'cassandre.memet@eiffel-ig.com',
-  'manalle.ourrami@eiffel-ig.com',
-  'jessica.manukyan@eiffel-ig.com'
-];
+// Liste CPL_EMAILS et isCPLUser() : voir cpl-config.js.
 
 const SP = {
   hostname : 'eiffelinvestmentgroup.sharepoint.com',
@@ -313,7 +309,7 @@ async function loginWithAccount(account) {
 
 function setUser(u) {
   currentUser = u;
-  isCPL = CPL_EMAILS.map(e => e.toLowerCase()).includes(u.email.toLowerCase());
+  isCPL = isCPLUser(u.email);
   const ini = u.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = ini;
   document.getElementById('user-avatar').style.background = isCPL ? '#D18F41' : '#4B5563';

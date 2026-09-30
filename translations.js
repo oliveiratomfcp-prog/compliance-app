@@ -131,6 +131,77 @@ const TRANSLATIONS = {
     gift_label_sort_cadeau: "Sort du cadeau *",
     gift_opt_sort_cadeau: ["Conservé à titre personnel", "Partagé avec l'équipe", "Mis à disposition de l'ensemble des collaborateurs", "Utilisé dans le cadre professionnel", "Refusé", "Autre"],
     gift_label_sort_cadeau_precision: "Précisez le sort du cadeau *",
+
+    // PROFIL
+    nav_role_cpl: "Compliance",
+
+    // POSITIONS EN PORTEFEUILLE
+    col_fund: "Fonds",
+    tx_portfolio_restricted: "Ce titre est détenu en portefeuille par Eiffel Investment Group. Contactez la Compliance avant toute opération.",
+    pos_unavailable_banner: "Liste des positions en portefeuille indisponible, contactez la Compliance avant toute opération.",
+    pos_unavailable_detail: "Détail technique (visible Compliance) : {reason}",
+    pos_bulk_unavailable: "Positions en portefeuille non vérifiées : la liste est indisponible. Contactez la Compliance avant toute opération.",
+    pos_columns_warning: "Colonnes de la liste « positions portefeuilles » invalides ({detail}). Le dépôt est désactivé.",
+    pos_multi_depot: "Plusieurs dépôts de positions coexistent ({n} valeurs d'IdDepot) : un remplacement a probablement été interrompu. Relancez un dépôt complet.",
+    pos_card_title: "Positions en portefeuille",
+    pos_card_desc: "Déposez les fichiers Excel de positions des fonds. Ils remplacent la liste complète des titres en portefeuille affichée dans la Restricted List.",
+    pos_card_note: "Réservé à la Compliance",
+    pos_card_btn: "Déposer les positions",
+    pos_form_title: "Dépôt des positions en portefeuille",
+    pos_form_subtitle: "Les fichiers déposés ensemble constituent la nouvelle liste complète des positions",
+    pos_form_format: "Format attendu : première feuille, ligne 1 = en-têtes (ignorée), colonne A = nom du titre, colonne B = ISIN, colonne C = nom du fonds. Formats acceptés : .xlsx, .xls.",
+    pos_drop_text: "Glissez-déposez un ou plusieurs fichiers ici",
+    pos_select_btn: "Sélectionner des fichiers",
+    pos_loading: "Chargement de la liste des positions en cours...",
+    pos_err_site: "Site SharePoint CPLDashboard inaccessible : le dépôt est désactivé.",
+    pos_err_list: "Liste « positions portefeuilles » introuvable ou inaccessible : le dépôt est désactivé. Détail : {detail}",
+    pos_err_columns: "Colonnes invalides dans la liste « positions portefeuilles » : le dépôt est désactivé. Détail : {detail}",
+    pos_err_read: "Lecture de la liste actuelle des positions impossible : le dépôt est désactivé. Détail : {detail}",
+    pos_err_format: "Format non pris en charge (formats acceptés : .xlsx, .xls) : {files}",
+    pos_err_sheetjs: "La bibliothèque de lecture Excel (SheetJS) n'a pas pu être chargée. Rechargez la page.",
+    pos_err_file: "Lecture impossible du fichier {file} : {detail}",
+    pos_prev_title: "Aperçu avant dépôt",
+    pos_prev_total: "{n} ligne(s) au total",
+    pos_prev_current: "Liste actuelle : {n} ligne(s)",
+    pos_prev_by_file: "Lignes par fichier",
+    pos_prev_by_fund: "Lignes par fonds",
+    pos_prev_no_fund: "(fonds vide)",
+    pos_prev_rows: "Lignes à déposer",
+    pos_col_file: "Fichier",
+    pos_col_rows: "Lignes",
+    pos_col_name: "Nom du titre",
+    pos_col_isin: "ISIN",
+    pos_col_fund: "Fonds",
+    pos_col_count: "Nombre",
+    pos_col_line: "Origine",
+    pos_line_ref: "{file}, ligne {line}",
+    pos_field_nom: "nom du titre",
+    pos_field_isin: "ISIN",
+    pos_field_fonds: "fonds",
+    pos_block_title: "Dépôt impossible",
+    pos_block_empty: "Aucune ligne à déposer : le dépôt viderait toute la liste des positions.",
+    pos_block_toolong: "{n} cellule(s) dépassent {max} caractères (limite SharePoint) :",
+    pos_warn_title: "Avertissements (non bloquants)",
+    pos_warn_isin: "ISIN au format suspect : {n} ligne(s)",
+    pos_warn_dup: "Doublons (même nom, ISIN et fonds) : {n} groupe(s)",
+    pos_warn_noname: "Nom du titre vide : {n} ligne(s)",
+    pos_warn_nofund: "Fonds vide : {n} ligne(s)",
+    pos_diff_title: "Comparaison avec la liste actuelle",
+    pos_diff_added: "Positions ajoutées : {n}",
+    pos_diff_removed: "Positions retirées : {n}",
+    pos_confirm_reminder: "Cette opération remplace toutes les positions en portefeuille actuelles par les {n} ligne(s) ci-dessus. Les NDA et les informations privilégiées ne sont pas modifiées.",
+    pos_confirm_btn: "Confirmer le remplacement des positions",
+    pos_cancel_btn: "Annuler",
+    pos_busy_warning: "Opération en cours : ne fermez pas cette page.",
+    pos_progress_create: "Création des nouvelles lignes : {done} / {total}",
+    pos_progress_delete: "Suppression des anciennes lignes : {done} / {total}",
+    pos_progress_rollback: "Annulation des lignes partielles : {done} / {total}",
+    pos_result_ok: "Dépôt terminé : {created} ligne(s) créée(s), {deleted} ancienne(s) ligne(s) supprimée(s).",
+    pos_result_partial_delete: "Nouvelles positions créées ({created} ligne(s)), mais {failed} ancienne(s) ligne(s) n'ont pas pu être supprimées ({deleted} supprimée(s)). La Restricted List affiche les deux dépôts : relancez un dépôt complet.",
+    pos_result_failed: "Échec du dépôt : {detail} L'ancienne liste des positions est conservée.",
+    pos_result_rollback: "Lignes partielles supprimées : {rolledBack}.",
+    pos_result_rollback_incomplete: "Attention : le nettoyage des lignes partielles est incomplet ({failed} échec(s)). La Restricted List peut afficher des lignes en double : relancez un dépôt complet.",
+    pos_result_fatal: "Opération interrompue : {detail}. Vérifiez la Restricted List ; en cas d'avertissement « plusieurs dépôts », relancez un dépôt complet.",
   },
 
   en: {
@@ -260,6 +331,77 @@ const TRANSLATIONS = {
     gift_label_sort_cadeau: "Outcome of the gift *",
     gift_opt_sort_cadeau: ["Kept for personal use", "Shared with the team", "Made available to all employees", "Used for professional purposes", "Declined", "Other"],
     gift_label_sort_cadeau_precision: "Specify the outcome of the gift *",
+
+    // PROFILE
+    nav_role_cpl: "Compliance",
+
+    // PORTFOLIO POSITIONS
+    col_fund: "Fund",
+    tx_portfolio_restricted: "This security is held in an Eiffel Investment Group portfolio. Please contact Compliance before any transaction.",
+    pos_unavailable_banner: "Portfolio positions list unavailable, please contact Compliance before any transaction.",
+    pos_unavailable_detail: "Technical detail (visible to Compliance): {reason}",
+    pos_bulk_unavailable: "Portfolio positions not checked: the list is unavailable. Please contact Compliance before any transaction.",
+    pos_columns_warning: "Invalid columns in the \"positions portefeuilles\" list ({detail}). Upload is disabled.",
+    pos_multi_depot: "Several position uploads coexist ({n} IdDepot values): a replacement was probably interrupted. Run a full upload again.",
+    pos_card_title: "Portfolio positions",
+    pos_card_desc: "Upload the funds' Excel position files. They replace the full list of portfolio holdings shown in the Restricted List.",
+    pos_card_note: "Compliance only",
+    pos_card_btn: "Upload positions",
+    pos_form_title: "Portfolio positions upload",
+    pos_form_subtitle: "Files uploaded together form the new complete list of positions",
+    pos_form_format: "Expected format: first sheet, row 1 = headers (ignored), column A = security name, column B = ISIN, column C = fund name. Accepted formats: .xlsx, .xls.",
+    pos_drop_text: "Drag and drop one or more files here",
+    pos_select_btn: "Select files",
+    pos_loading: "Loading the positions list...",
+    pos_err_site: "SharePoint site CPLDashboard unreachable: upload is disabled.",
+    pos_err_list: "\"positions portefeuilles\" list not found or unreachable: upload is disabled. Detail: {detail}",
+    pos_err_columns: "Invalid columns in the \"positions portefeuilles\" list: upload is disabled. Detail: {detail}",
+    pos_err_read: "Unable to read the current positions list: upload is disabled. Detail: {detail}",
+    pos_err_format: "Unsupported format (accepted formats: .xlsx, .xls): {files}",
+    pos_err_sheetjs: "The Excel reading library (SheetJS) could not be loaded. Please reload the page.",
+    pos_err_file: "Unable to read file {file}: {detail}",
+    pos_prev_title: "Preview before upload",
+    pos_prev_total: "{n} row(s) in total",
+    pos_prev_current: "Current list: {n} row(s)",
+    pos_prev_by_file: "Rows per file",
+    pos_prev_by_fund: "Rows per fund",
+    pos_prev_no_fund: "(empty fund)",
+    pos_prev_rows: "Rows to upload",
+    pos_col_file: "File",
+    pos_col_rows: "Rows",
+    pos_col_name: "Security name",
+    pos_col_isin: "ISIN",
+    pos_col_fund: "Fund",
+    pos_col_count: "Count",
+    pos_col_line: "Source",
+    pos_line_ref: "{file}, row {line}",
+    pos_field_nom: "security name",
+    pos_field_isin: "ISIN",
+    pos_field_fonds: "fund",
+    pos_block_title: "Upload not possible",
+    pos_block_empty: "No rows to upload: the upload would empty the whole positions list.",
+    pos_block_toolong: "{n} cell(s) exceed {max} characters (SharePoint limit):",
+    pos_warn_title: "Warnings (non-blocking)",
+    pos_warn_isin: "ISIN with a suspicious format: {n} row(s)",
+    pos_warn_dup: "Duplicates (same name, ISIN and fund): {n} group(s)",
+    pos_warn_noname: "Empty security name: {n} row(s)",
+    pos_warn_nofund: "Empty fund: {n} row(s)",
+    pos_diff_title: "Comparison with the current list",
+    pos_diff_added: "Added positions: {n}",
+    pos_diff_removed: "Removed positions: {n}",
+    pos_confirm_reminder: "This operation replaces all current portfolio positions with the {n} row(s) above. NDA and privileged information entries are not modified.",
+    pos_confirm_btn: "Confirm replacement of positions",
+    pos_cancel_btn: "Cancel",
+    pos_busy_warning: "Operation in progress: do not close this page.",
+    pos_progress_create: "Creating new rows: {done} / {total}",
+    pos_progress_delete: "Deleting old rows: {done} / {total}",
+    pos_progress_rollback: "Removing partial rows: {done} / {total}",
+    pos_result_ok: "Upload complete: {created} row(s) created, {deleted} old row(s) deleted.",
+    pos_result_partial_delete: "New positions created ({created} row(s)), but {failed} old row(s) could not be deleted ({deleted} deleted). The Restricted List shows both uploads: run a full upload again.",
+    pos_result_failed: "Upload failed: {detail} The previous positions list is kept.",
+    pos_result_rollback: "Partial rows removed: {rolledBack}.",
+    pos_result_rollback_incomplete: "Warning: the cleanup of partial rows is incomplete ({failed} failure(s)). The Restricted List may show duplicate rows: run a full upload again.",
+    pos_result_fatal: "Operation interrupted: {detail}. Check the Restricted List; if a \"several uploads\" warning appears, run a full upload again.",
   }
 };
 
@@ -279,7 +421,8 @@ function applyTranslations() {
   setText("nav-restricted-el", t("nav_restricted"));
   setText("nav-declare-el", t("nav_declare"));
   setText("nav-history-el", t("nav_history"));
-  setText("nav-role-el", t("nav_role"));
+  const isCplProfile = typeof isCurrentUserCPL === "function" && isCurrentUserCPL();
+  setText("nav-role-el", t(isCplProfile ? "nav_role_cpl" : "nav_role"));
 
   // Login
   setText("login-title-el", t("login_title"));
@@ -298,6 +441,7 @@ function applyTranslations() {
   setText("col-company-el", t("col_company"));
   setText("col-isin-el", t("col_isin"));
   setText("col-type-el", t("col_type"));
+  setText("col-fund-el", t("col_fund"));
   setText("col-team-el", t("col_team"));
   setText("col-start-el", t("col_start"));
   setText("col-end-el", t("col_end"));
@@ -390,6 +534,9 @@ function applyTranslations() {
 
   // html lang attribute
   document.documentElement.lang = currentLang;
+
+  // Textes dynamiques de la page (positions en portefeuille, bandeaux)
+  if (typeof onLanguageChanged === "function") onLanguageChanged();
 }
 
 // Helpers

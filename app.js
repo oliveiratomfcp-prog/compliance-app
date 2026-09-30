@@ -15,7 +15,8 @@ const CONFIG = {
   sharepointHistory: {
     sitePath: "/sites/CPLDashboard",
     listHistory: "Historique Compliance",
-    listGifts: "Registre cadeaux"
+    listGifts: "Registre cadeaux",
+    listPositions: "positions portefeuilles"
   }
 };
 
@@ -26,6 +27,10 @@ let currentUser = null;
 let siteId = null;
 let siteIdHistory = null;
 let allRestrictedItems = [];
+let isCPL = false;
+
+// Utilisé par translations.js pour conserver le libellé "Compliance" après changement de langue
+function isCurrentUserCPL() { return isCPL; }
 
 async function init() {
   try {
@@ -66,6 +71,9 @@ async function onLoggedIn() {
   document.getElementById("user-name").textContent = fullName;
   const initials = fullName.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
   document.getElementById("user-avatar").textContent = initials;
+  isCPL = isCPLUser(currentUser.mail) || isCPLUser(currentUser.userPrincipalName);
+  updateRoleLabel();
+  if (isCPL) insertPositionsDepositUI();
 
   try {
     const site = await callGraphAPI(`/sites/${CONFIG.sharepoint.siteHostname}:${CONFIG.sharepoint.sitePath}`);
@@ -125,6 +133,10 @@ async function loadRestrictedList() {
   hideElement("restricted-table-container");
   hideElement("restricted-error");
 
+  // Positions en portefeuille : chargement séparé qui ne rejette jamais, pour ne
+  // jamais empêcher l'affichage des NDA et informations privilégiées.
+  const positionsPromise = loadPortfolioPositionsSafe();
+
   try {
     const [ndaRaw, infoPrivRaw] = await Promise.all([
       getAllListItems(siteId, CONFIG.sharepoint.listNDA),
@@ -160,7 +172,10 @@ async function loadRestrictedList() {
       };
     }).filter(item => !isExpired(item.dateFin));
 
-    allRestrictedItems = [...ndaItems, ...infoPrivItems];
+    const positions = await positionsPromise;
+    applyPositionsState(positions);
+
+    allRestrictedItems = [...ndaItems, ...infoPrivItems, ...positions.items];
     hideElement("restricted-loading");
     renderRestrictedTable(allRestrictedItems);
     showElement("restricted-table-container");
@@ -179,28 +194,32 @@ function renderRestrictedTable(items) {
   tbody.innerHTML = "";
 
   if (items.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;color:#9aaaba;padding:32px">Aucun r\u00e9sultat</td></tr>`;
     return;
   }
 
+  const esc = PositionsCore.escapeHtml;
   const fragment = document.createDocumentFragment();
   items.forEach(item => {
-    const badgeClass = item.source === "NDA List" ? "badge-nda" : "badge-restricted";
+    const badgeClass = item.source === "NDA List" ? "badge-nda"
+      : item.source === PositionsCore.POSITION_SOURCE ? "badge-portefeuille"
+      : "badge-restricted";
     const dateFin = item.dateFin;
-    const type = item.type;
-    const isNDA = type?.toLowerCase().includes("nda") || type === "NDA";
-    const isFutureEnd = !isNDA && dateFin && dateFin !== "\u2014" && new Date(dateFin) > new Date();
+    // "En cours" : uniquement pour les informations privil\u00e9gi\u00e9es dont la date de fin est future
+    const isFutureEnd = item.source === "Info Priv" && dateFin && dateFin !== "\u2014" && new Date(dateFin) > new Date();
     const dateFinCell = isFutureEnd
       ? `<span class="pill-live"><span class="live-dot"></span>En cours</span>`
-      : formatDate(dateFin);
+      : esc(formatDate(dateFin));
+    const fonds = item.fonds && item.fonds !== "\u2014" ? item.fonds : "\u2014";
     const tr = document.createElement("tr");
     tr.innerHTML = `
-      <td><strong>${item.nom}</strong></td>
-      <td style="font-family:monospace;font-size:13px">${item.isin}</td>
-      <td><span class="badge ${badgeClass}">${item.type}</span></td>
-      <td>${item.equipe && item.equipe !== "\u2014" ? `<span class="badge badge-active">${item.equipe}</span>` : "\u2014"}</td>
-      <td>${item.signataire !== "\u2014" ? item.signataire : "\u2014"}</td>
-      <td>${formatDate(item.dateDebut)}</td>
+      <td><strong>${esc(item.nom)}</strong></td>
+      <td style="font-family:monospace;font-size:13px">${esc(item.isin)}</td>
+      <td><span class="badge ${badgeClass}">${esc(item.type)}</span></td>
+      <td>${esc(fonds)}</td>
+      <td>${item.equipe && item.equipe !== "\u2014" ? `<span class="badge badge-active">${esc(item.equipe)}</span>` : "\u2014"}</td>
+      <td>${item.signataire !== "\u2014" ? esc(item.signataire) : "\u2014"}</td>
+      <td>${esc(formatDate(item.dateDebut))}</td>
       <td>${dateFinCell}</td>`;
     fragment.appendChild(tr);
   });
@@ -208,6 +227,7 @@ function renderRestrictedTable(items) {
 }
 
 let currentSort = { col: null, dir: 1 };
+const RESTRICTED_SORT_COLUMNS = ["nom", "isin", "type", "fonds", "equipe", "signataire", "dateDebut", "dateFin"];
 
 function sortTable(col) {
   if (currentSort.col === col) {
@@ -217,7 +237,7 @@ function sortTable(col) {
     currentSort.dir = 1;
   }
 
-  ["nom", "isin", "type", "equipe", "signataire", "dateDebut", "dateFin"].forEach(c => {
+  RESTRICTED_SORT_COLUMNS.forEach(c => {
     const el = document.getElementById(`sort-${c}`);
     const th = el ? el.parentElement : null;
     if (el) el.textContent = "\u2195";
@@ -231,14 +251,16 @@ function sortTable(col) {
 
   const query = document.getElementById("search-restricted").value.toLowerCase().trim();
   let items = query
-    ? allRestrictedItems.filter(item =>
-        item.nom.toLowerCase().includes(query) ||
-        item.isin.trim().toLowerCase().includes(query))
+    ? allRestrictedItems.filter(item => PositionsCore.matchesSearch(item, query))
     : [...allRestrictedItems];
 
   items.sort((a, b) => {
     let valA = a[col] || "";
     let valB = b[col] || "";
+    if (col === "fonds") {
+      valA = valA === "—" ? "" : valA;
+      valB = valB === "—" ? "" : valB;
+    }
     if (col === "dateDebut" || col === "dateFin") {
       valA = valA ? new Date(valA).getTime() : 0;
       valB = valB ? new Date(valB).getTime() : 0;
@@ -257,14 +279,12 @@ document.getElementById("search-restricted").addEventListener("input", function 
   const query = this.value.toLowerCase().trim();
   searchTimeout = setTimeout(() => {
     currentSort = { col: null, dir: 1 };
-    ["nom", "isin", "type", "equipe", "signataire", "dateDebut", "dateFin"].forEach(c => {
+    RESTRICTED_SORT_COLUMNS.forEach(c => {
       const el = document.getElementById(`sort-${c}`);
       if (el) { el.textContent = "\u2195"; el.parentElement.classList.remove("sort-asc", "sort-desc"); }
     });
     const filtered = query
-      ? allRestrictedItems.filter(item =>
-          item.nom.toLowerCase().includes(query) ||
-          item.isin.trim().toLowerCase().includes(query))
+      ? allRestrictedItems.filter(item => PositionsCore.matchesSearch(item, query))
       : allRestrictedItems;
     renderRestrictedTable(filtered);
   }, 200);
@@ -280,14 +300,15 @@ document.getElementById("search-history").addEventListener("input", function () 
 document.getElementById("btn-export-excel").addEventListener("click", () => {
   const query = document.getElementById("search-restricted").value.toLowerCase().trim();
   const items = query
-    ? allRestrictedItems.filter(i => i.nom.toLowerCase().includes(query) || i.isin.trim().toLowerCase().includes(query))
+    ? allRestrictedItems.filter(i => PositionsCore.matchesSearch(i, query))
     : allRestrictedItems;
 
   const bom = "\uFEFF";
-  const headers = ["Soci\u00e9t\u00e9 / Titre", "Code ISIN", "Type de restriction", "\u00c9quipe", "Date de d\u00e9but", "Date de fin"];
+  const csvCell = v => `"${String(v === undefined || v === null ? "" : v).replace(/"/g, '""')}"`;
+  const headers = ["Soci\u00e9t\u00e9 / Titre", "Code ISIN", "Type de restriction", "Fonds", "\u00c9quipe", "Date de d\u00e9but", "Date de fin"];
   const rows = items.map(item => [
-    `"${item.nom}"`, `"${item.isin}"`, `"${item.type}"`,
-    `"${item.equipe || ""}"`, `"${formatDate(item.dateDebut)}"`, `"${formatDate(item.dateFin)}"`
+    csvCell(item.nom), csvCell(item.isin), csvCell(item.type), csvCell(item.fonds || "\u2014"),
+    csvCell(item.equipe || ""), csvCell(formatDate(item.dateDebut)), csvCell(formatDate(item.dateFin))
   ].join(";"));
 
   const csv = bom + headers.join(";") + "\n" + rows.join("\n");
@@ -326,13 +347,16 @@ document.getElementById("btn-bulk-run").addEventListener("click", () => {
   let clean = 0;
   const resultData = [];
 
+  lastBulkPositionsUnavailable = positionsUnavailable();
+  if (lastBulkPositionsUnavailable) {
+    const warn = document.createElement("div");
+    warn.className = "positions-banner";
+    warn.textContent = t("pos_bulk_unavailable");
+    resultsEl.appendChild(warn);
+  }
+
   entries.forEach(entry => {
-    const entryClean = entry.trim().toLowerCase();
-    const matches = allRestrictedItems.filter(item =>
-      item.nom.toLowerCase().includes(entryClean) ||
-      item.isin.trim().toLowerCase().includes(entryClean) ||
-      entryClean.includes(item.isin.trim().toLowerCase())
-    );
+    const matches = allRestrictedItems.filter(item => PositionsCore.matchesBulkEntry(item, entry));
     const isRestricted = matches.length > 0;
     if (isRestricted) restricted++; else clean++;
     resultData.push({ entry, isRestricted, matches });
@@ -344,7 +368,7 @@ document.getElementById("btn-bulk-run").addEventListener("click", () => {
       <div style="flex:1">
         <strong>${entry}</strong>
         ${isRestricted
-          ? `<span style="margin-left:8px;font-size:12px;color:#c53030">Restreint \u2014 ${matches.map(m => m.type).join(", ")}</span>`
+          ? `<span style="margin-left:8px;font-size:12px;color:#c53030">Restreint \u2014 ${PositionsCore.escapeHtml(PositionsCore.describeMatchTypes(matches))}</span>`
           : `<span style="margin-left:8px;font-size:12px;color:var(--success)">Non restreint</span>`}
       </div>`;
     resultsEl.appendChild(div);
@@ -409,6 +433,10 @@ function generateBulkPDF(resultData) {
   doc.text("R\u00e9sum\u00e9 :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50);
   doc.text(`${resultData.length} titre(s) \u2014 ${restr} restreint(s), ${resultData.length - restr} autoris\u00e9(s)`, 80, y); y += 14;
 
+  if (lastBulkPositionsUnavailable) {
+    y = addPositionsUnavailablePdfNotice(doc, y);
+  }
+
   doc.setDrawColor(200,200,200); doc.line(20, y, 190, y); y += 10;
   doc.setFontSize(11); doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
   doc.text("D\u00c9TAIL", 20, y); y += 10;
@@ -416,13 +444,16 @@ function generateBulkPDF(resultData) {
   resultData.forEach(r => {
     if (y > 265) { doc.addPage(); y = 20; }
     if (r.isRestricted) {
-      doc.setFillColor(253, 232, 232); doc.rect(20, y-4, 170, 16, "F");
-      doc.setDrawColor(245,198,198); doc.rect(20, y-4, 170, 16);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      const detailLines = doc.splitTextToSize(`Restreint \u2014 ${PositionsCore.describeMatchTypes(r.matches)}`, 160);
+      const boxH = 12 + detailLines.length * 4;
+      doc.setFillColor(253, 232, 232); doc.rect(20, y-4, 170, boxH, "F");
+      doc.setDrawColor(245,198,198); doc.rect(20, y-4, 170, boxH);
       doc.setFont("helvetica", "bold"); doc.setTextColor(197,48,48); doc.setFontSize(10);
       doc.text(`\u26a0 ${r.entry}`, 25, y+4);
       doc.setFont("helvetica", "normal"); doc.setFontSize(9);
-      doc.text(`Restreint \u2014 ${r.matches.map(m => m.type).join(", ")}`, 25, y+11);
-      y += 20;
+      doc.text(detailLines, 25, y+11);
+      y += boxH + 4;
     } else {
       doc.setFillColor(232,244,244); doc.rect(20, y-4, 170, 12, "F");
       doc.setFont("helvetica", "normal"); doc.setTextColor(0,102,96); doc.setFontSize(10);
@@ -450,7 +481,7 @@ document.getElementById("btn-generate-restricted-pdf").addEventListener("click",
   generateRestrictedPDF(query);
 });
 
-function generateRestrictedPDF(query) {
+function generateRestrictedPDF(query, opts = {}) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
   const now = new Date();
@@ -460,9 +491,7 @@ function generateRestrictedPDF(query) {
 
   // Cherche si le titre est dans la restricted list
   const found = query
-    ? allRestrictedItems.filter(item =>
-        item.nom.toLowerCase().includes(query.toLowerCase()) ||
-        item.isin.trim().toLowerCase().includes(query.toLowerCase()))
+    ? allRestrictedItems.filter(item => PositionsCore.matchesSecurity(item, query))
     : [];
 
   const isFound = found.length > 0;
@@ -539,11 +568,16 @@ function generateRestrictedPDF(query) {
     y += 8;
 
     found.forEach(item => {
+      if (y > 262) { doc.addPage(); y = 20; }
       doc.setFont("helvetica", "normal");
       doc.setTextColor(50, 50, 50);
       doc.setFontSize(10);
       doc.text(`\u2022 ${item.nom}${item.isin !== "\u2014" ? ` (ISIN: ${item.isin})` : ""} \u2014 ${item.type}`, 24, y);
-      doc.text(`  Date de fin : ${formatDate(item.dateFin)}`, 24, y + 6);
+      if (PositionsCore.isPositionItem(item)) {
+        doc.text(`  Fonds : ${item.fonds || "\u2014"}`, 24, y + 6);
+      } else {
+        doc.text(`  Date de fin : ${formatDate(item.dateFin)}`, 24, y + 6);
+      }
       y += 14;
     });
   } else {
@@ -562,6 +596,12 @@ function generateRestrictedPDF(query) {
     y += 30;
   }
 
+  if (!opts.fromHistory && positionsUnavailable()) {
+    if (y > 230) { doc.addPage(); y = 20; }
+    y = addPositionsUnavailablePdfNotice(doc, y);
+  }
+
+  if (y > 220) { doc.addPage(); y = 20; }
   y += 6;
   doc.setFillColor(248, 249, 250);
   doc.rect(20, y - 4, 170, 30, "F");
@@ -611,14 +651,14 @@ document.getElementById("btn-submit-declaration").addEventListener("click", () =
   }
 
   // Vérifie si le titre est dans la restricted list
-  const restricted = allRestrictedItems.filter(item =>
-    item.nom.toLowerCase().includes(titre.toLowerCase()) ||
-    item.isin.trim().toLowerCase().includes(titre.toLowerCase())
-  );
+  const restricted = allRestrictedItems.filter(item => PositionsCore.matchesSecurity(item, titre));
 
   if (restricted.length > 0) {
+    const onlyPositions = restricted.every(item => PositionsCore.isPositionItem(item));
     showFormMessage(
-      `\u26a0 "${titre}" figure sur la Restricted List \u2014 cette transaction ne peut pas \u00eatre demand\u00e9e. Contactez le service Compliance.`,
+      onlyPositions
+        ? `\u26a0 ${t("tx_portfolio_restricted")}`
+        : `\u26a0 "${titre}" figure sur la Restricted List \u2014 cette transaction ne peut pas \u00eatre demand\u00e9e. Contactez le service Compliance.`,
       "error"
     );
     return;
@@ -1300,8 +1340,584 @@ function generateRestrictedPDFFromHistory(item) {
   // Restaure temporairement les données pour regénérer le PDF
   const savedItems = allRestrictedItems;
   if (item.foundItems) allRestrictedItems = item.foundItems;
-  generateRestrictedPDF(item.titre);
+  generateRestrictedPDF(item.titre, { fromHistory: true });
   allRestrictedItems = savedItems;
+}
+
+// -----------------------------------------------
+// POSITIONS EN PORTEFEUILLE
+// -----------------------------------------------
+// Troisième source de la Restricted List (liste "positions portefeuilles" sur
+// CPLDashboard). La logique testable (parsing, aperçu, garde de suppression,
+// remplacement) est dans positions-core.js ; ce bloc ne gère que Graph et le DOM.
+
+const POSITIONS_LOAD_TIMEOUT_MS = 30000;
+const POSITIONS_REQUIRED_COLUMNS = ["Title", "ISIN", "Fonds", "IdDepot"];
+const POSITIONS_TEXT_COLUMNS = ["ISIN", "Fonds", "IdDepot"];
+
+let positionsTarget = null;        // cible figée, résolue une seule fois (PositionsCore.makePositionsTarget)
+let positionsTargetError = null;   // message si la liste n'a pas pu être résolue
+let positionsColumnsOk = false;
+let positionsColumnsError = null;
+let positionsState = { status: "loading", reason: "", items: [], rawItems: [], idDepots: [] };
+let lastBulkPositionsUnavailable = false;
+let positionsPreview = null;
+let positionsDepositBusy = false;
+
+function positionsUnavailable() { return positionsState.status === "unavailable"; }
+
+// Remplace les {cle} d'un texte traduit
+function tf(key, vars = {}) {
+  return String(t(key)).replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? String(vars[k]) : m));
+}
+
+// Jeton sans redirection : une redirection en pleine opération de dépôt serait dangereuse
+async function acquireGraphTokenNoRedirect() {
+  const res = await msalInstance.acquireTokenSilent({ ...graphScopes, account: msalInstance.getActiveAccount() });
+  return res.accessToken;
+}
+
+async function graphGetNoRedirect(endpoint) {
+  const token = await acquireGraphTokenNoRedirect();
+  const response = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, {
+    headers: { "Authorization": `Bearer ${token}` }
+  });
+  if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error?.message || `Erreur API: ${response.status}`); }
+  return response.json();
+}
+
+async function graphGetAllPages(endpoint) {
+  let items = [];
+  let url = endpoint;
+  while (url) {
+    const data = await graphGetNoRedirect(url);
+    items = items.concat(data.value || []);
+    url = data["@odata.nextLink"]
+      ? data["@odata.nextLink"].replace("https://graph.microsoft.com/v1.0", "")
+      : null;
+  }
+  return items;
+}
+
+// Résout une seule fois l'identifiant de la liste par son nom d'affichage exact
+async function resolvePositionsTarget() {
+  if (positionsTarget) return positionsTarget;
+  if (!siteIdHistory) throw new Error("Site SharePoint CPLDashboard inaccessible.");
+  const name = CONFIG.sharepointHistory.listPositions;
+  const lists = await graphGetAllPages(`/sites/${siteIdHistory}/lists?$select=id,displayName`);
+  const matches = lists.filter(l => l.displayName === name);
+  if (matches.length === 0) throw new Error(`Liste "${name}" introuvable sur CPLDashboard.`);
+  if (matches.length > 1) throw new Error(`Plusieurs listes nommées "${name}" sur CPLDashboard.`);
+  const protectedNames = [
+    CONFIG.sharepoint.listNDA, CONFIG.sharepoint.listInfoPriv,
+    CONFIG.sharepointHistory.listHistory, CONFIG.sharepointHistory.listGifts
+  ];
+  positionsTarget = PositionsCore.makePositionsTarget({
+    siteId: siteIdHistory,
+    listId: matches[0].id,
+    displayName: matches[0].displayName,
+    forbiddenSiteIds: [siteId],
+    forbiddenListIds: lists.filter(l => protectedNames.includes(l.displayName)).map(l => l.id)
+  });
+  return positionsTarget;
+}
+
+// Vérifie les noms internes des colonnes (et leur type texte) avant d'autoriser le dépôt
+async function checkPositionsColumns(target) {
+  try {
+    const cols = await graphGetAllPages(`/sites/${target.siteId}/lists/${target.listId}/columns`);
+    const byName = new Map(cols.map(c => [c.name, c]));
+    const missing = POSITIONS_REQUIRED_COLUMNS.filter(n => !byName.has(n));
+    const notText = POSITIONS_TEXT_COLUMNS.filter(n => byName.has(n) && !byName.get(n).text);
+    const problems = [];
+    if (missing.length) problems.push(`colonnes absentes : ${missing.join(", ")}`);
+    if (notText.length) problems.push(`colonnes qui ne sont pas de type texte : ${notText.join(", ")}`);
+    positionsColumnsOk = problems.length === 0;
+    positionsColumnsError = problems.length ? problems.join(" ; ") : null;
+  } catch (err) {
+    positionsColumnsOk = false;
+    positionsColumnsError = `lecture des colonnes impossible (${err.message})`;
+  }
+}
+
+async function listPositionItems(target) {
+  const expand = positionsColumnsOk ? "fields($select=Title,ISIN,Fonds,IdDepot)" : "fields";
+  return graphGetAllPages(`/sites/${target.siteId}/lists/${target.listId}/items?$expand=${expand}&$top=500`);
+}
+
+function withTimeout(promise, ms, message) {
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+// Ne rejette jamais : renvoie un état "ok" ou "unavailable"
+async function loadPortfolioPositionsSafe() {
+  try {
+    const raw = await withTimeout((async () => {
+      if (!siteIdHistory) throw new Error("Site SharePoint CPLDashboard inaccessible.");
+      let target;
+      try {
+        target = await resolvePositionsTarget();
+        positionsTargetError = null;
+      } catch (err) {
+        positionsTargetError = err.message;
+        throw err;
+      }
+      if (!positionsColumnsOk) await checkPositionsColumns(target);
+      return listPositionItems(target);
+    })(), POSITIONS_LOAD_TIMEOUT_MS, "Délai de chargement dépassé (30 s).");
+    return {
+      status: "ok",
+      reason: "",
+      rawItems: raw,
+      items: raw.map(PositionsCore.positionToRestrictedItem),
+      idDepots: PositionsCore.distinctIdDepots(raw)
+    };
+  } catch (err) {
+    console.error("Erreur chargement positions en portefeuille:", err);
+    return { status: "unavailable", reason: err && err.message ? err.message : String(err), rawItems: [], items: [], idDepots: [] };
+  }
+}
+
+function applyPositionsState(state) {
+  positionsState = state;
+  renderPositionsBanners();
+  refreshPositionsPanelStatus();
+}
+
+// Bandeau neutre pour tous si les positions sont indisponibles ; détails techniques
+// et avertissements (colonnes, dépôts multiples) réservés à la Compliance.
+function renderPositionsBanners() {
+  const banner = document.getElementById("positions-banner");
+  const cplWarn = document.getElementById("positions-cpl-warning");
+  const txBanner = document.getElementById("positions-tx-banner");
+
+  if (banner) {
+    banner.textContent = "";
+    if (positionsUnavailable()) {
+      const main = document.createElement("div");
+      main.textContent = t("pos_unavailable_banner");
+      banner.appendChild(main);
+      if (isCPL && positionsState.reason) {
+        const detail = document.createElement("div");
+        detail.className = "positions-banner-detail";
+        detail.textContent = tf("pos_unavailable_detail", { reason: positionsState.reason });
+        banner.appendChild(detail);
+      }
+      banner.classList.remove("hidden");
+    } else {
+      banner.classList.add("hidden");
+    }
+  }
+
+  if (txBanner) {
+    txBanner.textContent = t("pos_unavailable_banner");
+    txBanner.classList.toggle("hidden", !positionsUnavailable());
+  }
+
+  if (cplWarn) {
+    cplWarn.textContent = "";
+    const lines = [];
+    if (isCPL && positionsState.status === "ok") {
+      if (positionsColumnsError) lines.push(tf("pos_columns_warning", { detail: positionsColumnsError }));
+      if (positionsState.idDepots.length > 1) lines.push(tf("pos_multi_depot", { n: positionsState.idDepots.length }));
+    }
+    lines.forEach(text => {
+      const div = document.createElement("div");
+      div.textContent = text;
+      cplWarn.appendChild(div);
+    });
+    cplWarn.classList.toggle("hidden", lines.length === 0);
+  }
+}
+
+// Encadré ajouté aux PDF (attestation, vérification en masse) si les positions n'ont pas pu être vérifiées
+function addPositionsUnavailablePdfNotice(doc, y) {
+  doc.setFillColor(255, 243, 220);
+  doc.rect(20, y - 4, 170, 20, "F");
+  doc.setDrawColor(209, 143, 65);
+  doc.setLineWidth(0.6);
+  doc.rect(20, y - 4, 170, 20);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(133, 79, 11);
+  doc.text("POSITIONS EN PORTEFEUILLE NON VÉRIFIÉES", 28, y + 3);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.text("Liste des positions en portefeuille indisponible, contactez la Compliance avant toute opération.", 28, y + 10);
+  return y + 24;
+}
+
+function updateRoleLabel() {
+  const el = document.getElementById("nav-role-el");
+  if (el) el.textContent = t(isCPL ? "nav_role_cpl" : "nav_role");
+}
+
+// Appelé par translations.js après chaque changement de langue
+function onLanguageChanged() {
+  updateRoleLabel();
+  setPositionsStaticTexts();
+  renderPositionsBanners();
+  refreshPositionsPanelStatus();
+  if (positionsPreview && !positionsDepositBusy) renderPositionsPreview(positionsPreview);
+}
+
+// ---- Interface de dépôt (profils Compliance uniquement) ----
+
+const POSITIONS_ICON = `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>`;
+const UPLOAD_ICON = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`;
+
+// La carte et son panneau ne sont insérés dans le DOM que pour les profils Compliance
+function insertPositionsDepositUI() {
+  if (!isCPL || document.getElementById("positions-card")) return;
+  const grid = document.querySelector("#tab-declaration .declare-grid");
+  const giftForm = document.getElementById("gift-form-container");
+  if (!grid || !giftForm) return;
+
+  const card = document.createElement("div");
+  card.className = "declare-card declare-card-clickable";
+  card.id = "positions-card";
+  card.innerHTML = `
+    <div class="declare-card-icon" style="background:rgba(21,128,61,0.1);color:#15803d">${POSITIONS_ICON}</div>
+    <span class="declare-card-badge badge badge-portefeuille">${PositionsCore.escapeHtml(PositionsCore.POSITION_TYPE)}</span>
+    <h3 class="declare-card-title" id="pos-card-title-el"></h3>
+    <p class="declare-card-desc" id="pos-card-desc-el"></p>
+    <p class="declare-card-note" id="pos-card-note-el"></p>
+    <div class="btn-form-open" style="margin-top:auto;background:#15803d">${UPLOAD_ICON}<span id="pos-card-btn-el"></span></div>`;
+  card.addEventListener("click", togglePositionsForm);
+  grid.appendChild(card);
+
+  const panel = document.createElement("div");
+  panel.id = "positions-form-container";
+  panel.className = "hidden";
+  panel.style.marginTop = "20px";
+  panel.innerHTML = `
+    <div class="form-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+        <div>
+          <h3 style="font-size:16px;font-weight:700;color:var(--navy)" id="pos-form-title-el"></h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-top:3px" id="pos-form-subtitle-el"></p>
+        </div>
+        <button id="pos-form-close" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:22px;line-height:1">✕</button>
+      </div>
+      <div class="declare-alert" style="margin-bottom:14px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        <span id="pos-form-format-el"></span>
+      </div>
+      <div id="pos-config-msg" class="form-message error hidden" style="margin-bottom:14px"></div>
+      <div id="pos-dropzone" class="positions-dropzone">
+        <p id="pos-drop-text-el"></p>
+        <button type="button" id="pos-select-btn" class="btn-secondary">${UPLOAD_ICON}<span id="pos-select-btn-el"></span></button>
+        <input type="file" id="pos-file-input" accept=".xlsx,.xls" multiple hidden />
+      </div>
+      <div id="pos-file-error" class="form-message error hidden" style="margin-top:14px"></div>
+      <div id="pos-preview" class="hidden" style="margin-top:20px"></div>
+      <div id="pos-progress" class="hidden" style="margin-top:20px">
+        <p class="positions-busy-warning" id="pos-busy-el"></p>
+        <div class="positions-progress-bar"><div class="positions-progress-fill" id="pos-progress-fill"></div></div>
+        <p class="positions-progress-text" id="pos-progress-text"></p>
+      </div>
+      <div id="pos-result" class="hidden" style="margin-top:20px"></div>
+    </div>`;
+  giftForm.parentNode.insertBefore(panel, giftForm);
+
+  document.getElementById("pos-form-close").addEventListener("click", togglePositionsForm);
+  const input = document.getElementById("pos-file-input");
+  document.getElementById("pos-select-btn").addEventListener("click", () => { if (!input.disabled) input.click(); });
+  input.addEventListener("change", () => {
+    const files = [...input.files];
+    input.value = "";
+    handlePositionsFiles(files);
+  });
+  const zone = document.getElementById("pos-dropzone");
+  zone.addEventListener("dragover", e => { e.preventDefault(); if (!zone.classList.contains("disabled")) zone.classList.add("dragover"); });
+  zone.addEventListener("dragleave", () => zone.classList.remove("dragover"));
+  zone.addEventListener("drop", e => {
+    e.preventDefault();
+    zone.classList.remove("dragover");
+    if (zone.classList.contains("disabled")) return;
+    handlePositionsFiles([...(e.dataTransfer?.files || [])]);
+  });
+
+  setPositionsStaticTexts();
+  refreshPositionsPanelStatus();
+}
+
+function setPositionsStaticTexts() {
+  setText("pos-card-title-el", t("pos_card_title"));
+  setText("pos-card-desc-el", t("pos_card_desc"));
+  setText("pos-card-note-el", t("pos_card_note"));
+  setText("pos-card-btn-el", t("pos_card_btn"));
+  setText("pos-form-title-el", t("pos_form_title"));
+  setText("pos-form-subtitle-el", t("pos_form_subtitle"));
+  setText("pos-form-format-el", t("pos_form_format"));
+  setText("pos-drop-text-el", t("pos_drop_text"));
+  setText("pos-select-btn-el", t("pos_select_btn"));
+  setText("pos-busy-el", t("pos_busy_warning"));
+}
+
+function togglePositionsForm() {
+  const container = document.getElementById("positions-form-container");
+  if (!container) return;
+  const isHidden = container.classList.contains("hidden");
+  if (isHidden) {
+    container.classList.remove("hidden");
+    container.scrollIntoView({ behavior: "smooth", block: "start" });
+  } else if (!positionsDepositBusy) {
+    container.classList.add("hidden");
+  }
+}
+
+// Raison pour laquelle le dépôt est désactivé (null si le dépôt est possible)
+function positionsDepositBlockedReason() {
+  if (!siteIdHistory) return t("pos_err_site");
+  if (positionsState.status === "loading") return t("pos_loading");
+  if (!positionsTarget) return tf("pos_err_list", { detail: positionsTargetError || positionsState.reason || "" });
+  if (!positionsColumnsOk) return tf("pos_err_columns", { detail: positionsColumnsError || "" });
+  if (positionsState.status !== "ok") return tf("pos_err_read", { detail: positionsState.reason || "" });
+  return null;
+}
+
+function refreshPositionsPanelStatus() {
+  const msg = document.getElementById("pos-config-msg");
+  if (!msg) return;
+  const reason = positionsDepositBlockedReason();
+  msg.textContent = reason || "";
+  msg.classList.toggle("hidden", !reason);
+  const disabled = !!reason || positionsDepositBusy;
+  document.getElementById("pos-dropzone").classList.toggle("disabled", disabled);
+  document.getElementById("pos-file-input").disabled = disabled;
+  document.getElementById("pos-select-btn").disabled = disabled;
+  const confirmBtn = document.getElementById("pos-confirm-btn");
+  if (confirmBtn) confirmBtn.disabled = disabled || !positionsPreview || positionsPreview.isBlocked;
+}
+
+function showPositionsFileError(text) {
+  const el = document.getElementById("pos-file-error");
+  el.textContent = text;
+  el.classList.remove("hidden");
+}
+
+async function handlePositionsFiles(files) {
+  if (!isCPL || positionsDepositBusy || positionsDepositBlockedReason()) return;
+  hideElement("pos-file-error");
+  hideElement("pos-result");
+  hideElement("pos-preview");
+  positionsPreview = null;
+  if (!files || files.length === 0) return;
+
+  const bad = files.filter(f => !PositionsCore.ALLOWED_EXTENSIONS.includes(PositionsCore.fileExtension(f.name)));
+  if (bad.length) { showPositionsFileError(tf("pos_err_format", { files: bad.map(f => f.name).join(", ") })); return; }
+  if (typeof XLSX === "undefined") { showPositionsFileError(t("pos_err_sheetjs")); return; }
+
+  const parsed = [];
+  for (const f of files) {
+    try {
+      parsed.push(PositionsCore.parsePositionsWorkbook(XLSX, f.name, await f.arrayBuffer()));
+    } catch (err) {
+      console.error("Erreur lecture fichier positions:", err);
+      showPositionsFileError(tf("pos_err_file", { file: f.name, detail: err.message }));
+      return;
+    }
+  }
+  const current = positionsState.rawItems.map(it => {
+    const f = it.fields || {};
+    return { nom: f.Title, isin: f.ISIN, fonds: f.Fonds };
+  });
+  positionsPreview = PositionsCore.buildPreview(parsed, current);
+  renderPositionsPreview(positionsPreview);
+}
+
+function renderPositionsPreview(p) {
+  const esc = PositionsCore.escapeHtml;
+  const el = document.getElementById("pos-preview");
+  if (!el) return;
+  const lineRef = r => tf("pos_line_ref", { file: esc(r.file), line: r.line });
+  const cell = v => (v === "" ? `<span class="positions-empty">—</span>` : esc(v));
+  const sumCounts = list => list.reduce((s, x) => s + x.count, 0);
+  const detailsList = (title, items) => items.length
+    ? `<details class="positions-details"><summary>${title}</summary><ul>${items.map(i => `<li>${i}</li>`).join("")}</ul></details>`
+    : "";
+  const posTable = list => `
+    <div class="table-wrapper positions-scroll"><table class="data-table">
+      <thead><tr><th>${t("pos_col_name")}</th><th>${t("pos_col_isin")}</th><th>${t("pos_col_fund")}</th><th>${t("pos_col_count")}</th></tr></thead>
+      <tbody>${list.map(x => `<tr><td>${cell(x.nom)}</td><td style="font-family:monospace">${cell(x.isin)}</td><td>${cell(x.fonds)}</td><td>${x.count}</td></tr>`).join("")}</tbody>
+    </table></div>`;
+
+  let html = `<h4 class="positions-section-title">${t("pos_prev_title")}</h4>
+    <div class="positions-summary">
+      <span class="positions-chip"><strong>${tf("pos_prev_total", { n: p.total })}</strong></span>
+      <span class="positions-chip">${tf("pos_prev_current", { n: p.currentTotal })}</span>
+    </div>
+    <div class="positions-grid-2">
+      <div>
+        <h5 class="positions-subtitle">${t("pos_prev_by_file")}</h5>
+        <div class="table-wrapper"><table class="data-table">
+          <thead><tr><th>${t("pos_col_file")}</th><th>${t("pos_col_rows")}</th></tr></thead>
+          <tbody>${p.byFile.map(f => `<tr><td>${esc(f.fileName)}</td><td>${f.count}</td></tr>`).join("")}</tbody>
+        </table></div>
+      </div>
+      <div>
+        <h5 class="positions-subtitle">${t("pos_prev_by_fund")}</h5>
+        <div class="table-wrapper positions-scroll"><table class="data-table">
+          <thead><tr><th>${t("pos_col_fund")}</th><th>${t("pos_col_rows")}</th></tr></thead>
+          <tbody>${p.byFund.map(f => `<tr><td>${f.fonds === "" ? `<em>${t("pos_prev_no_fund")}</em>` : esc(f.fonds)}</td><td>${f.count}</td></tr>`).join("")}</tbody>
+        </table></div>
+      </div>
+    </div>`;
+
+  if (p.isBlocked) {
+    const fieldLabel = f => t(`pos_field_${f}`);
+    html += `<div class="positions-box positions-box-error">
+      <strong>${t("pos_block_title")}</strong>
+      ${p.blocking.empty ? `<p>${t("pos_block_empty")}</p>` : ""}
+      ${p.blocking.tooLong.length ? `<p>${tf("pos_block_toolong", { n: p.blocking.tooLong.length, max: PositionsCore.MAX_CELL_LENGTH })}</p>
+        <ul>${p.blocking.tooLong.map(x => `<li>${lineRef(x.row)} : ${fieldLabel(x.field)} (${x.length})</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }
+
+  const w = p.warnings;
+  const hasWarnings = w.isinSuspect.length || w.duplicates.length || w.emptyName.length || w.emptyFund.length;
+  if (hasWarnings) {
+    html += `<div class="positions-box positions-box-warning">
+      <strong>${t("pos_warn_title")}</strong>
+      ${detailsList(tf("pos_warn_isin", { n: w.isinSuspect.length }), w.isinSuspect.map(r => `${lineRef(r)} : ${esc(r.isin)}`))}
+      ${detailsList(tf("pos_warn_dup", { n: w.duplicates.length }), w.duplicates.map(g => `${cell(g[0].nom)} / ${cell(g[0].isin)} / ${cell(g[0].fonds)} : ${g.map(lineRef).join(" ; ")}`))}
+      ${detailsList(tf("pos_warn_noname", { n: w.emptyName.length }), w.emptyName.map(lineRef))}
+      ${detailsList(tf("pos_warn_nofund", { n: w.emptyFund.length }), w.emptyFund.map(lineRef))}
+    </div>`;
+  }
+
+  html += `<h5 class="positions-subtitle">${t("pos_diff_title")}</h5>
+    <details class="positions-details"><summary>${tf("pos_diff_added", { n: sumCounts(p.added) })}</summary>${p.added.length ? posTable(p.added) : ""}</details>
+    <details class="positions-details"><summary>${tf("pos_diff_removed", { n: sumCounts(p.removed) })}</summary>${p.removed.length ? posTable(p.removed) : ""}</details>
+
+    <h5 class="positions-subtitle">${t("pos_prev_rows")}</h5>
+    <div class="table-wrapper positions-scroll"><table class="data-table">
+      <thead><tr><th>${t("pos_col_name")}</th><th>${t("pos_col_isin")}</th><th>${t("pos_col_fund")}</th><th>${t("pos_col_line")}</th></tr></thead>
+      <tbody>${p.rows.map(r => `<tr><td>${cell(r.nom)}</td><td style="font-family:monospace">${cell(r.isin)}</td><td>${cell(r.fonds)}</td><td>${lineRef(r)}</td></tr>`).join("")}</tbody>
+    </table></div>
+
+    <div class="positions-box positions-box-info">${tf("pos_confirm_reminder", { n: p.total })}</div>
+    <div class="form-actions" style="justify-content:flex-end;gap:10px">
+      <button type="button" id="pos-cancel-btn" class="btn-secondary">${t("pos_cancel_btn")}</button>
+      <button type="button" id="pos-confirm-btn" class="btn-primary" style="background:#15803d">${t("pos_confirm_btn")}</button>
+    </div>`;
+
+  el.innerHTML = html;
+  el.classList.remove("hidden");
+  document.getElementById("pos-cancel-btn").addEventListener("click", () => {
+    positionsPreview = null;
+    el.classList.add("hidden");
+    el.innerHTML = "";
+  });
+  document.getElementById("pos-confirm-btn").addEventListener("click", runPositionsDeposit);
+  refreshPositionsPanelStatus();
+}
+
+// Adaptateur Graph injecté dans PositionsCore.runReplacement
+const positionsGraphAdapter = {
+  async postBatch(body) {
+    // Troisième verrou : chaque sous-requête est revérifiée juste avant l'envoi
+    (body.requests || []).forEach(r => PositionsCore.assertBatchRequestAllowed(r, positionsTarget));
+    const token = await acquireGraphTokenNoRedirect();
+    const response = await fetch("https://graph.microsoft.com/v1.0/$batch", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    const json = await response.json().catch(() => null);
+    return { status: response.status, retryAfter: response.headers.get("Retry-After"), json };
+  },
+  listItems(target) { return listPositionItems(target); }
+};
+
+function positionsBeforeUnload(e) {
+  e.preventDefault();
+  e.returnValue = "";
+  return "";
+}
+
+function updatePositionsProgress(p) {
+  const key = p.phase === "delete" ? "pos_progress_delete" : p.phase === "rollback" ? "pos_progress_rollback" : "pos_progress_create";
+  const pct = p.total ? Math.round((p.done / p.total) * 100) : 100;
+  const fill = document.getElementById("pos-progress-fill");
+  if (fill) fill.style.width = `${pct}%`;
+  setText("pos-progress-text", tf(key, { done: p.done, total: p.total }));
+}
+
+async function runPositionsDeposit() {
+  if (!isCPL || positionsDepositBusy) return;
+  const preview = positionsPreview;
+  if (!preview || preview.isBlocked) return;
+  const blocked = positionsDepositBlockedReason();
+  if (blocked) { refreshPositionsPanelStatus(); return; }
+
+  positionsDepositBusy = true;
+  refreshPositionsPanelStatus();
+  document.getElementById("pos-cancel-btn").disabled = true;
+  window.addEventListener("beforeunload", positionsBeforeUnload);
+  hideElement("pos-result");
+  showElement("pos-progress");
+  updatePositionsProgress({ phase: "create", done: 0, total: preview.rows.length });
+
+  let result = null;
+  let fatal = null;
+  try {
+    result = await PositionsCore.runReplacement({
+      graph: positionsGraphAdapter,
+      target: positionsTarget,
+      rows: preview.rows,
+      idDepot: PositionsCore.generateIdDepot(),
+      onProgress: updatePositionsProgress
+    });
+  } catch (err) {
+    console.error("Erreur dépôt positions:", err);
+    fatal = err;
+  } finally {
+    window.removeEventListener("beforeunload", positionsBeforeUnload);
+    positionsDepositBusy = false;
+  }
+
+  hideElement("pos-progress");
+  positionsPreview = null;
+  const previewEl = document.getElementById("pos-preview");
+  previewEl.classList.add("hidden");
+  previewEl.innerHTML = "";
+  renderPositionsResult(result, fatal);
+  await loadRestrictedList();
+}
+
+function renderPositionsResult(result, fatal) {
+  const el = document.getElementById("pos-result");
+  el.textContent = "";
+  const box = document.createElement("div");
+  const lines = [];
+  if (fatal) {
+    box.className = "positions-box positions-box-error";
+    lines.push(tf("pos_result_fatal", { detail: fatal.message }));
+  } else if (result.ok && result.deleteFailed === 0) {
+    box.className = "positions-box positions-box-success";
+    lines.push(tf("pos_result_ok", { created: result.created, deleted: result.deleted }));
+  } else if (result.ok) {
+    box.className = "positions-box positions-box-warning";
+    lines.push(tf("pos_result_partial_delete", { created: result.created, deleted: result.deleted, failed: result.deleteFailed }));
+  } else {
+    box.className = "positions-box positions-box-error";
+    lines.push(tf("pos_result_failed", { detail: result.failure.message }));
+    lines.push(tf("pos_result_rollback", { rolledBack: result.rolledBack }));
+    if (result.rollbackFailed > 0 || result.rollbackReadFailed) {
+      lines.push(tf("pos_result_rollback_incomplete", { failed: result.rollbackFailed }));
+    }
+  }
+  lines.forEach(text => {
+    const p = document.createElement("p");
+    p.textContent = text;
+    box.appendChild(p);
+  });
+  el.appendChild(box);
+  el.classList.remove("hidden");
 }
 
 async function callGraphAPI(endpoint, method = "GET", body = null, extraHeaders = {}) {

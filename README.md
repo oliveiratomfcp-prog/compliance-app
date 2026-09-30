@@ -27,3 +27,24 @@ Pour tester une Function en local (Azure Functions Core Tools / SWA CLI), créer
   }
 }
 ```
+
+## Restricted List : positions en portefeuille
+
+La Restricted List (`index.html`) réunit trois sources : "NDA List" et "Information privilégiée"
+(site `/sites/CPL`) et la liste **"positions portefeuilles"** (site `/sites/CPLDashboard`, colonnes
+`Title`, `ISIN`, `Fonds`, `IdDepot`).
+
+- **Dépôt** : onglet *Déclarer*, carte *En portefeuille*, visible des seuls profils Compliance
+  (liste `CPL_EMAILS` dans `cpl-config.js`, contrôle d'affichage uniquement : la vraie protection
+  est la permission SharePoint de la liste). Formats acceptés : `.xlsx` et `.xls` (première
+  feuille, ligne 1 = en-têtes, colonne A = nom du titre, B = ISIN, C = nom du fonds). Les fichiers
+  déposés ensemble remplacent la totalité des positions, après un aperçu obligatoire.
+- **Remplacement sécurisé** : création de toutes les lignes avec un nouvel `IdDepot`, vérification,
+  puis seulement suppression des anciennes lignes. En cas d'échec, les lignes partielles sont
+  supprimées et l'ancienne liste est conservée. Toutes les suppressions passent par une garde
+  unique (`PositionsCore.assertDeletable`) qui refuse toute autre liste.
+- **Indisponibilité** : si la liste ne peut pas être lue, NDA et informations privilégiées restent
+  affichées, avec un bandeau invitant à contacter la Compliance (également repris dans
+  l'attestation PDF et la vérification en masse).
+- Code : logique testable dans `positions-core.js` (sans dépendance à Graph ni au DOM),
+  intégration dans `app.js`. Lecture Excel : SheetJS 0.20.3 (`cdn.sheetjs.com`, empreinte SRI).

@@ -6,6 +6,7 @@
 <title>Tracker CPL — Compliance Portal</title>
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="cpl-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 /* ── Tracker CPL — styles spécifiques ───────────────────────────── */
@@ -231,12 +232,7 @@ const msalConfig = {
 // ═══════════════════════════════════════════════════════════
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════
-const CPL_EMAILS = [
-  'thomas.oliveira@eiffel-ig.com',
-  'cassandre.memet@eiffel-ig.com',
-  'manalle.ourrami@eiffel-ig.com',
-  'jessica.manukyan@eiffel-ig.com'
-];
+// CPL_EMAILS et isCPLUser() : voir cpl-config.js
 
 const CPL_TEAM = [
   { name: 'Thomas Oliveira',  email: 'thomas.oliveira@eiffel-ig.com' },
@@ -343,7 +339,7 @@ async function loginWithAccount(account) {
 
 function setUser(u) {
   currentUser = u;
-  isCPL = CPL_EMAILS.map(e => e.toLowerCase()).includes(u.email.toLowerCase());
+  isCPL = isCPLUser(u.email);
   const ini = u.name.split(' ').map(n => n[0]).join('').slice(0,2).toUpperCase();
   document.getElementById('user-avatar').textContent = ini;
   document.getElementById('user-avatar').style.background = isCPL ? '#D18F41' : '#4B5563';
