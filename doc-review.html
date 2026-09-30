@@ -245,6 +245,7 @@
             <div class="dr-card-title">Rapport de pré-contrôle</div>
             <div style="display:flex;gap:8px;flex-wrap:wrap" id="resultsActions">
               <button class="btn-secondary" id="btn-open-report" style="padding:7px 14px;font-size:12px;">Rapport PDF</button>
+              <button class="btn-primary hidden" id="btn-submit-tracker" style="padding:7px 14px;font-size:12px;">Soumettre via Tracker CPL</button>
             </div>
           </div>
           <div class="dr-card-body">
@@ -1030,8 +1031,21 @@
     $('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // Point d'extension (soumission au Tracker)
-  function onReportRendered(r) { /* rien pour l'instant */ }
+  // Soumission au Tracker CPL : possible pour le demandeur de l'analyse, une seule fois,
+  // même s'il reste des points bloquants. Le Tracker revérifie ces conditions.
+  function canSubmitToTracker(statut, refTracker, email) {
+    return statut === STATUTS.analyse && !refTracker && String(email || '').toLowerCase() === me.email;
+  }
+
+  function goToTracker(ref) {
+    if (/^DR-\d{4}-\d{4,}$/.test(ref)) window.location.href = 'tracker-cpl.html?docreview=' + encodeURIComponent(ref);
+  }
+
+  function onReportRendered(r) {
+    const btn = $('btn-submit-tracker');
+    btn.classList.toggle('hidden', !canSubmitToTracker(r.statut, r.refTracker, r.demandeurEmail));
+    btn.onclick = () => goToTracker(r.ref);
+  }
 
   async function openReportPdf() {
     if (!currentReport) return;
@@ -1056,6 +1070,11 @@
       const b = el('button', 'dr-link-btn', 'Ouvrir');
       b.onclick = () => openAnalysis(f);
       cell.appendChild(b);
+    }
+    if (canSubmitToTracker(f.Statut, f.RefTracker, f.DemandeurEmail)) {
+      const s = el('button', 'dr-link-btn', 'Soumettre');
+      s.onclick = () => goToTracker(f.Title);
+      cell.appendChild(s);
     }
   }
 

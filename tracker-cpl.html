@@ -248,6 +248,13 @@ const SP = {
   libName  : 'CPL-Tracker'
 };
 
+// Doc Review (même site CPLDashboard) : analyses soumises au Tracker
+const DR = { listName: 'Doc Review Analyses', libName: 'Doc Review' };
+const TYPE_VALIDATION_DOC = 'Validation documentation commerciale';
+let drListId = null;
+let drDriveId = null;
+let docReviewContext = null;   // analyse en cours de soumission (paramètre ?docreview=)
+
 const GRAPH_SCOPES_LOGIN = ['User.Read'];
 const GRAPH_SCOPES_SP    = ['Sites.ReadWrite.All'];
 const GRAPH_SCOPES_MAIL  = ['Mail.Send'];
@@ -433,7 +440,16 @@ async function initSharePointThenLoad() {
     spCommListId = commLists.value[0]?.id || null;
     if (!spCommListId) console.warn('Liste "Tracker CPL commentaires" introuvable');
 
+    // 5. Doc Review (facultatif : utile seulement pour les demandes issues d'une analyse)
+    try {
+      const drLists = await graphGet(`/sites/${spSiteId}/lists?$filter=displayName eq '${encodeURIComponent(DR.listName)}'`);
+      drListId = drLists.value.length === 1 ? drLists.value[0].id : null;
+      const drDrives = drives.value.filter(d => d.name === DR.libName);
+      drDriveId = drDrives.length === 1 ? drDrives[0].id : null;
+    } catch (e) { console.warn('Doc Review non disponible :', e.message); }
+
     await loadRequests();
+    await handleDocReviewParam();
   } catch(e) {
     console.error('SharePoint init error:', e);
     setListLoading(false);
@@ -466,6 +482,7 @@ async function loadRequests() {
         sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
         responsable   : f.ResponsableCPL || '',
         followers     : f.CCEmails || '',
+        refDocReview  : f.RefDocReview || '',
         historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
@@ -1084,6 +1101,7 @@ async function captureDashboard() {
 let selPrio = 'Faible';
 
 function goNew() {
+  docReviewContext = null;
   selPrio = 'Faible';
   document.getElementById('view-new').innerHTML = `
     <button class="back-btn" onclick="goList()">
@@ -1511,6 +1529,21 @@ async function submitRequest() {
   btn.disabled = true;
   btn.textContent = 'Envoi en cours...';
 
+  // Demande issue de Doc Review : l'analyse est relue juste avant la création (une seule soumission)
+  if (docReviewContext) {
+    try {
+      const fresh = await loadDocReviewAnalysis(docReviewContext.ref);
+      const reason = docReviewIneligibility(fresh);
+      if (reason) throw new Error(reason);
+      docReviewContext = fresh;
+    } catch (e) {
+      showToast(`Soumission de l'analyse ${escHtml(docReviewContext.ref)} impossible : ${escHtml(e.message)}.`, 'error');
+      btn.disabled = false;
+      btn.textContent = 'Soumettre la demande';
+      return;
+    }
+  }
+
   try {
     const now  = new Date();
     const year = now.getFullYear();
@@ -1574,6 +1607,21 @@ async function submitRequest() {
       }
     }
 
+    // 4b. Demande issue de Doc Review : liaison, copie du fichier d'origine et du rapport,
+    //     puis seulement ensuite marquage de l'analyse comme soumise
+    let docReviewError = null;
+    const docReviewRef = docReviewContext ? docReviewContext.ref : null;
+    if (docReviewContext) {
+      btn.textContent = 'Copie des fichiers Doc Review...';
+      try {
+        await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { RefDocReview: docReviewContext.ref });
+        await finalizeDocReviewLink(docReviewContext, ref);
+      } catch (e) {
+        console.error('Liaison Doc Review :', e);
+        docReviewError = e.message;
+      }
+    }
+
     // 5. Envoyer le mail à cpl@eiffel-ig.com (non bloquant)
     try {
       const mailBody = `
@@ -1611,6 +1659,13 @@ async function submitRequest() {
 
     followersSelected = [];
     allSelectedFiles  = [];
+    docReviewContext  = null;
+    if (docReviewError) {
+      showToast(`Demande ${ref} créée, mais les fichiers de l'analyse ${escHtml(docReviewRef)} n'ont pas été joints : ${escHtml(docReviewError)}. Utilisez « Finaliser la liaison Doc Review » dans la demande.`, 'error');
+      await loadRequests();
+      openDetail(ref);
+      return;
+    }
     showToast(`Demande ${ref} soumise avec succès.`, 'success');
     await loadRequests();
     goList();
@@ -1738,6 +1793,7 @@ function openDetail(ref) {
             </div>
           </div>
           <div style="border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:#374151;line-height:1.65">${formatDescription(selectedReq.desc)}</div>
+          <div id="docreview-link"></div>
           <div style="display:flex;gap:20px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap">
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Demandeur :</strong> ${selectedReq.from} — ${selectedReq.dept}</div>
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Soumis :</strong> ${selectedReq.date}</div>
@@ -1817,6 +1873,172 @@ function openDetail(ref) {
   loadFilesForDetail(selectedReq.ref);
   loadComments(selectedReq.ref);
   initDetailFollowers();
+  renderDocReviewLink(selectedReq);
+}
+
+// ═══════════════════════════════════════════════════════════
+// DOC REVIEW → TRACKER : soumission d'une analyse Doc Review
+// ═══════════════════════════════════════════════════════════
+const DR_REF_RE = /^DR-\d{4}-\d{4,}$/;
+
+function escHtml(v) {
+  return String(v === null || v === undefined ? '' : v)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+async function graphFetchRaw(path, opts) {
+  const t = await getToken(GRAPH_SCOPES_SP);
+  const o = opts || {};
+  return fetch(`https://graph.microsoft.com/v1.0${path}`, Object.assign({}, o, { headers: Object.assign({ Authorization: `Bearer ${t}` }, o.headers || {}) }));
+}
+
+async function graphGetBytes(path, label) {
+  const res = await graphFetchRaw(path);
+  if (!res.ok) throw new Error(`${label || 'fichier'} introuvable (HTTP ${res.status})`);
+  return new Uint8Array(await res.arrayBuffer());
+}
+
+async function sha256HexBytes(bytes) {
+  const d = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(d), b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Upload dans le dossier d'une demande sans jamais écraser un fichier existant
+// (session d'upload, conflictBehavior "rename" : un suffixe est ajouté en cas de doublon de nom)
+async function uploadNoOverwrite(folder, fileName, bytes) {
+  if (!spDriveId) throw new Error('bibliothèque CPL-Tracker introuvable');
+  if (!bytes.length) throw new Error(`fichier vide : ${fileName}`);
+  const path = `/sites/${spSiteId}/drives/${spDriveId}/items/root:/${encodeURIComponent(folder)}/${encodeURIComponent(fileName)}:/createUploadSession`;
+  const session = await graphPost(path, { item: { '@microsoft.graph.conflictBehavior': 'rename', name: fileName } });
+  const CHUNK = 320 * 1024 * 16;
+  let result = null;
+  for (let start = 0; start < bytes.length; start += CHUNK) {
+    const end = Math.min(start + CHUNK, bytes.length);
+    const res = await fetch(session.uploadUrl, { method: 'PUT', headers: { 'Content-Range': `bytes ${start}-${end - 1}/${bytes.length}` }, body: bytes.slice(start, end) });
+    if (!res.ok) throw new Error(`enregistrement de ${fileName} impossible (HTTP ${res.status})`);
+    if (end === bytes.length) result = await res.json();
+  }
+  if (!result || !result.id) throw new Error(`enregistrement de ${fileName} non confirmé`);
+  if (typeof result.size === 'number' && result.size !== bytes.length) throw new Error(`copie incomplète de ${fileName}`);
+  return result;
+}
+
+async function loadDocReviewAnalysis(drRef) {
+  if (!DR_REF_RE.test(drRef)) throw new Error('référence invalide');
+  if (!drListId || !drDriveId) throw new Error('liste ou bibliothèque Doc Review introuvable');
+  const filter = encodeURIComponent(`fields/Title eq '${drRef}'`);
+  const res = await graphFetchRaw(`/sites/${spSiteId}/lists/${drListId}/items?$expand=fields&$filter=${filter}`,
+    { headers: { Prefer: 'HonorNonIndexedQueriesWarningMayFailRandomly' } });
+  if (!res.ok) throw new Error(`lecture de l'analyse impossible (HTTP ${res.status})`);
+  const items = ((await res.json()).value || []).filter(i => i.fields && i.fields.Title === drRef);
+  if (items.length !== 1) throw new Error(items.length ? 'analyse en double' : 'analyse introuvable');
+  const bytes = await graphGetBytes(`/drives/${drDriveId}/root:/${encodeURIComponent(drRef)}/${encodeURIComponent('rapport-' + drRef + '.json')}:/content`, 'rapport de l\'analyse');
+  const report = JSON.parse(new TextDecoder().decode(bytes));
+  if (report.ref !== drRef) throw new Error('rapport incohérent');
+  return { ref: drRef, spItemId: items[0].id, fields: items[0].fields, report };
+}
+
+// Raison pour laquelle l'analyse ne peut pas être soumise (null si elle peut l'être)
+function docReviewIneligibility(a) {
+  if (String(a.fields.DemandeurEmail || '').toLowerCase() !== String(currentUser.email || '').toLowerCase()) return 'seul le demandeur de l\'analyse peut la soumettre';
+  if (a.fields.RefTracker) return `analyse déjà soumise (demande ${a.fields.RefTracker})`;
+  if (a.fields.Statut !== 'Analysé') return `analyse au statut « ${a.fields.Statut || 'inconnu'} »`;
+  const f = a.report.fichiers || {};
+  if (!f.original || !f.rapportPdf) return 'rapport de l\'analyse incomplet';
+  return null;
+}
+
+async function handleDocReviewParam() {
+  const drRef = new URLSearchParams(location.search).get('docreview');
+  if (!drRef) return;
+  history.replaceState(null, '', location.pathname);   // le paramètre n'est traité qu'une fois
+  try {
+    const a = await loadDocReviewAnalysis(drRef);
+    const reason = docReviewIneligibility(a);
+    if (reason) { showToast(`Soumission de l'analyse ${escHtml(drRef)} impossible : ${escHtml(reason)}.`, 'error'); return; }
+    goNew();
+    docReviewContext = a;
+    prefillFromDocReview(a);
+  } catch (e) {
+    showToast(`Analyse ${escHtml(drRef)} non chargée : ${escHtml(e.message)}.`, 'error');
+  }
+}
+
+function docReviewDescriptionHtml(a) {
+  const r = a.report;
+  const c = r.counts || {};
+  return `<p><strong>Analyse Doc Review ${escHtml(a.ref)}</strong> (${escHtml(r.typeDocument)}, marché ${escHtml(r.marcheLibelle || r.marche)}) : `
+    + `score ${escHtml(r.score)}/100, ${escHtml(c.bloquants || 0)} point(s) bloquant(s), ${escHtml(c.attention || 0)} point(s) d'attention.</p>`
+    + `<p><strong>Synthèse :</strong> ${escHtml(r.synthese || '')}</p>`
+    + `<p>Le fichier d'origine et le rapport de pré-contrôle sont joints à la demande.</p>`;
+}
+
+function prefillFromDocReview(a) {
+  const type = document.getElementById('f-type');
+  type.value = TYPE_VALIDATION_DOC;
+  type.disabled = true;
+  document.getElementById('f-objet').value = String(a.fields.NomFichier || a.report.nomFichier || '').slice(0, 150);
+  document.getElementById('f-desc-editor').innerHTML = docReviewDescriptionHtml(a);
+  const card = document.querySelector('#view-new .form-card');
+  const banner = document.createElement('div');
+  banner.style.cssText = 'margin-bottom:14px;padding:10px 14px;border-radius:8px;background:#EFF6FF;border:1px solid #BFDBFE;color:#1E40AF;font-size:12.5px;line-height:1.5';
+  banner.textContent = `Demande issue de l'analyse Doc Review ${a.ref} : le fichier d'origine et le rapport de pré-contrôle seront joints automatiquement. Complétez les autres champs puis soumettez.`;
+  card.insertBefore(banner, card.firstChild);
+}
+
+// Copie du fichier d'origine et du rapport PDF vers le dossier de la demande, puis marquage de
+// l'analyse comme soumise. Un fichier déjà copié (même nom, même taille) n'est pas recopié.
+async function finalizeDocReviewLink(a, trackerRef) {
+  const names = [a.report.fichiers.original, a.report.fichiers.rapportPdf];
+  let existing = [];
+  try {
+    existing = (await graphGet(`/sites/${spSiteId}/drives/${spDriveId}/items/root:/${encodeURIComponent(trackerRef)}:/children`)).value || [];
+  } catch (e) { existing = []; }
+  for (const name of names) {
+    const bytes = await graphGetBytes(`/drives/${drDriveId}/root:/${encodeURIComponent(a.ref)}/${encodeURIComponent(name)}:/content`, name);
+    if (name === a.report.fichiers.original && a.fields.HashFichier) {
+      const h = await sha256HexBytes(bytes);
+      if (h !== a.fields.HashFichier) throw new Error('l\'empreinte du fichier d\'origine ne correspond pas à celle de l\'analyse');
+    }
+    if (existing.some(f => f.file && f.name === name && f.size === bytes.length)) continue;
+    await uploadNoOverwrite(trackerRef, name, bytes);
+  }
+  await graphPatch(`/sites/${spSiteId}/lists/${drListId}/items/${a.spItemId}/fields`, { RefTracker: trackerRef, Statut: 'Soumis' });
+}
+
+async function renderDocReviewLink(req) {
+  const box = document.getElementById('docreview-link');
+  if (!box || !req.refDocReview) return;
+  box.style.cssText = 'margin-top:10px;padding:8px 12px;border-radius:6px;background:#F4F5F8;font-size:12px;color:#374151';
+  box.textContent = `Analyse Doc Review liée : ${req.refDocReview}`;
+  if (String(req.email || '').toLowerCase() !== String(currentUser.email || '').toLowerCase()) return;
+  try {
+    const a = await loadDocReviewAnalysis(req.refDocReview);
+    if (a.fields.RefTracker === req.ref || selectedReq !== req) return;
+    if (docReviewIneligibility(a)) return;
+    const btn = document.createElement('button');
+    btn.className = 'btn-secondary';
+    btn.style.cssText = 'margin-left:10px;font-size:11.5px;padding:3px 10px';
+    btn.textContent = 'Finaliser la liaison Doc Review (joindre les fichiers)';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      try {
+        const fresh = await loadDocReviewAnalysis(req.refDocReview);
+        const reason = docReviewIneligibility(fresh);
+        if (reason) throw new Error(reason);
+        await finalizeDocReviewLink(fresh, req.ref);
+        showToast(`Fichiers de l'analyse ${escHtml(req.refDocReview)} joints à la demande ${escHtml(req.ref)}.`, 'success');
+        btn.remove();
+        loadFilesForDetail(req.ref);
+      } catch (e) {
+        showToast(`Liaison impossible : ${escHtml(e.message)}.`, 'error');
+        btn.disabled = false;
+      }
+    };
+    box.appendChild(btn);
+  } catch (e) {
+    console.warn('Analyse Doc Review non chargée :', e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════════
