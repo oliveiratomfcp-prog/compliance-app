@@ -8,6 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script src="cpl-config.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
+<script src="cpl-validation-core.js"></script>
 <style>
 /* ── Tracker CPL — styles spécifiques ───────────────────────────── */
 .bdg{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
@@ -1329,7 +1332,7 @@ async function loadFilesForDetail(ref) {
           </div>
           ${/\.(msg|eml)$/i.test(f.name)
             ? `<a href="${f.webUrl}?download=1" download class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Télécharger</a>`
-            : `<a href="${f.webUrl}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">Ouvrir</a>`
+            : `<a href="${f.webUrl}" target="_blank" class="btn-secondary" style="font-size:11px;padding:4px 10px;text-decoration:none">${/\.(pdf|pptx|docx)$/i.test(f.name) ? 'Ouvrir pour commenter' : 'Ouvrir'}</a>`
           }
         </div>`;
       }).join('');
@@ -1716,6 +1719,7 @@ function openDetail(ref) {
         return `<div class="tl-item">
           <div class="tl-dot" style="background:${c};box-shadow:0 0 0 1.5px ${c}"></div>
           <div class="tl-label">${h.statut}</div>
+          ${h.note ? `<div class="tl-sub">${escHtml(h.note)}</div>` : ''}
           <div class="tl-sub">par ${h.par}</div>
           <div class="tl-date">${d}</div>
         </div>`;
@@ -1766,7 +1770,16 @@ function openDetail(ref) {
         <button class="btn-secondary" onclick="assignRequest()">Attribuer</button>
       </div>
       ${selectedReq.responsable ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-top:6px">Actuellement : <strong style="color:#374151">${selectedReq.responsable}</strong></div>` : ''}
-    </div>`
+    </div>
+    ${canValidateDocument(selectedReq) ? `
+    <div class="cpl-actions-panel" style="margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Validation documentaire</div>
+      <button class="btn-primary" id="cpl-validate-btn" style="width:100%;justify-content:center" onclick="openValidationModal()">
+        ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
+        Valider et marquer
+      </button>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5">Génère un PDF portant la référence de la demande sur chaque page et passe la demande au statut Traité.</div>
+    </div>` : ''}`
     : (selectedReq.statut === 'Résolu' ? `
     <button class="btn-secondary" style="width:100%;margin-top:12px;justify-content:center"
       onclick="reopenRequest()">
@@ -2247,6 +2260,81 @@ function toggleMotifField() {
   if (motif) motif.style.display = sel?.value === 'Rejeté' ? 'block' : 'none';
 }
 
+// Changement de statut (mise à jour SharePoint + notification au demandeur), partagé par
+// le bouton Appliquer et par la validation documentaire. o = { motif, note, extraFields } ;
+// extraFields est écrit dans la même mise à jour que le statut (tout ou rien).
+async function applyStatusChange(newStatus, o) {
+  o = o || {};
+  const motif = o.motif;
+  const entry = { date: new Date().toISOString(), statut: newStatus, par: currentUser.name };
+  if (o.note) entry.note = o.note;
+  const history = [...(selectedReq.historique || []), entry];
+  const fields = Object.assign({ Statut: newStatus, ResponsableCPL: currentUser.name, HistoriqueStatuts: JSON.stringify(history) }, o.extraFields || {});
+  if (newStatus === 'Rejeté' && motif) fields.MotifRejet = motif;
+
+  await graphPatch(
+    `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+    fields
+  );
+
+  // Notification email au demandeur
+  const subjects = {
+    "En cours d'analyse"        : `[Tracker CPL] Votre demande ${selectedReq.ref} est en cours de traitement`,
+    "En attente d'informations" : `[Tracker CPL] Action requise : complément d'information — ${selectedReq.ref}`,
+    "Traité"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été résolue`,
+    "Rejeté"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été rejetée`,
+    "Clôturé"                   : null   // pas de notification pour clôture
+  };
+
+  const subject = subjects[newStatus];
+  if (subject && selectedReq.email) {
+    const bodyContent = {
+      "En cours d'analyse": `
+        <p>Bonjour ${selectedReq.from},</p>
+        <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été prise en charge par l'équipe Compliance et est actuellement en cours de traitement.</p>
+        <p>Vous serez notifié(e) dès qu'une réponse sera disponible.</p>`,
+      "En attente d'informations": `
+        <p>Bonjour ${selectedReq.from},</p>
+        <p>⚠️ L'équipe Compliance a besoin d'un complément d'information pour traiter votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em>.</p>
+        <p>Merci de revenir sur le <a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html">Tracker CPL</a> pour apporter les informations complémentaires.</p>`,
+      "Traité": `
+        <p>Bonjour ${selectedReq.from},</p>
+        <p>✅ Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été résolue par l'équipe Compliance.</p>
+        <p>Connectez-vous au <a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html">Tracker CPL</a> pour consulter la réponse.</p>`,
+      "Rejeté": `
+        <p>Bonjour ${selectedReq.from},</p>
+        <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été rejetée par l'équipe Compliance.</p>
+        ${motif ? `<p><strong>Motif :</strong> ${motif}</p>` : ''}
+        <p>Vous pouvez soumettre une nouvelle demande en tenant compte de ce retour.</p>`
+    };
+
+    const body = bodyContent[newStatus] || '';
+
+    try {
+      const followerEmails = (selectedReq.followers || '').split(',').map(e => e.trim()).filter(Boolean);
+      await graphPost('/me/sendMail', {
+        message: {
+          subject,
+          body: {
+            contentType: 'HTML',
+            content: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111;line-height:1.6">
+              ${body}
+              <br><hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
+              <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
+            </div>`
+          },
+          toRecipients: [{ emailAddress: { address: selectedReq.email } }],
+          ...(followerEmails.length ? { ccRecipients: followerEmails.map(e => ({ emailAddress: { address: e } })) } : {})
+        },
+        saveToSentItems: true
+      }, GRAPH_SCOPES_MAIL);
+      console.log(`Mail envoyé à ${selectedReq.email}`);
+    } catch(mailErr) {
+      console.warn('Notification non envoyée :', mailErr.message);
+    }
+  }
+}
+
 async function changeStatus() {
   const rawVal    = document.getElementById('cpl-status-select')?.value;
   const newStatus = STATUS_MAP[rawVal] || rawVal;
@@ -2260,71 +2348,7 @@ async function changeStatus() {
   btn.textContent = 'Enregistrement...';
 
   try {
-    const history = [...(selectedReq.historique || []), { date: new Date().toISOString(), statut: newStatus, par: currentUser.name }];
-    const fields = { Statut: newStatus, ResponsableCPL: currentUser.name, HistoriqueStatuts: JSON.stringify(history) };
-    if (newStatus === 'Rejeté' && motif) fields.MotifRejet = motif;
-
-    await graphPatch(
-      `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
-      fields
-    );
-
-    // Notification email au demandeur
-    const subjects = {
-      "En cours d'analyse"        : `[Tracker CPL] Votre demande ${selectedReq.ref} est en cours de traitement`,
-      "En attente d'informations" : `[Tracker CPL] Action requise : complément d'information — ${selectedReq.ref}`,
-      "Traité"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été résolue`,
-      "Rejeté"                    : `[Tracker CPL] Votre demande ${selectedReq.ref} a été rejetée`,
-      "Clôturé"                   : null   // pas de notification pour clôture
-    };
-
-    const subject = subjects[newStatus];
-    if (subject && selectedReq.email) {
-      const bodyContent = {
-        "En cours d'analyse": `
-          <p>Bonjour ${selectedReq.from},</p>
-          <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été prise en charge par l'équipe Compliance et est actuellement en cours de traitement.</p>
-          <p>Vous serez notifié(e) dès qu'une réponse sera disponible.</p>`,
-        "En attente d'informations": `
-          <p>Bonjour ${selectedReq.from},</p>
-          <p>⚠️ L'équipe Compliance a besoin d'un complément d'information pour traiter votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em>.</p>
-          <p>Merci de revenir sur le <a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html">Tracker CPL</a> pour apporter les informations complémentaires.</p>`,
-        "Traité": `
-          <p>Bonjour ${selectedReq.from},</p>
-          <p>✅ Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été résolue par l'équipe Compliance.</p>
-          <p>Connectez-vous au <a href="https://complianceportal.eiffel-ig.com/tracker-cpl.html">Tracker CPL</a> pour consulter la réponse.</p>`,
-        "Rejeté": `
-          <p>Bonjour ${selectedReq.from},</p>
-          <p>Votre demande <strong>${selectedReq.ref}</strong> — <em>${selectedReq.objet}</em> — a été rejetée par l'équipe Compliance.</p>
-          ${motif ? `<p><strong>Motif :</strong> ${motif}</p>` : ''}
-          <p>Vous pouvez soumettre une nouvelle demande en tenant compte de ce retour.</p>`
-      };
-
-      const body = bodyContent[newStatus] || '';
-
-      try {
-        const followerEmails = (selectedReq.followers || '').split(',').map(e => e.trim()).filter(Boolean);
-        await graphPost('/me/sendMail', {
-          message: {
-            subject,
-            body: {
-              contentType: 'HTML',
-              content: `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111;line-height:1.6">
-                ${body}
-                <br><hr style="border:none;border-top:1px solid #E5E7EB;margin:16px 0">
-                <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
-              </div>`
-            },
-            toRecipients: [{ emailAddress: { address: selectedReq.email } }],
-            ...(followerEmails.length ? { ccRecipients: followerEmails.map(e => ({ emailAddress: { address: e } })) } : {})
-          },
-          saveToSentItems: true
-        }, GRAPH_SCOPES_MAIL);
-        console.log(`Mail envoyé à ${selectedReq.email}`);
-      } catch(mailErr) {
-        console.warn('Notification non envoyée :', mailErr.message);
-      }
-    }
+    await applyStatusChange(newStatus, { motif });
 
     showToast(`Statut mis à jour : ${newStatus}`, 'success');
     await loadRequests();
@@ -2403,6 +2427,166 @@ async function assignRequest() {
 // ═══════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+// VALIDATION DOCUMENTAIRE (CPL) : PDF marqué de la référence
+// ═══════════════════════════════════════════════════════════
+const VALIDATION_COLUMNS = ['HashDocumentValide', 'HashPdfMarque', 'DocumentValide', 'DateValidationDoc', 'ValideParDoc'];
+let validationBusy = false;
+if (window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function canValidateDocument(req) {
+  return !!(isCPL && req && req.type === TYPE_VALIDATION_DOC && ['Traité', 'Clôturé', 'Rejeté'].indexOf(req.statut) === -1);
+}
+
+async function checkValidationColumns() {
+  const cols = ((await graphGet(`/sites/${spSiteId}/lists/${spListId}/columns?$select=name`)).value || []).map(c => c.name);
+  const missing = VALIDATION_COLUMNS.filter(c => cols.indexOf(c) === -1);
+  if (missing.length) throw new Error('colonnes absentes dans la liste des demandes : ' + missing.join(', '));
+}
+
+async function openValidationModal() {
+  if (!canValidateDocument(selectedReq) || validationBusy) return;
+  const req = selectedReq;
+  let files;
+  try {
+    if (typeof PDFLib === 'undefined' || typeof pdfjsLib === 'undefined' || typeof CplValidationCore === 'undefined') throw new Error('bibliothèques PDF non chargées, rechargez la page');
+    if (!spDriveId) throw new Error('bibliothèque CPL-Tracker introuvable');
+    await checkValidationColumns();
+    const res = await graphGet(`/sites/${spSiteId}/drives/${spDriveId}/items/root:/${encodeURIComponent(req.ref)}:/children`);
+    files = (res.value || [])
+      .filter(f => f.file && /\.(pdf|pptx|docx)$/i.test(f.name) && !CplValidationCore.isMarkedFileName(f.name))
+      .sort((a, b) => String(b.lastModifiedDateTime || '').localeCompare(String(a.lastModifiedDateTime || '')));
+  } catch (e) {
+    showToast(`Validation impossible : ${escHtml(e.message)}.`, 'error');
+    return;
+  }
+  if (!files.length) { showToast('Aucun document PPTX, DOCX ou PDF à valider dans le dossier de la demande.', 'error'); return; }
+  buildValidationModal(req, files);
+}
+
+function buildValidationModal(req, files) {
+  const now = new Date();
+  const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text !== undefined) e.textContent = text; return e; };
+  const overlay = el('div', 'position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px');
+  overlay.id = 'validation-modal';
+  const modal = el('div', 'background:white;border-radius:12px;max-width:620px;width:100%;max-height:90vh;overflow:auto;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.25)');
+  modal.appendChild(el('h3', 'font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px', 'Valider et marquer le document'));
+  modal.appendChild(el('p', 'font-size:12.5px;color:var(--text-secondary);margin-bottom:14px', 'Choisissez le document validé. Un PDF portant la mention ci-dessous sur chaque page sera enregistré dans le dossier de la demande.'));
+  const list = el('div', 'display:flex;flex-direction:column;gap:6px;margin-bottom:14px');
+  let selected = files[0];
+  const recap = el('div', 'background:#F4F5F8;border-radius:8px;padding:10px 14px;font-size:12.5px;line-height:1.7;margin-bottom:12px');
+  const renderRecap = () => {
+    recap.textContent = '';
+    const rows = [
+      ['Fichier', selected.name],
+      ['Dernière modification', selected.lastModifiedDateTime ? new Date(selected.lastModifiedDateTime).toLocaleString('fr-FR') : '-'],
+      ['Référence', req.ref],
+      ['Date de validation', now.toLocaleDateString('fr-FR')],
+      ['Mention apposée', CplValidationCore.buildLabel(req.ref, now)],
+      ['Fichier créé', CplValidationCore.markedFileName(selected.name, req.ref)]
+    ];
+    rows.forEach(([k, v]) => { const d = el('div'); d.append(el('strong', '', k + ' : '), document.createTextNode(v)); recap.appendChild(d); });
+  };
+  files.forEach((f, i) => {
+    const lab = el('label', 'display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;padding:6px 8px;border:1px solid var(--border);border-radius:6px');
+    const radio = document.createElement('input');
+    radio.type = 'radio'; radio.name = 'validation-file'; radio.checked = i === 0;
+    radio.onchange = () => { selected = f; renderRecap(); };
+    const when = f.lastModifiedDateTime ? new Date(f.lastModifiedDateTime).toLocaleString('fr-FR') : '';
+    lab.append(radio, el('span', 'flex:1', f.name), el('span', 'color:var(--text-secondary);font-size:11px', when));
+    list.appendChild(lab);
+  });
+  renderRecap();
+  modal.append(list, recap);
+  modal.appendChild(el('div', 'font-size:11.5px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 12px;margin-bottom:12px;line-height:1.5',
+    'Le PDF marqué est la version officielle validée. Le document source n\'est pas modifié. Si le PDF source est signé électroniquement, sa signature ne sera plus valable sur la version marquée.'));
+  const extraOptions = el('div');
+  modal.appendChild(extraOptions);
+  const progress = el('p', 'font-size:12.5px;color:var(--navy);font-weight:600;margin:10px 0;display:none');
+  const error = el('div', 'font-size:12.5px;color:#DC2626;background:#FEF2F2;border-radius:6px;padding:8px 12px;margin:10px 0;display:none');
+  modal.append(progress, error);
+  const actions = el('div', 'display:flex;gap:8px;justify-content:flex-end;margin-top:8px');
+  const cancel = el('button', '', 'Annuler'); cancel.className = 'btn-secondary';
+  const confirmBtn = el('button', '', 'Valider et marquer'); confirmBtn.className = 'btn-primary';
+  actions.append(cancel, confirmBtn);
+  modal.appendChild(actions);
+  overlay.appendChild(modal);
+  document.body.appendChild(overlay);
+
+  const ui = {
+    options: extraOptions,
+    lock(on) { confirmBtn.disabled = on; cancel.disabled = on; list.querySelectorAll('input').forEach(r => { r.disabled = on; }); extraOptions.querySelectorAll('input').forEach(r => { r.disabled = on; }); },
+    step(msg) { error.style.display = 'none'; progress.style.display = 'block'; progress.textContent = msg; },
+    error(msg) { progress.style.display = 'none'; error.style.display = 'block'; error.textContent = msg; },
+    close() { overlay.remove(); }
+  };
+  cancel.onclick = () => { if (!validationBusy) ui.close(); };
+  confirmBtn.onclick = () => runValidation(req, selected, ui);
+  if (typeof onValidationModalBuilt === 'function') onValidationModalBuilt(ui);
+}
+
+function validationBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
+
+async function runValidation(req, file, ui) {
+  if (validationBusy || !ui || !file || !canValidateDocument(req) || selectedReq !== req) return;
+  validationBusy = true;
+  const now = new Date();
+  let uploaded = null;
+  try {
+    ui.lock(true);
+    window.addEventListener('beforeunload', validationBeforeUnload);
+    const label = CplValidationCore.buildLabel(req.ref, now);
+    const itemPath = `/sites/${spSiteId}/drives/${spDriveId}/items/${encodeURIComponent(file.id)}/content`;
+    // 1. Document source et empreinte
+    ui.step('Téléchargement du document…');
+    const source = await graphGetBytes(itemPath, file.name);
+    const hashSource = await sha256HexBytes(source);
+    // 2. Version PDF (conversion SharePoint pour PPTX / DOCX)
+    const ext = CplValidationCore.extensionOf(file.name);
+    let pdfBytes = source;
+    if (ext !== 'pdf') {
+      ui.step('Conversion en PDF (SharePoint)…');
+      pdfBytes = await graphGetBytes(itemPath + '?format=pdf', 'version PDF du document');
+    }
+    ui.step('Contrôle du PDF source…');
+    const srcTexts = await CplValidationCore.pageTexts(pdfjsLib, pdfBytes);
+    if (CplValidationCore.containsLabel(srcTexts, req.ref)) throw new Error('ce document porte déjà la mention de cette demande');
+    // 3. Marquage de chaque page
+    ui.step(`Marquage des ${srcTexts.length} page(s)…`);
+    const marked = await CplValidationCore.markPdf(PDFLib, pdfBytes, label);
+    if (marked.pageCount !== srcTexts.length) throw new Error(`nombre de pages différent après marquage (${marked.pageCount} au lieu de ${srcTexts.length})`);
+    // 4. Contrôle automatique par relecture
+    ui.step('Contrôle du PDF marqué…');
+    await CplValidationCore.verifyMarkedPdf(pdfjsLib, marked.bytes, label, srcTexts.length);
+    // 5. Enregistrement sans écrasement, empreinte du PDF marqué
+    ui.step('Enregistrement du PDF marqué…');
+    const hashMarked = await sha256HexBytes(marked.bytes);
+    uploaded = await uploadNoOverwrite(req.ref, CplValidationCore.markedFileName(file.name, req.ref), marked.bytes);
+    if (typeof onMarkedPdfSaved === 'function') await onMarkedPdfSaved({ req, file, source, pdfBytes, label, ui, pageCount: srcTexts.length });
+    // 6. Statut Traité, historique et notification (une seule mise à jour avec les empreintes)
+    ui.step('Passage au statut Traité…');
+    await applyStatusChange('Traité', {
+      note: 'Document validé et marqué',
+      extraFields: {
+        HashDocumentValide: hashSource, HashPdfMarque: hashMarked, DocumentValide: file.name,
+        DateValidationDoc: now.toISOString(), ValideParDoc: currentUser.name
+      }
+    });
+    ui.close();
+    showToast(`Document validé et marqué : ${escHtml(uploaded.name)}. Demande passée au statut Traité.`, 'success');
+    await loadRequests();
+    openDetail(req.ref);
+  } catch (e) {
+    console.error('Validation documentaire :', e);
+    const detail = uploaded ? `le PDF marqué « ${uploaded.name} » a été enregistré mais le statut n'a pas été modifié (${e.message})` : e.message;
+    ui.error('Validation interrompue, statut inchangé : ' + detail + '.');
+  } finally {
+    validationBusy = false;
+    window.removeEventListener('beforeunload', validationBeforeUnload);
+    ui.lock(false);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', initApp);
 </script>
 </body>
