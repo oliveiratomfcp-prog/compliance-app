@@ -7,7 +7,7 @@
 <link rel="stylesheet" href="style.css" />
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <style>
-/* ── CounterFlow — styles spécifiques (mêmes conventions que deontohub.html) ───────────── */
+/* ── CounterFlow — styles spécifiques ───────────── */
 .page-content{max-width:none !important;padding:28px 32px 40px !important}
 .bdg{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
 .bdg-a-jour{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}
@@ -127,18 +127,10 @@
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="12" y2="16"/><polyline points="9 9 10 10 13 7"/></svg>
           <span>Tracker CPL</span>
         </a>
-        <a class="sidebar-item" href="deontohub.html">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          <span>DeontoHub</span>
-        </a>
         <button class="sidebar-item active" style="cursor:default">
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><polyline points="9 13 11 15 15 11"/></svg>
           <span>CounterFlow</span>
         </button>
-        <a class="sidebar-item" href="complyadvantage.html">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-          <span>ComplyAdvantage</span>
-        </a>
       </nav>
 
       <div class="sidebar-spacer"></div>
@@ -282,7 +274,7 @@ let selectedBroker   = null;
 let lastLoadedAt     = null;
 
 // ═══════════════════════════════════════════════════════════
-// AUTH MSAL (identique à deontohub.html)
+// AUTH MSAL
 // ═══════════════════════════════════════════════════════════
 async function initApp() {
   msalInst = new msal.PublicClientApplication(msalConfig);
@@ -332,7 +324,7 @@ function setUser(u) {
 }
 
 // ═══════════════════════════════════════════════════════════
-// GRAPH HELPERS (identiques à deontohub.html)
+// GRAPH HELPERS
 // ═══════════════════════════════════════════════════════════
 async function getToken(scopes, account) {
   const acc = account || currentUser?.account || msalInst.getAllAccounts()[0];
