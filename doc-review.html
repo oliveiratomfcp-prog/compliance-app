@@ -18,9 +18,6 @@
     .dr-card-header { padding: 16px 22px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
     .dr-card-title { font-size: 14px; font-weight: 600; color: var(--navy); display: flex; align-items: center; gap: 8px; }
     .dr-card-body { padding: 22px; }
-    .dr-tab-nav { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 18px; }
-    .dr-tab-btn { padding: 9px 18px; font-size: 13px; font-weight: 500; color: var(--text-secondary); background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; margin-bottom: -1px; }
-    .dr-tab-btn.active { color: var(--navy); border-bottom-color: var(--navy); }
     .dr-upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 36px 24px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.2s; }
     .dr-upload-zone:hover, .dr-upload-zone.dragover { border-color: var(--teal); background: #f0f9f8; }
     .dr-upload-zone h3 { font-size: 14px; font-weight: 600; margin-bottom: 4px; color: var(--navy); }
@@ -102,7 +99,6 @@
     .dr-link-btn:disabled { opacity: 0.5; cursor: default; }
     .dr-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: drSpin 0.7s linear infinite; vertical-align: middle; margin-right: 6px; }
     @keyframes drSpin { to { transform: rotate(360deg); } }
-    textarea.dr-textarea { width: 100%; min-height: 160px; font-size: 13px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; color: var(--navy); resize: vertical; }
     .login-error { margin-top: 14px; font-size: 12.5px; color: #fecaca; }
     @media (max-width: 760px) { .dr-group { grid-template-columns: 1fr; } .dr-metrics { grid-template-columns: 1fr; } .dr-finding { flex-direction: column; } }
   </style>
@@ -209,26 +205,13 @@
           <div class="dr-card-body">
             <div id="marketInfo" class="dr-market-info retail"></div>
             <div id="proFundWarning" class="dr-box dr-box-warning hidden">Ce type de fonds est en principe réservé aux investisseurs professionnels ou assimilés. Vérifiez le public visé.</div>
-            <div class="dr-tab-nav">
-              <button class="dr-tab-btn active" id="tabBtnFile">Fichier</button>
-              <button class="dr-tab-btn" id="tabBtnText">Texte / Email</button>
+            <div class="dr-upload-zone" id="dropZone">
+              <h3>Déposer ou sélectionner un fichier</h3>
+              <p>Glissez votre document ici ou cliquez pour parcourir</p>
+              <div class="dr-formats"><span class="dr-fmt">PDF</span><span class="dr-fmt">PPTX</span><span class="dr-fmt">DOCX</span></div>
             </div>
-            <div id="panelFile">
-              <div class="dr-upload-zone" id="dropZone">
-                <h3>Déposer ou sélectionner un fichier</h3>
-                <p>Glissez votre document ici ou cliquez pour parcourir</p>
-                <div class="dr-formats"><span class="dr-fmt">PDF</span><span class="dr-fmt">PPTX</span><span class="dr-fmt">DOCX</span></div>
-              </div>
-              <input type="file" id="fileInput" accept=".pdf,.pptx,.docx" class="hidden" />
-              <div id="fileInfoBar" class="hidden"></div>
-            </div>
-            <div id="panelText" class="hidden">
-              <textarea class="dr-textarea" id="pastedText" placeholder="Collez ici le contenu de votre email, newsletter ou post…"></textarea>
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
-                <span style="font-size:12px;color:var(--text-secondary);" id="charCount">0 caractère</span>
-                <button class="btn-secondary" id="btn-clear-text" style="padding:5px 12px;font-size:12px;">Effacer</button>
-              </div>
-            </div>
+            <input type="file" id="fileInput" accept=".pdf,.pptx,.docx" class="hidden" />
+            <div id="fileInfoBar" class="hidden"></div>
             <div class="dr-controls">
               <button class="btn-primary" id="analyzeBtn">Analyser le document</button>
               <button class="btn-secondary hidden" id="cancelBtn">Annuler l'analyse</button>
@@ -340,7 +323,6 @@
   let isCPL = false;
   const sp = { siteId: null, listId: null, driveId: null, ready: false, error: null };
   let selectedMarket = 'retail';
-  let activeTab = 'file';
   let selectedFile = null;
   let running = false;
   let cancelRequested = false;
@@ -668,14 +650,6 @@
     $('proFundWarning').classList.toggle('hidden', !Core.isProfessionalFundForRetail(fonds, selectedMarket, FONDS_PROFESSIONNELS));
   }
 
-  function switchTab(tab) {
-    activeTab = tab;
-    $('panelFile').classList.toggle('hidden', tab !== 'file');
-    $('panelText').classList.toggle('hidden', tab !== 'text');
-    $('tabBtnFile').classList.toggle('active', tab === 'file');
-    $('tabBtnText').classList.toggle('active', tab === 'text');
-  }
-
   function showRunError(msg) {
     const box = $('runError');
     box.textContent = msg;
@@ -726,7 +700,7 @@
     updateFormState();
     $('cancelBtn').classList.toggle('hidden', !on);
     $('cancelBtn').disabled = false;
-    ['typeFonds', 'btnRetail', 'btnPro', 'tabBtnFile', 'tabBtnText', 'pastedText', 'btn-reset'].forEach(id => { $(id).disabled = on; });
+    ['typeFonds', 'btnRetail', 'btnPro', 'btn-reset'].forEach(id => { $(id).disabled = on; });
   }
 
   function beforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
@@ -741,15 +715,8 @@
     const typeFonds = selectedFundType();
     if (!typeFonds) { showRunError('Sélectionnez le type de fonds.'); return; }
     let input;
-    if (activeTab === 'text') {
-      const text = $('pastedText').value.trim();
-      if (text.length < 20) { showRunError('Collez au moins quelques lignes de texte à analyser.'); return; }
-      if (text.length > CFG.maxTexteColle) { showRunError(`Texte trop long (${text.length.toLocaleString('fr-FR')} caractères, maximum ${CFG.maxTexteColle.toLocaleString('fr-FR')}) : déposez plutôt le document dans l'onglet Fichier.`); return; }
-      input = { kind: 'texte', text };
-    } else {
-      if (!selectedFile) { showRunError('Sélectionnez un fichier PDF, PPTX ou DOCX.'); return; }
-      input = { kind: 'fichier', file: selectedFile, ext: Core.extensionOf(selectedFile.name) };
-    }
+    if (!selectedFile) { showRunError('Sélectionnez un fichier PDF, PPTX ou DOCX.'); return; }
+    input = { kind: 'fichier', file: selectedFile, ext: Core.extensionOf(selectedFile.name) };
 
     cancelRequested = false;
     lockUi(true);
@@ -759,7 +726,7 @@
     const ctx = {
       itemId: null, ref: null, modeles: new Set(), avertissements: [],
       fichiers: { original: null, pdf: null, rapportPdf: null, rapportJson: null },
-      nomFichier: input.kind === 'texte' ? 'Texte collé' : input.file.name,
+      nomFichier: input.file.name,
       hash: null
     };
 
@@ -778,15 +745,9 @@
       await patchAnalysis(ctx.itemId, { Title: ctx.ref });
       await createFolder(ctx.ref);
 
-      // 2. Fichier d'origine (ou texte collé) et empreinte SHA-256
-      let sourceBytes;
-      if (input.kind === 'texte') {
-        sourceBytes = new TextEncoder().encode(input.text);
-        ctx.fichiers.original = 'texte-colle.txt';
-      } else {
-        sourceBytes = new Uint8Array(await input.file.arrayBuffer());
-        ctx.fichiers.original = Core.sanitizeFileName(input.file.name);
-      }
+      // 2. Fichier d'origine et empreinte SHA-256
+      const sourceBytes = new Uint8Array(await input.file.arrayBuffer());
+      ctx.fichiers.original = Core.sanitizeFileName(input.file.name);
       ctx.hash = await Core.sha256Hex(sourceBytes);
       setProgress('Enregistrement du fichier d\'origine…', 0.03);
       const originalItem = await uploadFile(ctx.ref, ctx.fichiers.original, sourceBytes, 'fail');
@@ -797,73 +758,62 @@
       let totalPages, labels, pdf = null, pptx = null, mapping = null;
       const pageTexts = {};
       const sansTexte = [];
-      if (input.kind === 'texte') {
-        // Texte collé : une seule étape (prompt de synthèse), le texte tient lieu de relevé
-        totalPages = 1;
-        labels = [{ page: 1, libelle: 'Texte' }];
-        pageTexts[1] = input.text;
-      } else {
-        let pdfBytes = sourceBytes;
-        if (input.ext !== 'pdf') {
-          setProgress('Conversion en PDF (SharePoint)…', 0.05);
-          pdfBytes = new Uint8Array(await downloadItem(originalItem.id, 'pdf'));
-          ctx.fichiers.pdf = Core.sanitizeFileName(Core.baseName(ctx.fichiers.original) + '.pdf');
-          await uploadFile(ctx.ref, ctx.fichiers.pdf, pdfBytes, 'fail');
-        }
-        if (input.ext === 'pptx') {
-          try { pptx = await Core.parsePptxStructure(JSZip, sourceBytes); }
-          catch (e) { ctx.avertissements.push('Structure PowerPoint non lue (' + e.message + ') : slides masquées non détectées.'); }
-        }
-        setProgress('Lecture du document…', 0.07);
-        pdf = await openPdf(pdfBytes);
-        totalPages = pdf.numPages;
-        mapping = Core.mapPdfPages(totalPages, input.ext, pptx);
-        labels = mapping.labels;
-        for (let n = 1; n <= totalPages; n++) {
-          let t = await pageText(pdf, n);
-          if (!t) sansTexte.push(n);
-          if (t.length > CFG.maxTexteParPage) {
-            ctx.avertissements.push(`Page ${n} : texte extrait limité à ${CFG.maxTexteParPage} caractères (l'image de la page reste analysée en entier).`);
-            t = t.slice(0, CFG.maxTexteParPage);
-          }
-          pageTexts[n] = t;
-        }
-        if (totalPages > CFG.seuilPagesAvertissement) ctx.avertissements.push(`Document long (${totalPages} pages) : toutes les pages sont analysées, l'analyse peut prendre plusieurs minutes.`);
-        if (pptx && pptx.hidden.length) ctx.avertissements.push(`Slides masquées dans le fichier d'origine : ${pptx.hidden.join(', ')} (${mapping.mode === 'visibles' ? 'absentes du PDF converti, donc non analysées' : 'présentes dans le PDF converti et analysées'}).`);
-        if (mapping.incertaine) ctx.avertissements.push('Correspondance entre pages du PDF et slides incertaine : les remarques sont numérotées par page du PDF converti.');
-        if (sansTexte.length === totalPages) ctx.avertissements.push('Document sans couche texte (probablement scanné) : analyse réalisée sur les images seules.');
-        else if (sansTexte.length) ctx.avertissements.push(`Pages sans couche texte (analysées sur l'image seule) : ${sansTexte.join(', ')}.`);
+      let pdfBytes = sourceBytes;
+      if (input.ext !== 'pdf') {
+        setProgress('Conversion en PDF (SharePoint)…', 0.05);
+        pdfBytes = new Uint8Array(await downloadItem(originalItem.id, 'pdf'));
+        ctx.fichiers.pdf = Core.sanitizeFileName(Core.baseName(ctx.fichiers.original) + '.pdf');
+        await uploadFile(ctx.ref, ctx.fichiers.pdf, pdfBytes, 'fail');
       }
+      if (input.ext === 'pptx') {
+        try { pptx = await Core.parsePptxStructure(JSZip, sourceBytes); }
+        catch (e) { ctx.avertissements.push('Structure PowerPoint non lue (' + e.message + ') : slides masquées non détectées.'); }
+      }
+      setProgress('Lecture du document…', 0.07);
+      pdf = await openPdf(pdfBytes);
+      totalPages = pdf.numPages;
+      mapping = Core.mapPdfPages(totalPages, input.ext, pptx);
+      labels = mapping.labels;
+      for (let n = 1; n <= totalPages; n++) {
+        let t = await pageText(pdf, n);
+        if (!t) sansTexte.push(n);
+        if (t.length > CFG.maxTexteParPage) {
+          ctx.avertissements.push(`Page ${n} : texte extrait limité à ${CFG.maxTexteParPage} caractères (l'image de la page reste analysée en entier).`);
+          t = t.slice(0, CFG.maxTexteParPage);
+        }
+        pageTexts[n] = t;
+      }
+      if (totalPages > CFG.seuilPagesAvertissement) ctx.avertissements.push(`Document long (${totalPages} pages) : toutes les pages sont analysées, l'analyse peut prendre plusieurs minutes.`);
+      if (pptx && pptx.hidden.length) ctx.avertissements.push(`Slides masquées dans le fichier d'origine : ${pptx.hidden.join(', ')} (${mapping.mode === 'visibles' ? 'absentes du PDF converti, donc non analysées' : 'présentes dans le PDF converti et analysées'}).`);
+      if (mapping.incertaine) ctx.avertissements.push('Correspondance entre pages du PDF et slides incertaine : les remarques sont numérotées par page du PDF converti.');
+      if (sansTexte.length === totalPages) ctx.avertissements.push('Document sans couche texte (probablement scanné) : analyse réalisée sur les images seules.');
+      else if (sansTexte.length) ctx.avertissements.push(`Pages sans couche texte (analysées sur l'image seule) : ${sansTexte.join(', ')}.`);
       const labelOf = n => (labels[n - 1] && labels[n - 1].libelle) || ('Page ' + n);
       const common = {
         typeFonds, marche: selectedMarket, totalPages,
         indications: {
-          sourceType: input.kind === 'texte' ? 'texte' : input.ext,
+          sourceType: input.ext,
           slidesMasquees: pptx ? pptx.hidden : [],
           pagesSansTexte: sansTexte,
           correspondanceIncertaine: !!(mapping && mapping.incertaine)
         }
       };
 
-      // 4. Étape 1 : lots de pages (images + texte) ; aucune pour un texte collé
+      // 4. Étape 1 : lots de pages (images + texte)
       const vignettes = {};
-      const batches = input.kind === 'texte' ? [] : Core.buildBatches(totalPages, CFG.pagesParLot);
+      const batches = Core.buildBatches(totalPages, CFG.pagesParLot);
       const totalSteps = batches.length + 1;
       let done = 0;
       const progressStep = () => setProgress(`Analyse des pages : ${done} lot(s) terminé(s) sur ${batches.length}`, 0.1 + 0.8 * done / totalSteps);
-      if (batches.length) progressStep();
+      progressStep();
 
       async function analyseBatch(pages, index, total) {
         const payloadPages = [];
         for (const n of pages) {
           if (cancelRequested) throw new CancelledError();
-          let image = null;
-          if (pdf) {
-            const r = await renderPage(pdf, n);
-            image = r.image;
-            vignettes[n] = r.vignette;
-          }
-          payloadPages.push({ numero: n, libelle: labelOf(n), texte: pageTexts[n] || '', image });
+          const r = await renderPage(pdf, n);
+          vignettes[n] = r.vignette;
+          payloadPages.push({ numero: n, libelle: labelOf(n), texte: pageTexts[n] || '', image: r.image });
         }
         const payload = Object.assign({ etape: 'pages', lot: { index, total }, pages: payloadPages }, common);
         try {
@@ -880,40 +830,28 @@
         }
       }
 
-      let releve = null;
-      if (batches.length) {
-        const step1 = await runPool(batches, CFG.lotsEnParallele, async (pages, i) => {
-          const r = await analyseBatch(pages, i + 1, batches.length);
-          done++;
-          progressStep();
-          return r;
-        });
-        let merged = Core.mergeStep1(step1, totalPages);
-        if (merged.manquantes.length) {
-          setProgress('Pages non relevées : nouvelle analyse de ces pages…', 0.1 + 0.8 * done / totalSteps);
-          const missingBatches = Core.buildBatches(merged.manquantes.length, CFG.pagesParLot).map(b => b.map(i => merged.manquantes[i - 1]));
-          const retry = await runPool(missingBatches, CFG.lotsEnParallele, (pages, i) => analyseBatch(pages, i + 1, missingBatches.length));
-          merged = Core.mergeStep1(step1.concat(retry), totalPages);
-          if (merged.manquantes.length) throw new Error(`L'IA n'a pas relevé les pages ${merged.manquantes.join(', ')} : analyse interrompue pour ne pas produire un rapport incomplet.`);
-        }
-        releve = merged.releve;
+      const step1 = await runPool(batches, CFG.lotsEnParallele, async (pages, i) => {
+        const r = await analyseBatch(pages, i + 1, batches.length);
+        done++;
+        progressStep();
+        return r;
+      });
+      let merged = Core.mergeStep1(step1, totalPages);
+      if (merged.manquantes.length) {
+        setProgress('Pages non relevées : nouvelle analyse de ces pages…', 0.1 + 0.8 * done / totalSteps);
+        const missingBatches = Core.buildBatches(merged.manquantes.length, CFG.pagesParLot).map(b => b.map(i => merged.manquantes[i - 1]));
+        const retry = await runPool(missingBatches, CFG.lotsEnParallele, (pages, i) => analyseBatch(pages, i + 1, missingBatches.length));
+        merged = Core.mergeStep1(step1.concat(retry), totalPages);
+        if (merged.manquantes.length) throw new Error(`L'IA n'a pas relevé les pages ${merged.manquantes.join(', ')} : analyse interrompue pour ne pas produire un rapport incomplet.`);
       }
+      const releve = merged.releve;
 
-      // 5. Étape 2 : analyse d'ensemble (relevé complet + images de la première et de la dernière
-      // page ; pour un texte collé, le texte lui-même)
-      setProgress(input.kind === 'texte' ? 'Analyse du texte…' : 'Synthèse sur l\'ensemble du document…', 0.1 + 0.8 * done / totalSteps);
-      let synthPayload;
-      if (input.kind === 'texte') {
-        synthPayload = Object.assign({ etape: 'synthese', pages: [], texte: input.text }, common);
-      } else {
-        const synthPages = [];
-        if (pdf) {
-          const firstLast = totalPages > 1 ? [1, totalPages] : [1];
-          for (const n of firstLast) synthPages.push({ numero: n, libelle: labelOf(n), image: (await renderPage(pdf, n)).image });
-        }
-        synthPayload = Object.assign({ etape: 'synthese', pages: synthPages, releve }, common);
-      }
-      const synth = await runStep(synthPayload, ctx);
+      // 5. Étape 2 : analyse d'ensemble (relevé complet + images de la première et de la dernière page)
+      setProgress('Synthèse sur l\'ensemble du document…', 0.1 + 0.8 * done / totalSteps);
+      const synthPages = [];
+      const firstLast = totalPages > 1 ? [1, totalPages] : [1];
+      for (const n of firstLast) synthPages.push({ numero: n, libelle: labelOf(n), image: (await renderPage(pdf, n)).image });
+      const synth = await runStep(Object.assign({ etape: 'synthese', pages: synthPages, releve }, common), ctx);
 
       // 6. Consolidation, appréciation, rapports
       setProgress('Génération du rapport…', 0.95);
@@ -1232,8 +1170,6 @@
     if (running) return;
     selectedFile = null;
     currentReport = null;
-    $('pastedText').value = '';
-    $('charCount').textContent = '0 caractère';
     $('fileInfoBar').textContent = '';
     hide('fileInfoBar');
     hide('resultsCard');
@@ -1254,14 +1190,7 @@
     setMarket('retail');
     $('btnRetail').onclick = () => setMarket('retail');
     $('btnPro').onclick = () => setMarket('professionnel');
-    $('tabBtnFile').onclick = () => switchTab('file');
-    $('tabBtnText').onclick = () => switchTab('text');
     $('btn-reset').onclick = resetAll;
-    $('btn-clear-text').onclick = () => { $('pastedText').value = ''; $('charCount').textContent = '0 caractère'; };
-    $('pastedText').addEventListener('input', function () {
-      const n = this.value.length;
-      $('charCount').textContent = n.toLocaleString('fr-FR') + ' caractère' + (n > 1 ? 's' : '');
-    });
     const zone = $('dropZone');
     zone.onclick = () => { if (!running) $('fileInput').click(); };
     zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };

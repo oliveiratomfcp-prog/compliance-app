@@ -9,7 +9,7 @@
     Ne pas modifier ces repères : le code s'en sert pour retrouver chaque prompt.
   - Les commentaires comme celui-ci sont retirés avant l'envoi à l'IA : ils servent au relecteur.
   - PROMPT_PAGES : étape 1, relevé fidèle d'un lot de pages (images + texte extrait).
-  - PROMPT_SYNTHESE : étape 2, analyse d'ensemble ; seule étape utilisée pour un texte collé.
+  - PROMPT_SYNTHESE : étape 2, analyse d'ensemble (observations page par page et images).
   - REGLES_INTERNES : annexe insérée à la place de {REGLES_INTERNES} dans le prompt de synthèse.
   - Variables remplacées par le code (entre accolades simples, en majuscules) :
       {TYPE_FONDS}      libellé du type de fonds choisi par le collaborateur
@@ -31,7 +31,7 @@ Tu es un responsable conformité senior d'une société de gestion française (E
 Informations fournies par le collaborateur :
 - Type de fonds concerné : {TYPE_FONDS}
 - Public visé : {MARCHE}
-Tu reçois également les observations page par page issues d'une première lecture, et les images des pages (ou, pour un email ou un post, le texte seul).
+Tu reçois également les observations page par page issues d'une première lecture, et les images des pages.
 
 ÉTAPE 1 : COMPRENDRE LE DOCUMENT AVANT DE LE JUGER
 Avant toute remarque, détermine :

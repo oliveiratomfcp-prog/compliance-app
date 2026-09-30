@@ -4,13 +4,14 @@
 // =============================================
 // Aucune dépendance au DOM ni à Microsoft Graph : pdf-lib et pdf.js sont passés en
 // paramètre. Marquage de chaque page ("Réf. CPL-AAAA-NNNN · Validé le JJ/MM/AAAA"),
-// en bas à droite de la zone visible (CropBox), en tenant compte de la rotation de
-// la page, puis contrôle par relecture.
+// en haut à droite de la zone visible (CropBox), en tenant compte de la rotation de
+// la page, puis contrôle par relecture du texte de chaque page.
 
 const CplValidationCore = (() => {
   'use strict';
 
-  const MARK = Object.freeze({ taillePt: 7, margePt: 14, gris: 0.45 });
+  // margePt : distance au bord haut et au bord droit de la page telle qu'elle est affichée
+  const MARK = Object.freeze({ taillePt: 7, margePt: 18, gris: 0.45 });
 
   function pad2(n) { return String(n).padStart(2, '0'); }
 
@@ -61,7 +62,7 @@ const CplValidationCore = (() => {
     w: 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
   };
   const REL_SLIDE = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide';
-  const REL_FOOTER = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/footer';
+  const REL_HEADER = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/header';
 
   function xmlEscape(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
 
@@ -104,8 +105,9 @@ const CplValidationCore = (() => {
     const H = size ? Number(size.getAttribute('cy')) : 6858000;
     const cx = Math.min(3400000, Math.round(W * 0.6));
     const cy = 190000;
-    const x = Math.max(0, W - cx - 150000);
-    const y = Math.max(0, H - cy - 90000);
+    // haut à droite, à 18 pt (228 600 EMU) des bords haut et droit de la slide
+    const x = Math.max(0, W - cx - 228600);
+    const y = Math.min(228600, Math.max(0, H - cy));
     const ids = Array.from(pres.getElementsByTagNameNS(NS.p, 'sldId'));
     if (!ids.length) throw new Error('présentation sans slide');
     for (const sldId of ids) {
@@ -120,7 +122,7 @@ const CplValidationCore = (() => {
       Array.from(doc.getElementsByTagNameNS('*', 'cNvPr')).forEach(n => { const v = parseInt(n.getAttribute('id'), 10); if (v > maxId) maxId = v; });
       const shapeXml = `<p:sp xmlns:p="${NS.p}" xmlns:a="${NS.a}"><p:nvSpPr><p:cNvPr id="${maxId + 1}" name="Validation CPL"/><p:cNvSpPr txBox="1"/><p:nvPr/></p:nvSpPr>`
         + `<p:spPr><a:xfrm><a:off x="${x}" y="${y}"/><a:ext cx="${cx}" cy="${cy}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>`
-        + `<p:txBody><a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="b"><a:noAutofit/></a:bodyPr><a:lstStyle/>`
+        + `<p:txBody><a:bodyPr wrap="none" lIns="0" tIns="0" rIns="0" bIns="0" anchor="t"><a:noAutofit/></a:bodyPr><a:lstStyle/>`
         + `<a:p><a:pPr algn="r"/><a:r><a:rPr lang="fr-FR" sz="700" dirty="0"><a:solidFill><a:srgbClr val="737373"/></a:solidFill><a:latin typeface="Arial"/></a:rPr><a:t>${xmlEscape(label)}</a:t></a:r></a:p></p:txBody></p:sp>`;
       const shape = doc.importNode(parseXml(shapeXml, 'forme').documentElement, true);
       const extLst = Array.from(tree.childNodes).find(n => n.nodeType === 1 && n.localName === 'extLst');
@@ -136,21 +138,24 @@ const CplValidationCore = (() => {
     const relsFile = zip.file('word/_rels/document.xml.rels');
     if (!docFile || !relsFile) throw new Error('structure Word invalide');
     const doc = parseXml(await docFile.async('string'), 'document.xml');
-    const footerRels = relationships(parseXml(await relsFile.async('string'), 'document.xml.rels'), REL_FOOTER);
-    const refs = Array.from(doc.getElementsByTagNameNS(NS.w, 'footerReference')).map(n => n.getAttributeNS(NS.r, 'id'));
+    const headerRels = relationships(parseXml(await relsFile.async('string'), 'document.xml.rels'), REL_HEADER);
+    const refs = Array.from(doc.getElementsByTagNameNS(NS.w, 'headerReference')).map(n => n.getAttributeNS(NS.r, 'id'));
     const parts = [];
-    refs.forEach(rid => { const t = footerRels[rid]; if (t) { const p = resolvePart('word', t); if (parts.indexOf(p) === -1) parts.push(p); } });
-    if (!parts.length) throw new Error('le document Word n\'a pas de pied de page');
+    refs.forEach(rid => { const t = headerRels[rid]; if (t) { const p = resolvePart('word', t); if (parts.indexOf(p) === -1) parts.push(p); } });
+    if (!parts.length) throw new Error('le document Word n\'a pas d\'en-tête');
     for (const path of parts) {
       const f = zip.file(path);
-      if (!f) throw new Error('pied de page introuvable : ' + path);
+      if (!f) throw new Error('en-tête introuvable : ' + path);
       const text = await f.async('string');
-      const ftr = parseXml(text, path);
-      const root = ftr.documentElement;
-      if (root.localName !== 'ftr') throw new Error('pied de page inattendu : ' + path);
+      const hdr = parseXml(text, path);
+      const root = hdr.documentElement;
+      if (root.localName !== 'hdr') throw new Error('en-tête inattendu : ' + path);
+      // mention alignée à droite, en premier paragraphe de l'en-tête (en haut de la page)
       const pXml = `<w:p xmlns:w="${NS.w}"><w:pPr><w:jc w:val="right"/></w:pPr><w:r><w:rPr><w:color w:val="737373"/><w:sz w:val="14"/><w:szCs w:val="14"/></w:rPr><w:t xml:space="preserve">${xmlEscape(label)}</w:t></w:r></w:p>`;
-      root.appendChild(ftr.importNode(parseXml(pXml, 'paragraphe').documentElement, true));
-      zip.file(path, serializeXml(ftr, text));
+      const para = hdr.importNode(parseXml(pXml, 'paragraphe').documentElement, true);
+      const first = Array.from(root.childNodes).find(n => n.nodeType === 1);
+      root.insertBefore(para, first || null);
+      zip.file(path, serializeXml(hdr, text));
     }
     return zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
   }
@@ -163,15 +168,21 @@ const CplValidationCore = (() => {
     return /\/ByteRange\s*\[/.test(s) && /\/Type\s*\/Sig\b/.test(s);
   }
 
-  // Position et angle du texte pour qu'il apparaisse en bas à droite, dans le sens de lecture,
-  // quelle que soit la rotation de la page (0, 90, 180, 270 degrés).
-  function placement(crop, rotation, textWidth, margin) {
+  // Position et angle du texte pour qu'il apparaisse en haut à droite de la page telle qu'elle
+  // est affichée, dans le sens de lecture, quelle que soit la rotation (0, 90, 180, 270 degrés).
+  // (x, y) est l'origine de la ligne de base ; ascent : hauteur des caractères au-dessus de
+  // cette ligne, pour que le haut du texte soit à "margin" du bord haut affiché.
+  // Avec /Rotate 90, le bord haut affiché est le bord gauche (x0) de la page non pivotée et le
+  // bord droit affiché est le bord haut (y1) ; avec 180, haut = y0 et droite = x0 ; avec 270,
+  // haut = x1 et droite = y0.
+  function placement(crop, rotation, textWidth, margin, ascent) {
     const x0 = crop.x, y0 = crop.y, x1 = crop.x + crop.width, y1 = crop.y + crop.height;
+    const a = ascent || 0;
     switch (rotation) {
-      case 90: return { x: x1 - margin, y: y1 - margin - textWidth, angle: 90 };
-      case 180: return { x: x0 + margin + textWidth, y: y1 - margin, angle: 180 };
-      case 270: return { x: x0 + margin, y: y0 + margin + textWidth, angle: 270 };
-      default: return { x: x1 - margin - textWidth, y: y0 + margin, angle: 0 };
+      case 90: return { x: x0 + margin + a, y: y1 - margin - textWidth, angle: 90 };
+      case 180: return { x: x0 + margin + textWidth, y: y0 + margin + a, angle: 180 };
+      case 270: return { x: x1 - margin - a, y: y0 + margin + textWidth, angle: 270 };
+      default: return { x: x1 - margin - textWidth, y: y1 - margin - a, angle: 0 };
     }
   }
 
@@ -193,6 +204,7 @@ const CplValidationCore = (() => {
     const font = await doc.embedFont(StandardFonts.Helvetica);
     const size = MARK.taillePt;
     const textWidth = font.widthOfTextAtSize(label, size);
+    const ascent = font.heightAtSize(size, { descender: false });
     const pages = doc.getPages();
     if (!pages.length) throw new Error('PDF sans page.');
     const ctx = doc.context;
@@ -204,7 +216,7 @@ const CplValidationCore = (() => {
       page.node.wrapContentStreams(start, end);
       const crop = page.getCropBox();
       const rotation = normalizeRotation(page.getRotation().angle);
-      const p = placement(crop, rotation, textWidth, MARK.margePt);
+      const p = placement(crop, rotation, textWidth, MARK.margePt, ascent);
       page.drawText(label, { x: p.x, y: p.y, size, font, color: rgb(MARK.gris, MARK.gris, MARK.gris), rotate: degrees(p.angle) });
     });
     const out = await doc.save();

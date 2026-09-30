@@ -2481,7 +2481,7 @@ function buildValidationModal(req, files) {
   overlay.id = 'validation-modal';
   const modal = el('div', 'background:white;border-radius:12px;max-width:620px;width:100%;max-height:90vh;overflow:auto;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.25)');
   modal.appendChild(el('h3', 'font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px', 'Valider et marquer le document'));
-  modal.appendChild(el('p', 'font-size:12.5px;color:var(--text-secondary);margin-bottom:14px', 'Choisissez le document validé. Un PDF portant la mention ci-dessous sur chaque page sera enregistré dans le dossier de la demande.'));
+  modal.appendChild(el('p', 'font-size:12.5px;color:var(--text-secondary);margin-bottom:14px', 'Choisissez le document validé. Un PDF portant la mention ci-dessous en haut à droite de chaque page sera enregistré dans le dossier de la demande.'));
   const list = el('div', 'display:flex;flex-direction:column;gap:6px;margin-bottom:14px');
   let selected = files[0];
   const recap = el('div', 'background:#F4F5F8;border-radius:8px;padding:10px 14px;font-size:12.5px;line-height:1.7;margin-bottom:12px');
@@ -2537,8 +2537,8 @@ function buildValidationModal(req, files) {
 
 function validationBeforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
 
-// Option : marquer aussi le fichier d'origine (PPTX : zone de texte sur chaque slide ;
-// DOCX : mention dans les pieds de page existants). Case décochée par défaut.
+// Option : marquer aussi le fichier d'origine (PPTX : zone de texte en haut à droite de chaque slide ;
+// DOCX : mention alignée à droite dans les en-têtes existants). Case décochée par défaut.
 function onValidationModalBuilt(ui) {
   const label = document.createElement('label');
   label.style.cssText = 'display:flex;align-items:flex-start;gap:8px;font-size:12.5px;cursor:pointer;margin-bottom:10px;line-height:1.5';
@@ -2548,7 +2548,7 @@ function onValidationModalBuilt(ui) {
   box.checked = false;
   box.style.marginTop = '3px';
   const txt = document.createElement('span');
-  txt.textContent = 'Marquer aussi le fichier d\'origine (PPTX ou DOCX, enregistré sous un nouveau nom, l\'original n\'est pas modifié). Pour un DOCX, la mention est ajoutée aux pieds de page existants.';
+  txt.textContent = 'Marquer aussi le fichier d\'origine (PPTX ou DOCX, enregistré sous un nouveau nom, l\'original n\'est pas modifié). La mention est placée en haut à droite de chaque slide ou, pour un DOCX, dans les en-têtes existants.';
   label.append(box, txt);
   ui.options.appendChild(label);
 }

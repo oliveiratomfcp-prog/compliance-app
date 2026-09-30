@@ -47,14 +47,13 @@ Pour tester une Function en local (Azure Functions Core Tools / SWA CLI), créer
 - **Formulaire** : type de fonds obligatoire (liste modifiable dans `docreview-options.js`, qui
   indique aussi les fonds réservés aux professionnels pour l'avertissement non bloquant en Retail)
   et public visé (Retail ou Professionnel). La nature du document est déterminée par l'IA.
-- **Lecture complète** : PDF, PPTX, DOCX (et texte collé). Les PPTX et DOCX sont convertis en PDF par
+- **Lecture complète** : PDF, PPTX, DOCX (un email ou un post s'analyse enregistré en PDF ou DOCX). Les PPTX et DOCX sont convertis en PDF par
   SharePoint (`?format=pdf`) ; chaque page est rendue en image (pdf.js) et son texte extrait. Toutes
   les pages sont analysées. Les slides masquées et les pages sans couche texte sont signalées.
 - **Analyse en deux étapes**, en mode background de l'API Responses d'OpenAI (les Functions intégrées
   coupent les requêtes après 45 secondes) : `api/docreview-start` démarre une étape,
   `api/docreview-status` renvoie son état, `api/docreview-cancel` l'annule. Étape 1 : relevé fidèle
-  par lots de pages (images + texte). Étape 2 : analyse d'ensemble. Un texte collé passe directement
-  à l'étape 2. Sorties structurées en JSON strict (schémas dans `api/shared/docreview-logic.js`).
+  par lots de pages (images + texte). Étape 2 : analyse d'ensemble. Sorties structurées en JSON strict (schémas dans `api/shared/docreview-logic.js`).
 - **Prompts** : `api/shared/prompts-docreview.md`, fichier lisible et commenté, lu à chaque analyse
   (prompt de synthèse, prompt par lots de pages, annexe des règles internes Eiffel). Les prompts
   sont construits côté serveur ; le navigateur n'envoie que les données du document.

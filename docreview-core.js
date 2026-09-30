@@ -26,7 +26,6 @@ const DocReviewCore = (() => {
     qualiteVignette: 0.7,
     seuilPagesAvertissement: 80,
     maxTexteParPage: 20000,  // doit rester égal à la limite serveur (api/shared/docreview-logic.js)
-    maxTexteColle: 200000,   // idem : texte collé analysé en une seule étape
     intervalleSuiviMs: 3000,
     delaiMaxEtapeMs: 15 * 60 * 1000
   });
