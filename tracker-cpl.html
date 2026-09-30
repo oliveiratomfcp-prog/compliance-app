@@ -1981,6 +1981,15 @@ async function handleDocReviewParam() {
 function docReviewDescriptionHtml(a) {
   const r = a.report;
   const c = r.counts || {};
+  if (r.version === 2) {
+    const app = r.appreciation || {};
+    const nature = r.comprehension && r.comprehension.nature ? `, nature détectée : ${escHtml(r.comprehension.nature)}` : '';
+    return `<p><strong>Analyse Doc Review ${escHtml(a.ref)}</strong> (type de fonds : ${escHtml(r.typeFonds)}, public ${escHtml(r.marcheLibelle || r.marche)}${nature}) : `
+      + `appréciation globale « ${escHtml(app.valeur || '')} », ${escHtml(c.aTraiter || 0)} point(s) à traiter, ${escHtml(c.recommandes || 0)} recommandation(s).</p>`
+      + `<p><strong>Synthèse :</strong> ${escHtml(app.synthese || '')}</p>`
+      + `<p>Le fichier d'origine et le rapport de relecture sont joints à la demande.</p>`;
+  }
+  // analyses enregistrées avec l'ancien format (score sur 100)
   return `<p><strong>Analyse Doc Review ${escHtml(a.ref)}</strong> (${escHtml(r.typeDocument)}, marché ${escHtml(r.marcheLibelle || r.marche)}) : `
     + `score ${escHtml(r.score)}/100, ${escHtml(c.bloquants || 0)} point(s) bloquant(s), ${escHtml(c.attention || 0)} point(s) d'attention.</p>`
     + `<p><strong>Synthèse :</strong> ${escHtml(r.synthese || '')}</p>`

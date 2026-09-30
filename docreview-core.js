@@ -2,16 +2,19 @@
 //  DOC REVIEW : logique pure (navigateur)
 //  Compliance App — Eiffel Investment Group
 // =============================================
-// Aucune dépendance au DOM, à MSAL ni à Microsoft Graph : score, contrôle des
-// citations, structure PPTX, correspondance pages / slides, regroupement des
-// constats, rapport PDF. Testable seul.
+// Aucune dépendance au DOM, à MSAL ni à Microsoft Graph : contrôle des citations,
+// structure PPTX, correspondance pages / slides, mise en forme de l'analyse,
+// rapport PDF. Testable seul.
 
 const DocReviewCore = (() => {
   'use strict';
 
-  // Pénalités du score (calculé par le code, jamais par l'IA) : 100 moins une pénalité
-  // par constat bloquant et par point d'attention, minimum 0.
-  const SCORE_CONFIG = Object.freeze({ penaliteBloquant: 20, penaliteAttention: 5 });
+  // Appréciation globale de l'IA et valeur enregistrée dans la colonne Score (3, 2 ou 1).
+  // Libellés identiques au schéma serveur (api/shared/docreview-logic.js).
+  const APPRECIATIONS = Object.freeze(['Prêt à soumettre', 'Quelques ajustements conseillés', 'À retravailler']);
+  const SCORE_PAR_APPRECIATION = Object.freeze({ 'Prêt à soumettre': 3, 'Quelques ajustements conseillés': 2, 'À retravailler': 1 });
+  const NIVEAUX = Object.freeze(['À traiter', 'Recommandé', 'Suggestion']);
+  const CONFIANCES = ['élevé', 'moyen', 'faible'];
 
   // Paramètres d'analyse
   const ANALYSE_CONFIG = Object.freeze({
@@ -23,16 +26,10 @@ const DocReviewCore = (() => {
     qualiteVignette: 0.7,
     seuilPagesAvertissement: 80,
     maxTexteParPage: 20000,  // doit rester égal à la limite serveur (api/shared/docreview-logic.js)
+    maxTexteColle: 200000,   // idem : texte collé analysé en une seule étape
     intervalleSuiviMs: 3000,
     delaiMaxEtapeMs: 15 * 60 * 1000
   });
-
-  // Doit rester identique à la liste serveur (api/shared/docreview-logic.js)
-  const TYPES_DOCUMENT = Object.freeze([
-    'présentation commerciale', 'fiche produit / DICI', 'email marketing', 'post LinkedIn',
-    'post réseaux sociaux', 'rapport de gestion', 'document publicitaire', 'communiqué de presse'
-  ]);
-  const GRAVITES = ['bloquant', 'attention', 'conforme'];
 
   function toText(v) { return v === null || v === undefined ? '' : String(v); }
 
@@ -40,9 +37,13 @@ const DocReviewCore = (() => {
     return toText(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  function computeScore(counts, config) {
-    const c = config || SCORE_CONFIG;
-    return Math.max(0, 100 - c.penaliteBloquant * (counts.bloquants || 0) - c.penaliteAttention * (counts.attention || 0));
+  function scoreFromAppreciation(valeur) {
+    return SCORE_PAR_APPRECIATION[valeur] || null;
+  }
+
+  // Avertissement non bloquant : fonds en principe réservé aux professionnels et public Retail
+  function isProfessionalFundForRetail(typeFonds, marche, fondsProfessionnels) {
+    return marche === 'retail' && (fondsProfessionnels || []).indexOf(typeFonds) !== -1;
   }
 
   function makeRef(prefix, date, spItemId) {
@@ -186,7 +187,8 @@ const DocReviewCore = (() => {
   }
 
   // ---------------------------------------------------------------------------
-  // Consolidation : constats finaux, contrôle des pages et des citations, score
+  // Consolidation : remarques hiérarchisées, contrôle des pages et des citations,
+  // appréciation globale et compteurs enregistrés dans SharePoint
   // ---------------------------------------------------------------------------
   function cleanPages(list, totalPages) {
     const out = [];
@@ -201,52 +203,56 @@ const DocReviewCore = (() => {
     return t ? t : null;
   }
 
-  function consolidate(synthese, pageTexts, totalPages, config) {
-    const constats = (Array.isArray(synthese && synthese.constats) ? synthese.constats : []).map(c => {
-      const pages = cleanPages(c.pages, totalPages);
-      const citation = nullableText(c.citation);
-      return {
-        gravite: GRAVITES.indexOf(c.gravite) !== -1 ? c.gravite : 'attention',
-        nature: toText(c.nature) || 'non_conforme',
-        titre: nullableText(c.titre) || 'Constat sans titre',
-        explication: nullableText(c.explication) || '',
-        reference: nullableText(c.reference),
-        citation,
-        citationVerifiee: citation ? checkCitation(citation, pages, pageTexts) : null,
-        description_visuelle: nullableText(c.description_visuelle),
-        correction: nullableText(c.correction),
-        incertitude: nullableText(c.incertitude),
-        pages
-      };
-    });
-    const order = { bloquant: 0, attention: 1, conforme: 2 };
-    constats.sort((a, b) => order[a.gravite] - order[b.gravite] || (a.pages[0] || 0) - (b.pages[0] || 0));
-    const counts = {
-      bloquants: constats.filter(c => c.gravite === 'bloquant').length,
-      attention: constats.filter(c => c.gravite === 'attention').length,
-      conformes: constats.filter(c => c.gravite === 'conforme').length
-    };
-    return {
-      constats,
-      counts,
-      score: computeScore(counts, config),
-      synthese: nullableText(synthese && synthese.synthese) || '',
-      formatDetecte: nullableText(synthese && synthese.format_detecte) || '',
-      recommandation: toText(synthese && synthese.recommandation),
-      pagesSansAvertissement: cleanPages(synthese && synthese.pages_sans_avertissement, totalPages),
-      themes: (Array.isArray(synthese && synthese.themes) ? synthese.themes : []).map(toText).filter(Boolean)
-    };
+  function textList(list) {
+    return (Array.isArray(list) ? list : []).map(v => toText(v).trim()).filter(Boolean);
   }
 
-  // Regroupement pour l'affichage : constats du document entier, puis par première page citée
-  function groupByPage(constats) {
-    const groups = [];
-    const general = constats.filter(c => c.pages.length === 0);
-    if (general.length) groups.push({ page: null, constats: general });
-    const byPage = {};
-    constats.filter(c => c.pages.length > 0).forEach(c => { (byPage[c.pages[0]] = byPage[c.pages[0]] || []).push(c); });
-    Object.keys(byPage).map(Number).sort((a, b) => a - b).forEach(p => groups.push({ page: p, constats: byPage[p] }));
-    return groups;
+  function consolidate(analyse, pageTexts, totalPages) {
+    const a = analyse || {};
+    const comp = a.comprehension || {};
+    const app = a.appreciation_globale || {};
+    const remarques = (Array.isArray(a.remarques) ? a.remarques : []).map((r, i) => {
+      const pages = cleanPages(r.pages, totalPages);
+      const element = nullableText(r.citation_ou_element);
+      return {
+        niveau: NIVEAUX.indexOf(r.niveau) !== -1 ? r.niveau : 'Recommandé',
+        titre: nullableText(r.titre) || 'Remarque sans titre',
+        pages,
+        element,
+        // true : passage retrouvé mot pour mot ; sinon il peut s'agir d'un élément visuel décrit
+        citationRetrouvee: element ? checkCitation(element, pages, pageTexts) === true : false,
+        explication: nullableText(r.explication) || '',
+        proposition: nullableText(r.proposition),
+        reference: nullableText(r.reference),
+        confiance: CONFIANCES.indexOf(r.confiance) !== -1 ? r.confiance : 'moyen',
+        ordre: i
+      };
+    });
+    // "À traiter" d'abord ; l'ordre d'importance donné par l'IA est conservé dans chaque niveau
+    remarques.sort((x, y) => NIVEAUX.indexOf(x.niveau) - NIVEAUX.indexOf(y.niveau) || x.ordre - y.ordre);
+    remarques.forEach(r => { delete r.ordre; });
+    const valeur = APPRECIATIONS.indexOf(app.valeur) !== -1 ? app.valeur : null;
+    const counts = {
+      aTraiter: remarques.filter(r => r.niveau === 'À traiter').length,
+      recommandes: remarques.filter(r => r.niveau === 'Recommandé').length,
+      suggestions: remarques.filter(r => r.niveau === 'Suggestion').length
+    };
+    return {
+      comprehension: {
+        nature: nullableText(comp.nature) || '',
+        metEnAvant: nullableText(comp.met_en_avant) || '',
+        canal: nullableText(comp.canal_probable) || '',
+        objectif: nullableText(comp.objectif) || '',
+        resume: nullableText(comp.resume) || '',
+        ecart: nullableText(comp.ecart_declaration)
+      },
+      appreciation: { valeur, synthese: nullableText(app.synthese) || '' },
+      score: scoreFromAppreciation(valeur),
+      pointsForts: textList(a.points_forts),
+      remarques,
+      pointsAVerifier: textList(a.points_a_verifier),
+      counts
+    };
   }
 
   // Relevé de l'étape 1 : une entrée par page du document, dans l'ordre, pages manquantes signalées
@@ -277,7 +283,9 @@ const DocReviewCore = (() => {
       }).join('');
   }
 
-  const GRAVITE_LIBELLE = { bloquant: 'BLOQUANT', attention: 'ATTENTION', conforme: 'CONFORME' };
+  // Couleurs partagées par l'affichage et le rapport PDF ("À traiter" en orange)
+  const COULEUR_NIVEAU = { 'À traiter': [194, 65, 12], 'Recommandé': [29, 78, 216], 'Suggestion': [71, 85, 105] };
+  const COULEUR_APPRECIATION = { 'Prêt à soumettre': [30, 126, 74], 'Quelques ajustements conseillés': [183, 119, 13], 'À retravailler': [194, 65, 12] };
 
   function generateReportPdf(jsPDF, report) {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
@@ -292,11 +300,14 @@ const DocReviewCore = (() => {
 
     doc.setFillColor(0, 20, 59); doc.rect(0, 0, W, 30, 'F');
     doc.setTextColor(209, 143, 65); doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.text('EIFFEL INVESTMENT GROUP', M, 13);
-    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(pdfSafe('Doc Review : rapport de pré-contrôle AMF / MIF II'), M, 21);
+    doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.text(pdfSafe('Doc Review : relecture préalable de la communication commerciale'), M, 21);
     y = 40;
 
+    const comp = report.comprehension || {};
+    const app = report.appreciation || {};
     const meta = [
-      ['Référence', report.ref], ['Document', report.nomFichier], ['Type', report.typeDocument], ['Marché', report.marcheLibelle],
+      ['Référence', report.ref], ['Document', report.nomFichier], ['Type de fonds', report.typeFonds], ['Public visé', report.marcheLibelle],
+      ['Nature détectée', comp.nature || '-'], ['Appréciation', app.valeur || '-'],
       ['Empreinte SHA-256', report.hashFichier || '-'], ['Date', report.dateLibelle], ['Utilisateur', report.demandeur],
       ['Modèles', report.modeles], ['Pages analysées', String(report.totalPages)]
     ];
@@ -309,36 +320,48 @@ const DocReviewCore = (() => {
       y += 5.2;
     });
 
+    const c = report.counts || {};
+    const section = title => { y += 3; newPageIfNeeded(10); text(title, 10, 'bold', [0, 20, 59]); };
+    const bullets = list => { if (!list.length) text('-', 9, 'normal', null, 2); list.forEach(s => text('- ' + s, 9, 'normal', null, 2)); };
+
     y += 3;
-    text(`Score : ${report.score} / 100   -   Bloquants : ${report.counts.bloquants}   -   Points d'attention : ${report.counts.attention}   -   Conformes : ${report.counts.conformes}`, 11, 'bold', [0, 20, 59]);
-    y += 2;
-    if (report.avertissements.length) {
-      text('Avertissements', 10, 'bold', [146, 64, 14]);
-      report.avertissements.forEach(a => text('- ' + a, 9, 'normal', [146, 64, 14], 2));
+    text(`Appréciation globale : ${app.valeur || '-'}`, 11.5, 'bold', COULEUR_APPRECIATION[app.valeur] || [0, 20, 59]);
+    text(`À traiter : ${c.aTraiter || 0}   -   Recommandé : ${c.recommandes || 0}   -   Suggestion : ${c.suggestions || 0}`, 9.5, 'normal', [70, 70, 70]);
+    if ((report.avertissements || []).length) {
       y += 2;
+      text('À noter', 10, 'bold', [146, 64, 14]);
+      report.avertissements.forEach(a => text('- ' + a, 9, 'normal', [146, 64, 14], 2));
     }
-    text('Synthèse', 10, 'bold', [0, 20, 59]);
-    text(report.synthese || '-', 9, 'normal');
-    y += 3;
-    text('Constats', 10, 'bold', [0, 20, 59]);
-    report.constats.forEach((c, i) => {
+    section('Compréhension du document');
+    text(comp.resume || '-', 9, 'normal');
+    if (comp.metEnAvant) text('Met en avant : ' + comp.metEnAvant, 9, 'normal', [80, 80, 80], 2);
+    if (comp.canal) text('Canal probable : ' + comp.canal, 9, 'normal', [80, 80, 80], 2);
+    if (comp.objectif) text('Objectif : ' + comp.objectif, 9, 'normal', [80, 80, 80], 2);
+    if (comp.ecart) text('Écart avec les informations déclarées : ' + comp.ecart, 9, 'bold', [146, 64, 14], 2);
+    section('Synthèse');
+    text(app.synthese || '-', 9, 'normal');
+    section('Points forts');
+    bullets(report.pointsForts || []);
+    section('Remarques');
+    if (!(report.remarques || []).length) text('Aucune remarque.', 9, 'normal');
+    (report.remarques || []).forEach((r, i) => {
       y += 2;
       newPageIfNeeded(12);
-      const color = c.gravite === 'bloquant' ? [192, 57, 43] : c.gravite === 'attention' ? [183, 119, 13] : [30, 126, 74];
-      text(`${i + 1}. [${GRAVITE_LIBELLE[c.gravite]}] ${c.titre}` + (c.pages.length ? `  (pages ${c.pages.join(', ')})` : '  (document entier)'), 9.5, 'bold', color);
-      if (c.explication) text(c.explication, 9, 'normal', [50, 50, 50], 3);
-      if (c.citation) text('Citation : "' + c.citation + '"' + (c.citationVerifiee === false ? '  [citation non retrouvée dans le texte extrait]' : ''), 9, 'italic', [80, 80, 80], 3);
-      if (c.description_visuelle) text('Élément visuel : ' + c.description_visuelle, 9, 'normal', [80, 80, 80], 3);
-      if (c.reference) text('Référence : ' + c.reference, 9, 'normal', [80, 80, 80], 3);
-      if (c.incertitude) text('Incertitude : ' + c.incertitude, 9, 'normal', [146, 64, 14], 3);
-      if (c.correction) text('Correction suggérée : ' + c.correction, 9, 'normal', [0, 102, 96], 3);
+      text(`${i + 1}. [${r.niveau.toUpperCase()}] ${r.titre}` + (r.pages.length ? `  (pages ${r.pages.join(', ')})` : '  (document entier)'), 9.5, 'bold', COULEUR_NIVEAU[r.niveau]);
+      if (r.element) text((r.citationRetrouvee ? 'Passage cité : "' + r.element + '"' : 'Passage ou élément : ' + r.element), 9, 'italic', [80, 80, 80], 3);
+      if (r.explication) text(r.explication, 9, 'normal', [50, 50, 50], 3);
+      if (r.proposition) text('Proposition : ' + r.proposition, 9, 'normal', [0, 102, 96], 3);
+      if (r.reference) text('Référence : ' + r.reference, 9, 'normal', [80, 80, 80], 3);
+      text('Confiance : ' + r.confiance, 8.5, 'normal', [120, 120, 120], 3);
     });
+    section('Points à vérifier avant soumission');
+    bullets(report.pointsAVerifier || []);
 
     const pages = doc.getNumberOfPages();
     for (let p = 1; p <= pages; p++) {
       doc.setPage(p);
       doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(140, 140, 140);
-      doc.text(pdfSafe(`${report.ref} - pré-contrôle automatisé, ne vaut pas validation Compliance - page ${p}/${pages}`), W / 2, 292, { align: 'center' });
+      doc.text(pdfSafe(`${report.ref} - aide à la relecture, ne vaut pas validation Compliance - page ${p}/${pages}`), W / 2, 292, { align: 'center' });
     }
     return doc.output('arraybuffer');
   }
@@ -349,9 +372,9 @@ const DocReviewCore = (() => {
   }
 
   return Object.freeze({
-    SCORE_CONFIG, ANALYSE_CONFIG, TYPES_DOCUMENT,
-    escapeHtml, computeScore, makeRef, sanitizeFileName, extensionOf, baseName,
+    ANALYSE_CONFIG, APPRECIATIONS, SCORE_PAR_APPRECIATION, NIVEAUX, COULEUR_NIVEAU, COULEUR_APPRECIATION,
+    escapeHtml, scoreFromAppreciation, isProfessionalFundForRetail, makeRef, sanitizeFileName, extensionOf, baseName,
     normalizeForMatch, checkCitation, buildBatches, parsePptxStructure, mapPdfPages,
-    consolidate, groupByPage, mergeStep1, pdfSafe, generateReportPdf, sha256Hex
+    consolidate, mergeStep1, pdfSafe, generateReportPdf, sha256Hex
   });
 })();

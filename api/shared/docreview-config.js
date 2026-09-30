@@ -54,7 +54,7 @@ function readConfig() {
 
 let rulesCache = null;
 function readRules() {
-  if (!rulesCache) rulesCache = logic.splitRules(fs.readFileSync(path.join(__dirname, 'regles.md'), 'utf8'));
+  if (!rulesCache) rulesCache = logic.splitRules(fs.readFileSync(path.join(__dirname, 'prompts-docreview.md'), 'utf8'));
   return rulesCache;
 }
 

@@ -42,21 +42,29 @@ Pour tester une Function en local (Azure Functions Core Tools / SWA CLI), créer
 }
 ```
 
-## Doc Review : pré-contrôle IA de la documentation marketing
+## Doc Review : relecture IA de la documentation marketing
 
+- **Formulaire** : type de fonds obligatoire (liste modifiable dans `docreview-options.js`, qui
+  indique aussi les fonds réservés aux professionnels pour l'avertissement non bloquant en Retail)
+  et public visé (Retail ou Professionnel). La nature du document est déterminée par l'IA.
 - **Lecture complète** : PDF, PPTX, DOCX (et texte collé). Les PPTX et DOCX sont convertis en PDF par
   SharePoint (`?format=pdf`) ; chaque page est rendue en image (pdf.js) et son texte extrait. Toutes
   les pages sont analysées. Les slides masquées et les pages sans couche texte sont signalées.
 - **Analyse en deux étapes**, en mode background de l'API Responses d'OpenAI (les Functions intégrées
   coupent les requêtes après 45 secondes) : `api/docreview-start` démarre une étape,
-  `api/docreview-status` renvoie son état, `api/docreview-cancel` l'annule. Étape 1 : lots de pages
-  (images + texte). Étape 2 : synthèse sur l'ensemble du document. Sorties structurées en JSON strict.
-- **Règles** : `api/shared/regles.md`, fichier lisible et commenté, lu à chaque analyse. Les prompts
+  `api/docreview-status` renvoie son état, `api/docreview-cancel` l'annule. Étape 1 : relevé fidèle
+  par lots de pages (images + texte). Étape 2 : analyse d'ensemble. Un texte collé passe directement
+  à l'étape 2. Sorties structurées en JSON strict (schémas dans `api/shared/docreview-logic.js`).
+- **Prompts** : `api/shared/prompts-docreview.md`, fichier lisible et commenté, lu à chaque analyse
+  (prompt de synthèse, prompt par lots de pages, annexe des règles internes Eiffel). Les prompts
   sont construits côté serveur ; le navigateur n'envoie que les données du document.
-- **Score** : calculé par le code (`docreview-core.js`, `SCORE_CONFIG`) : 100 moins 20 par point
-  bloquant et 5 par point d'attention, minimum 0. Les citations sont contrôlées mot pour mot dans le
-  texte extrait.
-- **Traçabilité** : liste "Doc Review Analyses" et bibliothèque "Doc Review" (site CPLDashboard), un
+- **Résultat** : compréhension du document, appréciation globale, points forts, remarques
+  hiérarchisées (À traiter, Recommandé, Suggestion) avec niveau de confiance, points à vérifier.
+  Aucun score calculé : la colonne `Score` vaut 3 (Prêt à soumettre), 2 (Quelques ajustements
+  conseillés) ou 1 (À retravailler) ; `NbBloquants` compte les remarques "À traiter" et
+  `NbAttention` les remarques "Recommandé".
+- **Traçabilité** : liste "Doc Review Analyses" (dont `TypeFonds` : type de fonds choisi,
+  `TypeDocument` : nature détectée par l'IA) et bibliothèque "Doc Review" (site CPLDashboard), un
   dossier par analyse (`DR-AAAA-NNNN`) contenant le fichier d'origine, le PDF converti, le rapport PDF
   et le rapport JSON. Statuts : En cours, Analysé, Erreur (motif dans le rapport JSON), Soumis.
 

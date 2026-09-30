@@ -10,6 +10,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="cpl-config.js"></script>
+  <script src="docreview-options.js"></script>
   <script src="docreview-core.js"></script>
   <style>
     .dr-content { max-width: 980px; margin: 0 auto; }
@@ -63,23 +64,30 @@
     .dr-group:first-child { border-top: none; }
     .dr-group-side { font-size: 12px; font-weight: 600; color: var(--navy); }
     .dr-thumb { width: 100%; border: 1px solid var(--border); border-radius: 6px; margin-top: 6px; display: block; background: #f8f9fa; }
-    .dr-finding { border-radius: 10px; border: 1px solid; padding: 12px 14px; margin-bottom: 10px; }
-    .dr-finding.bloquant { background: #fdedec; border-color: #f1948a; }
-    .dr-finding.attention { background: #fef9ec; border-color: #f5cba7; }
-    .dr-finding.conforme { background: #eafaf1; border-color: #a9dfbf; }
+    .dr-finding { border-radius: 10px; border: 1px solid; padding: 12px 14px; margin-bottom: 10px; display: flex; gap: 14px; }
+    .dr-finding-main { flex: 1; min-width: 0; }
+    .dr-finding .dr-thumb { width: 120px; flex-shrink: 0; margin-top: 0; align-self: flex-start; }
+    .dr-finding.n-traiter { background: #fff7ed; border-color: #fdba74; }
+    .dr-finding.n-recommande { background: #eff6ff; border-color: #bfdbfe; }
+    .dr-finding.n-suggestion { background: #f8fafc; border-color: #e2e8f0; }
     .dr-finding-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 6px; flex-wrap: wrap; }
     .dr-finding-badge { font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 4px; color: white; text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0; }
-    .dr-finding.bloquant .dr-finding-badge { background: #c0392b; }
-    .dr-finding.attention .dr-finding-badge { background: #b7770d; }
-    .dr-finding.conforme .dr-finding-badge { background: #1e7e4a; }
+    .dr-finding.n-traiter .dr-finding-badge { background: #c2410c; }
+    .dr-finding.n-recommande .dr-finding-badge { background: #1d4ed8; }
+    .dr-finding.n-suggestion .dr-finding-badge { background: #475569; }
+    .dr-confiance { font-size: 10.5px; color: #64748b; }
     .dr-finding-title { font-size: 13px; font-weight: 600; color: #212529; flex: 1; }
     .dr-finding-pages { font-size: 11px; font-weight: 600; color: #475569; }
     .dr-finding-line { font-size: 12px; line-height: 1.6; margin-top: 5px; color: #374151; white-space: pre-wrap; }
     .dr-citation { font-style: italic; padding: 6px 10px; border-left: 3px solid #94a3b8; background: rgba(0,0,0,0.03); }
     .dr-flag { display: inline-block; font-size: 10.5px; font-weight: 600; color: #92400e; background: #fef3c7; border-radius: 4px; padding: 1px 6px; margin-left: 6px; font-style: normal; }
     .dr-label { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.04em; opacity: 0.7; margin-right: 4px; }
-    .dr-tags { display: flex; flex-wrap: wrap; gap: 7px; }
-    .dr-tag { font-size: 11px; padding: 4px 12px; border-radius: 20px; background: #f1f3f5; color: #6c757d; border: 1px solid var(--border); }
+    .dr-list { margin: 0 0 6px 18px; font-size: 12.5px; line-height: 1.7; color: #374151; }
+    .dr-comprehension { background: #f8f9fa; border: 1px solid var(--border); border-radius: 10px; padding: 14px 16px; font-size: 12.5px; line-height: 1.7; color: #374151; }
+    .dr-comprehension .dr-finding-line { margin-top: 3px; }
+    .dr-appreciation-val { font-size: 17px; font-weight: 700; line-height: 1.3; }
+    .dr-fonds-select { min-width: 260px; max-width: 100%; }
+    .dr-fonds-select:invalid { color: var(--text-secondary); }
     .dr-report-title { font-size: 17px; font-weight: 700; color: var(--navy); }
     .dr-report-meta { font-size: 12px; color: #8a9ab0; margin-top: 3px; }
     .dr-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
@@ -96,7 +104,7 @@
     @keyframes drSpin { to { transform: rotate(360deg); } }
     textarea.dr-textarea { width: 100%; min-height: 160px; font-size: 13px; line-height: 1.6; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-family: inherit; color: var(--navy); resize: vertical; }
     .login-error { margin-top: 14px; font-size: 12.5px; color: #fecaca; }
-    @media (max-width: 760px) { .dr-group { grid-template-columns: 1fr; } .dr-metrics { grid-template-columns: 1fr; } }
+    @media (max-width: 760px) { .dr-group { grid-template-columns: 1fr; } .dr-metrics { grid-template-columns: 1fr; } .dr-finding { flex-direction: column; } }
   </style>
 </head>
 <body>
@@ -189,15 +197,8 @@
           <div class="dr-card-header">
             <div class="dr-card-title">Soumettre un document</div>
             <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-              <select class="dr-select" id="docType">
-                <option value="présentation commerciale">Présentation commerciale (PPTX/PDF)</option>
-                <option value="fiche produit / DICI">Fiche produit / DICI</option>
-                <option value="email marketing">Email / newsletter</option>
-                <option value="post LinkedIn">Post LinkedIn</option>
-                <option value="post réseaux sociaux">Post réseaux sociaux (Twitter, Instagram…)</option>
-                <option value="rapport de gestion">Rapport de gestion / reporting</option>
-                <option value="document publicitaire">Document publicitaire (bannière, encart)</option>
-                <option value="communiqué de presse">Communiqué de presse</option>
+              <select class="dr-select dr-fonds-select" id="typeFonds" required aria-label="Type de fonds">
+                <option value="" disabled selected>Sélectionner le type de fonds</option>
               </select>
               <div class="dr-market-toggle">
                 <button class="dr-market-btn active" id="btnRetail">Retail</button>
@@ -207,6 +208,7 @@
           </div>
           <div class="dr-card-body">
             <div id="marketInfo" class="dr-market-info retail"></div>
+            <div id="proFundWarning" class="dr-box dr-box-warning hidden">Ce type de fonds est en principe réservé aux investisseurs professionnels ou assimilés. Vérifiez le public visé.</div>
             <div class="dr-tab-nav">
               <button class="dr-tab-btn active" id="tabBtnFile">Fichier</button>
               <button class="dr-tab-btn" id="tabBtnText">Texte / Email</button>
@@ -255,29 +257,33 @@
             </div>
             <div class="dr-metrics">
               <div class="dr-metric">
-                <div class="dr-metric-label">Score de conformité</div>
-                <div class="dr-metric-val" id="scoreVal">-</div>
-                <div class="dr-score-bar"><div class="dr-score-fill" id="scoreBar"></div></div>
-                <div class="dr-metric-sub" id="scoreSub"></div>
+                <div class="dr-metric-label">Appréciation globale</div>
+                <div class="dr-appreciation-val" id="appreciationVal">-</div>
               </div>
               <div class="dr-metric">
-                <div class="dr-metric-label">Points bloquants</div>
-                <div class="dr-metric-val" id="blockerCount" style="color:#c0392b;">0</div>
-                <div class="dr-metric-sub">à corriger avant diffusion</div>
+                <div class="dr-metric-label">À traiter</div>
+                <div class="dr-metric-val" id="aTraiterCount" style="color:#c2410c;">0</div>
+                <div class="dr-metric-sub">points à revoir en priorité</div>
               </div>
               <div class="dr-metric">
-                <div class="dr-metric-label">Points d'attention</div>
-                <div class="dr-metric-val" id="warningCount" style="color:#b7770d;">0</div>
-                <div class="dr-metric-sub">à vérifier</div>
+                <div class="dr-metric-label">Recommandé</div>
+                <div class="dr-metric-val" id="recommandeCount" style="color:#1d4ed8;">0</div>
+                <div class="dr-metric-sub" id="suggestionSub">améliorations conseillées</div>
               </div>
             </div>
             <div id="reportWarnings"></div>
-            <div class="dr-section-label">Synthèse</div>
-            <div class="dr-summary" id="summaryBox"></div>
-            <div class="dr-section-label">Constats par page</div>
-            <div id="findingsList"></div>
-            <div class="dr-section-label">Thèmes détectés</div>
-            <div class="dr-tags" id="tagsList"></div>
+            <div id="reportBody">
+              <div class="dr-section-label">Compréhension du document</div>
+              <div class="dr-comprehension" id="comprehensionBox"></div>
+              <div class="dr-section-label">Appréciation globale</div>
+              <div class="dr-summary" id="summaryBox"></div>
+              <div class="dr-section-label">Points forts</div>
+              <div id="strengthsList"></div>
+              <div class="dr-section-label">Remarques</div>
+              <div id="findingsList"></div>
+              <div class="dr-section-label">Points à vérifier avant soumission</div>
+              <div id="checksList"></div>
+            </div>
           </div>
         </div>
 
@@ -321,10 +327,13 @@
     listName: 'Doc Review Analyses',
     libName: 'Doc Review'
   };
-  const REQUIRED_COLUMNS = ['Title', 'NomFichier', 'TypeDocument', 'Marche', 'Statut', 'Score', 'NbBloquants', 'NbAttention',
+  const REQUIRED_COLUMNS = ['Title', 'NomFichier', 'TypeDocument', 'TypeFonds', 'Marche', 'Statut', 'Score', 'NbBloquants', 'NbAttention',
     'Modele', 'Demandeur', 'DemandeurEmail', 'DateAnalyse', 'HashFichier', 'RefTracker'];
   const STATUTS = { enCours: 'En cours', analyse: 'Analysé', erreur: 'Erreur', soumis: 'Soumis' };
   const MARCHE_LIBELLE = { retail: 'Retail', professionnel: 'Professionnel' };
+  const TYPES_FONDS = typeof DOC_REVIEW_TYPES_FONDS !== 'undefined' ? DOC_REVIEW_TYPES_FONDS : [];
+  const FONDS_PROFESSIONNELS = typeof DOC_REVIEW_FONDS_PROFESSIONNELS !== 'undefined' ? DOC_REVIEW_FONDS_PROFESSIONNELS : [];
+  const APPRECIATION_PAR_SCORE = { 3: 'Prêt à soumettre', 2: 'Quelques ajustements conseillés', 1: 'À retravailler' };
 
   let msalInstance = null;
   let me = null;               // { name, email }
@@ -452,8 +461,8 @@
       const box = $('config-error');
       box.textContent = 'Doc Review indisponible : ' + e.message + '. Contactez la Compliance.';
       box.classList.remove('hidden');
-      $('analyzeBtn').disabled = true;
     }
+    updateFormState();
   }
 
   async function createFolder(name) {
@@ -598,22 +607,6 @@
     return { image, vignette };
   }
 
-  // Texte collé : découpé en parties (sans troncature) aux fins de paragraphe
-  function splitPastedText(text) {
-    const max = CFG.maxTexteParPage - 500;
-    const parts = [];
-    let rest = text;
-    while (rest.length > max) {
-      let cut = rest.lastIndexOf('\n', max);
-      if (cut < max * 0.5) cut = rest.lastIndexOf(' ', max);
-      if (cut < max * 0.5) cut = max;
-      parts.push(rest.slice(0, cut));
-      rest = rest.slice(cut).replace(/^\s+/, '');
-    }
-    if (rest.trim()) parts.push(rest);
-    return parts;
-  }
-
   // Exécute des tâches avec un nombre limité en parallèle ; résultats dans l'ordre
   async function runPool(items, limit, worker) {
     const results = new Array(items.length);
@@ -641,8 +634,38 @@
     const info = $('marketInfo');
     info.className = 'dr-market-info ' + (market === 'retail' ? 'retail' : 'pro');
     info.textContent = market === 'retail'
-      ? 'Marché Retail : règles AMF renforcées, mentions légales exhaustives, avertissements obligatoires, équilibre risque / rendement strict.'
-      : 'Marché Professionnel : règles MIF II allégées, certaines mentions simplifiées, mais les garanties de rendement restent strictement interdites.';
+      ? 'Public non professionnel : l\'analyse porte une attention particulière à la clarté, à l\'équilibre entre avantages et risques et à la compréhension par l\'investisseur.'
+      : 'Public professionnel : cadre plus souple, l\'information doit rester claire, exacte et non trompeuse.';
+    updateFormState();
+  }
+
+  function fillFundTypes() {
+    const select = $('typeFonds');
+    TYPES_FONDS.forEach(label => {
+      const o = document.createElement('option');
+      o.value = label;
+      o.textContent = label;
+      select.appendChild(o);
+    });
+    if (!TYPES_FONDS.length) {
+      const box = $('config-error');
+      box.textContent = 'Doc Review indisponible : liste des types de fonds introuvable (docreview-options.js). Contactez la Compliance.';
+      box.classList.remove('hidden');
+    }
+  }
+
+  function selectedFundType() {
+    const v = $('typeFonds').value;
+    return TYPES_FONDS.indexOf(v) !== -1 ? v : '';
+  }
+
+  // Bouton d'analyse actif seulement si un type de fonds est choisi ; avertissement non bloquant
+  // pour un fonds en principe réservé aux professionnels présenté à un public Retail
+  function updateFormState() {
+    const fonds = selectedFundType();
+    $('analyzeBtn').disabled = running || !sp.ready || !fonds;
+    $('analyzeBtn').title = fonds ? '' : 'Sélectionnez d\'abord le type de fonds';
+    $('proFundWarning').classList.toggle('hidden', !Core.isProfessionalFundForRetail(fonds, selectedMarket, FONDS_PROFESSIONNELS));
   }
 
   function switchTab(tab) {
@@ -699,11 +722,11 @@
 
   function lockUi(on) {
     running = on;
-    $('analyzeBtn').disabled = on || !sp.ready;
     $('analyzeBtn').innerHTML = on ? '<span class="dr-spinner"></span>Analyse en cours…' : 'Analyser le document';
+    updateFormState();
     $('cancelBtn').classList.toggle('hidden', !on);
     $('cancelBtn').disabled = false;
-    ['docType', 'btnRetail', 'btnPro', 'tabBtnFile', 'tabBtnText', 'pastedText', 'btn-reset'].forEach(id => { $(id).disabled = on; });
+    ['typeFonds', 'btnRetail', 'btnPro', 'tabBtnFile', 'tabBtnText', 'pastedText', 'btn-reset'].forEach(id => { $(id).disabled = on; });
   }
 
   function beforeUnload(e) { e.preventDefault(); e.returnValue = ''; return ''; }
@@ -715,12 +738,13 @@
     if (running) return;
     hide('runError');
     if (!sp.ready) { showRunError('Doc Review indisponible : ' + (sp.error || 'SharePoint non initialisé.')); return; }
-    const docType = $('docType').value;
-    if (Core.TYPES_DOCUMENT.indexOf(docType) === -1) { showRunError('Type de document invalide.'); return; }
+    const typeFonds = selectedFundType();
+    if (!typeFonds) { showRunError('Sélectionnez le type de fonds.'); return; }
     let input;
     if (activeTab === 'text') {
       const text = $('pastedText').value.trim();
       if (text.length < 20) { showRunError('Collez au moins quelques lignes de texte à analyser.'); return; }
+      if (text.length > CFG.maxTexteColle) { showRunError(`Texte trop long (${text.length.toLocaleString('fr-FR')} caractères, maximum ${CFG.maxTexteColle.toLocaleString('fr-FR')}) : déposez plutôt le document dans l'onglet Fichier.`); return; }
       input = { kind: 'texte', text };
     } else {
       if (!selectedFile) { showRunError('Sélectionnez un fichier PDF, PPTX ou DOCX.'); return; }
@@ -745,7 +769,7 @@
       const created = await graphJson(`/sites/${sp.siteId}/lists/${sp.listId}/items`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fields: {
-          Title: 'DR-EN-COURS', NomFichier: ctx.nomFichier, TypeDocument: docType, Marche: MARCHE_LIBELLE[selectedMarket],
+          Title: 'DR-EN-COURS', NomFichier: ctx.nomFichier, TypeFonds: typeFonds, Marche: MARCHE_LIBELLE[selectedMarket],
           Statut: STATUTS.enCours, Demandeur: me.name, DemandeurEmail: me.email, DateAnalyse: now.toISOString()
         } })
       });
@@ -774,11 +798,10 @@
       const pageTexts = {};
       const sansTexte = [];
       if (input.kind === 'texte') {
-        const parts = splitPastedText(input.text);
-        totalPages = parts.length;
-        labels = parts.map((_, i) => ({ page: i + 1, libelle: parts.length > 1 ? 'Partie ' + (i + 1) : 'Texte' }));
-        parts.forEach((p, i) => { pageTexts[i + 1] = p; });
-        if (parts.length > 1) ctx.avertissements.push(`Texte long découpé en ${parts.length} parties analysées séparément puis ensemble.`);
+        // Texte collé : une seule étape (prompt de synthèse), le texte tient lieu de relevé
+        totalPages = 1;
+        labels = [{ page: 1, libelle: 'Texte' }];
+        pageTexts[1] = input.text;
       } else {
         let pdfBytes = sourceBytes;
         if (input.ext !== 'pdf') {
@@ -807,13 +830,13 @@
         }
         if (totalPages > CFG.seuilPagesAvertissement) ctx.avertissements.push(`Document long (${totalPages} pages) : toutes les pages sont analysées, l'analyse peut prendre plusieurs minutes.`);
         if (pptx && pptx.hidden.length) ctx.avertissements.push(`Slides masquées dans le fichier d'origine : ${pptx.hidden.join(', ')} (${mapping.mode === 'visibles' ? 'absentes du PDF converti, donc non analysées' : 'présentes dans le PDF converti et analysées'}).`);
-        if (mapping.incertaine) ctx.avertissements.push('Correspondance entre pages du PDF et slides incertaine : les constats sont numérotés par page du PDF converti.');
+        if (mapping.incertaine) ctx.avertissements.push('Correspondance entre pages du PDF et slides incertaine : les remarques sont numérotées par page du PDF converti.');
         if (sansTexte.length === totalPages) ctx.avertissements.push('Document sans couche texte (probablement scanné) : analyse réalisée sur les images seules.');
         else if (sansTexte.length) ctx.avertissements.push(`Pages sans couche texte (analysées sur l'image seule) : ${sansTexte.join(', ')}.`);
       }
       const labelOf = n => (labels[n - 1] && labels[n - 1].libelle) || ('Page ' + n);
       const common = {
-        typeDocument: docType, marche: selectedMarket, totalPages,
+        typeFonds, marche: selectedMarket, totalPages,
         indications: {
           sourceType: input.kind === 'texte' ? 'texte' : input.ext,
           slidesMasquees: pptx ? pptx.hidden : [],
@@ -822,13 +845,13 @@
         }
       };
 
-      // 4. Étape 1 : lots de pages (images + texte)
+      // 4. Étape 1 : lots de pages (images + texte) ; aucune pour un texte collé
       const vignettes = {};
-      const batches = Core.buildBatches(totalPages, CFG.pagesParLot);
+      const batches = input.kind === 'texte' ? [] : Core.buildBatches(totalPages, CFG.pagesParLot);
       const totalSteps = batches.length + 1;
       let done = 0;
       const progressStep = () => setProgress(`Analyse des pages : ${done} lot(s) terminé(s) sur ${batches.length}`, 0.1 + 0.8 * done / totalSteps);
-      progressStep();
+      if (batches.length) progressStep();
 
       async function analyseBatch(pages, index, total) {
         const payloadPages = [];
@@ -857,55 +880,67 @@
         }
       }
 
-      const step1 = await runPool(batches, CFG.lotsEnParallele, async (pages, i) => {
-        const r = await analyseBatch(pages, i + 1, batches.length);
-        done++;
-        progressStep();
-        return r;
-      });
-      let merged = Core.mergeStep1(step1, totalPages);
-      if (merged.manquantes.length) {
-        setProgress('Pages non relevées : nouvelle analyse de ces pages…', 0.1 + 0.8 * done / totalSteps);
-        const missingBatches = Core.buildBatches(merged.manquantes.length, CFG.pagesParLot).map(b => b.map(i => merged.manquantes[i - 1]));
-        const retry = await runPool(missingBatches, CFG.lotsEnParallele, (pages, i) => analyseBatch(pages, i + 1, missingBatches.length));
-        merged = Core.mergeStep1(step1.concat(retry), totalPages);
-        if (merged.manquantes.length) throw new Error(`L'IA n'a pas relevé les pages ${merged.manquantes.join(', ')} : analyse interrompue pour ne pas produire un rapport incomplet.`);
+      let releve = null;
+      if (batches.length) {
+        const step1 = await runPool(batches, CFG.lotsEnParallele, async (pages, i) => {
+          const r = await analyseBatch(pages, i + 1, batches.length);
+          done++;
+          progressStep();
+          return r;
+        });
+        let merged = Core.mergeStep1(step1, totalPages);
+        if (merged.manquantes.length) {
+          setProgress('Pages non relevées : nouvelle analyse de ces pages…', 0.1 + 0.8 * done / totalSteps);
+          const missingBatches = Core.buildBatches(merged.manquantes.length, CFG.pagesParLot).map(b => b.map(i => merged.manquantes[i - 1]));
+          const retry = await runPool(missingBatches, CFG.lotsEnParallele, (pages, i) => analyseBatch(pages, i + 1, missingBatches.length));
+          merged = Core.mergeStep1(step1.concat(retry), totalPages);
+          if (merged.manquantes.length) throw new Error(`L'IA n'a pas relevé les pages ${merged.manquantes.join(', ')} : analyse interrompue pour ne pas produire un rapport incomplet.`);
+        }
+        releve = merged.releve;
       }
 
-      // 5. Étape 2 : synthèse (relevé complet + images de la première et de la dernière page)
-      setProgress('Synthèse sur l\'ensemble du document…', 0.1 + 0.8 * done / totalSteps);
-      const synthPages = [];
-      if (pdf) {
-        const firstLast = totalPages > 1 ? [1, totalPages] : [1];
-        for (const n of firstLast) synthPages.push({ numero: n, libelle: labelOf(n), image: (await renderPage(pdf, n)).image });
+      // 5. Étape 2 : analyse d'ensemble (relevé complet + images de la première et de la dernière
+      // page ; pour un texte collé, le texte lui-même)
+      setProgress(input.kind === 'texte' ? 'Analyse du texte…' : 'Synthèse sur l\'ensemble du document…', 0.1 + 0.8 * done / totalSteps);
+      let synthPayload;
+      if (input.kind === 'texte') {
+        synthPayload = Object.assign({ etape: 'synthese', pages: [], texte: input.text }, common);
+      } else {
+        const synthPages = [];
+        if (pdf) {
+          const firstLast = totalPages > 1 ? [1, totalPages] : [1];
+          for (const n of firstLast) synthPages.push({ numero: n, libelle: labelOf(n), image: (await renderPage(pdf, n)).image });
+        }
+        synthPayload = Object.assign({ etape: 'synthese', pages: synthPages, releve }, common);
       }
-      const synth = await runStep(Object.assign({ etape: 'synthese', pages: synthPages, releve: merged.releve }, common), ctx);
+      const synth = await runStep(synthPayload, ctx);
 
-      // 6. Consolidation, score, rapports
+      // 6. Consolidation, appréciation, rapports
       setProgress('Génération du rapport…', 0.95);
       const final = Core.consolidate(synth, pageTexts, totalPages);
-      const nonRetrouvees = final.constats.filter(c => c.citationVerifiee === false).length;
-      if (nonRetrouvees) ctx.avertissements.push(`${nonRetrouvees} citation(s) non retrouvée(s) mot pour mot dans le texte extrait (texte présent dans une image, ou citation à vérifier) : signalées dans les constats.`);
+      if (!final.score) throw new Error('Appréciation globale absente de la réponse de l\'IA.');
       ctx.fichiers.rapportPdf = `rapport-${ctx.ref}.pdf`;
       ctx.fichiers.rapportJson = `rapport-${ctx.ref}.json`;
       const report = {
-        version: 1, ref: ctx.ref, statut: STATUTS.analyse, nomFichier: ctx.nomFichier, fichiers: ctx.fichiers,
-        typeDocument: docType, marche: selectedMarket, marcheLibelle: MARCHE_LIBELLE[selectedMarket],
+        version: 2, ref: ctx.ref, statut: STATUTS.analyse, nomFichier: ctx.nomFichier, fichiers: ctx.fichiers,
+        typeFonds, marche: selectedMarket, marcheLibelle: MARCHE_LIBELLE[selectedMarket],
         hashFichier: ctx.hash, demandeur: me.name, demandeurEmail: me.email,
         date: now.toISOString(), dateLibelle: now.toLocaleString('fr-FR'), modeles: Array.from(ctx.modeles).join(' / '),
         source: common.indications.sourceType, totalPages, labels: labels.map(l => l.libelle),
         pptx: pptx ? { total: pptx.total, masquees: pptx.hidden } : null, correspondance: mapping ? mapping.mode : null,
         pagesSansTexte: sansTexte, avertissements: ctx.avertissements,
-        synthese: final.synthese, formatDetecte: final.formatDetecte, recommandation: final.recommandation,
-        score: final.score, counts: final.counts, penalites: Core.SCORE_CONFIG,
-        constats: final.constats, pagesSansAvertissement: final.pagesSansAvertissement, themes: final.themes,
-        vignettes, releve: merged.releve
+        comprehension: final.comprehension, appreciation: final.appreciation, score: final.score, counts: final.counts,
+        pointsForts: final.pointsForts, remarques: final.remarques, pointsAVerifier: final.pointsAVerifier,
+        vignettes, releve
       };
       const pdfReport = Core.generateReportPdf(window.jspdf.jsPDF, report);
       await uploadFile(ctx.ref, ctx.fichiers.rapportPdf, pdfReport, 'fail');
       await uploadFile(ctx.ref, ctx.fichiers.rapportJson, new TextEncoder().encode(JSON.stringify(report)), 'fail');
+      // TypeDocument : nature du document déterminée par l'IA ; Score 3, 2 ou 1 selon l'appréciation ;
+      // NbBloquants et NbAttention : nombre de remarques "À traiter" et "Recommandé"
       await patchAnalysis(ctx.itemId, {
-        Statut: STATUTS.analyse, Score: final.score, NbBloquants: final.counts.bloquants, NbAttention: final.counts.attention,
+        Statut: STATUTS.analyse, TypeDocument: final.comprehension.nature.slice(0, 255),
+        Score: final.score, NbBloquants: final.counts.aTraiter, NbAttention: final.counts.recommandes,
         Modele: report.modeles.slice(0, 250)
       });
       setProgress('Analyse terminée.', 1);
@@ -923,7 +958,7 @@
         if (ctx.ref) {
           try {
             const errReport = { version: 1, ref: ctx.ref, statut: STATUTS.erreur, motif, nomFichier: ctx.nomFichier, fichiers: ctx.fichiers,
-              typeDocument: docType, marche: selectedMarket, hashFichier: ctx.hash, demandeur: me.name, demandeurEmail: me.email, date: now.toISOString() };
+              typeFonds, marche: selectedMarket, hashFichier: ctx.hash, demandeur: me.name, demandeurEmail: me.email, date: now.toISOString() };
             await uploadFile(ctx.ref, `rapport-${ctx.ref}.json`, new TextEncoder().encode(JSON.stringify(errReport)), 'rename');
           } catch (e3) { console.error('Motif d\'erreur non enregistré :', e3); }
         }
@@ -946,30 +981,38 @@
     return e;
   }
 
-  const GRAVITE_LIBELLE = { bloquant: 'Bloquant', attention: 'Attention', conforme: 'Conforme' };
+  const NIVEAU_CLASSE = { 'À traiter': 'n-traiter', 'Recommandé': 'n-recommande', 'Suggestion': 'n-suggestion' };
+  const rgb = c => c ? `rgb(${c.join(',')})` : '';
 
-  function findingElement(c) {
-    const box = el('div', 'dr-finding ' + c.gravite);
+  function findingElement(r, labels, vignettes) {
+    const box = el('div', 'dr-finding ' + (NIVEAU_CLASSE[r.niveau] || 'n-suggestion'));
+    const main = el('div', 'dr-finding-main');
     const head = el('div', 'dr-finding-header');
-    head.append(el('span', 'dr-finding-badge', GRAVITE_LIBELLE[c.gravite]), el('span', 'dr-finding-title', c.titre));
-    head.append(el('span', 'dr-finding-pages', c.pages.length ? (c.pages.length > 1 ? 'Pages ' : 'Page ') + c.pages.join(', ') : 'Document entier'));
-    box.appendChild(head);
-    if (c.explication) box.appendChild(el('div', 'dr-finding-line', c.explication));
-    if (c.citation) {
-      const q = el('div', 'dr-finding-line dr-citation', '« ' + c.citation + ' »');
-      if (c.citationVerifiee === false) q.appendChild(el('span', 'dr-flag', 'citation non retrouvée dans le texte extrait'));
-      box.appendChild(q);
+    const pageLabel = n => (labels && labels[n - 1]) || ('Page ' + n);
+    head.append(el('span', 'dr-finding-badge', r.niveau), el('span', 'dr-finding-title', r.titre));
+    head.append(el('span', 'dr-finding-pages', r.pages.length ? r.pages.map(pageLabel).join(', ') : 'Document entier'));
+    main.appendChild(head);
+    if (r.element) {
+      if (r.citationRetrouvee) main.appendChild(el('div', 'dr-finding-line dr-citation', '« ' + r.element + ' »'));
+      else {
+        const d = el('div', 'dr-finding-line');
+        d.append(el('span', 'dr-label', 'Passage ou élément'), document.createTextNode(r.element));
+        main.appendChild(d);
+      }
     }
+    if (r.explication) main.appendChild(el('div', 'dr-finding-line', r.explication));
     const line = (label, value) => {
       if (!value) return;
       const d = el('div', 'dr-finding-line');
       d.append(el('span', 'dr-label', label), document.createTextNode(value));
-      box.appendChild(d);
+      main.appendChild(d);
     };
-    line('Élément visuel', c.description_visuelle);
-    line('Référence', c.reference);
-    line('Incertitude', c.incertitude);
-    line('Correction suggérée', c.correction);
+    line('Proposition', r.proposition);
+    line('Référence', r.reference);
+    main.appendChild(el('div', 'dr-finding-line dr-confiance', 'Confiance : ' + r.confiance));
+    box.appendChild(main);
+    const src = r.pages.length && vignettes ? safeImage(vignettes[r.pages[0]]) : null;
+    if (src) { const img = el('img', 'dr-thumb'); img.src = src; img.alt = 'Aperçu ' + pageLabel(r.pages[0]); box.appendChild(img); }
     return box;
   }
 
@@ -977,22 +1020,22 @@
     return typeof src === 'string' && src.indexOf('data:image/jpeg;base64,') === 0 ? src : null;
   }
 
+  function listElement(items, empty) {
+    if (!items || !items.length) return el('p', 'dr-finding-line', empty);
+    const ul = el('ul', 'dr-list');
+    items.forEach(t => ul.appendChild(el('li', null, t)));
+    return ul;
+  }
+
   function renderReport(r) {
+    const legacy = r.version !== 2;   // analyses enregistrées avant le format actuel
+    const fonds = legacy ? r.typeDocument : r.typeFonds;
     $('reportTitle').textContent = `${r.ref} · ${r.nomFichier}`;
-    $('reportMeta').textContent = `${r.typeDocument} · ${r.marcheLibelle || MARCHE_LIBELLE[r.marche] || ''} · ${new Date(r.date).toLocaleString('fr-FR')} · ${r.demandeur} · ${r.totalPages} page(s) · modèles : ${r.modeles}`;
-    const color = r.score >= 75 ? '#1e7e4a' : r.score >= 50 ? '#b7770d' : '#c0392b';
-    $('scoreVal').textContent = r.score + ' / 100';
-    $('scoreVal').style.color = color;
-    $('scoreBar').style.width = r.score + '%';
-    $('scoreBar').style.background = color;
-    $('scoreSub').textContent = `100 moins ${r.penalites.penaliteBloquant} par point bloquant et ${r.penalites.penaliteAttention} par point d'attention`;
-    $('blockerCount').textContent = r.counts.bloquants;
-    $('warningCount').textContent = r.counts.attention;
+    $('reportMeta').textContent = `${fonds || ''} · ${r.marcheLibelle || MARCHE_LIBELLE[r.marche] || ''} · ${new Date(r.date).toLocaleString('fr-FR')} · ${r.demandeur} · ${r.totalPages} page(s) · modèles : ${r.modeles}`;
 
     const warn = $('reportWarnings');
     warn.textContent = '';
     const notes = (r.avertissements || []).slice();
-    if (r.pagesSansAvertissement && r.pagesSansAvertissement.length) notes.push('Pages sans avertissement relevées par l\'IA : ' + r.pagesSansAvertissement.join(', ') + '.');
     if (notes.length) {
       const box = el('div', 'dr-box dr-box-warning');
       box.appendChild(el('strong', null, 'À noter'));
@@ -1001,38 +1044,71 @@
       box.appendChild(ul);
       warn.appendChild(box);
     }
-    warn.appendChild(el('div', 'dr-box dr-box-info', 'Pré-contrôle automatisé : il ne remplace pas la validation par la Compliance. Référence, empreinte du fichier et rapport complet sont conservés dans SharePoint.'));
+    warn.appendChild(el('div', 'dr-box dr-box-info', 'Aide à la relecture : elle ne remplace pas la validation par la Compliance. Référence, empreinte du fichier et rapport complet sont conservés dans SharePoint.'));
 
-    const summary = $('summaryBox');
-    summary.textContent = '';
-    if (r.formatDetecte) summary.appendChild(el('div', 'dr-summary-meta', 'Format détecté : ' + r.formatDetecte));
-    summary.appendChild(document.createTextNode(r.synthese || ''));
+    $('reportBody').classList.toggle('hidden', legacy);
+    if (legacy) {
+      $('appreciationVal').textContent = '-';
+      $('appreciationVal').style.color = '';
+      $('aTraiterCount').textContent = '-';
+      $('recommandeCount').textContent = '-';
+      $('suggestionSub').textContent = 'améliorations conseillées';
+      warn.appendChild(el('div', 'dr-box dr-box-info', 'Analyse réalisée avec l\'ancien format (score et points bloquants) : consultez le rapport PDF pour le détail.'));
+    } else {
+      const app = r.appreciation || {};
+      const c = r.counts || {};
+      $('appreciationVal').textContent = app.valeur || '-';
+      $('appreciationVal').style.color = rgb(Core.COULEUR_APPRECIATION[app.valeur]);
+      $('aTraiterCount').textContent = c.aTraiter || 0;
+      $('recommandeCount').textContent = c.recommandes || 0;
+      $('suggestionSub').textContent = `améliorations conseillées · ${c.suggestions || 0} suggestion(s)`;
 
-    const list = $('findingsList');
-    list.textContent = '';
-    const groups = Core.groupByPage(r.constats);
-    if (!groups.length) list.appendChild(el('p', null, 'Aucun constat.'));
-    groups.forEach(g => {
-      const row = el('div', 'dr-group');
-      const side = el('div', 'dr-group-side', g.page ? (r.labels && r.labels[g.page - 1]) || ('Page ' + g.page) : 'Document entier');
-      const src = g.page && r.vignettes ? safeImage(r.vignettes[g.page]) : null;
-      if (src) { const img = el('img', 'dr-thumb'); img.src = src; img.alt = 'Aperçu ' + side.textContent; side.appendChild(img); }
-      const main = el('div');
-      g.constats.forEach(c => main.appendChild(findingElement(c)));
-      row.append(side, main);
-      list.appendChild(row);
-    });
+      const comp = r.comprehension || {};
+      const cb = $('comprehensionBox');
+      cb.textContent = '';
+      const cline = (label, value, strong) => {
+        if (!value) return;
+        const d = el('div', 'dr-finding-line');
+        d.append(el('span', 'dr-label', label), strong ? el('strong', null, value) : document.createTextNode(value));
+        cb.appendChild(d);
+      };
+      cline('Nature', comp.nature, true);
+      if (comp.resume) cb.appendChild(el('div', 'dr-finding-line', comp.resume));
+      cline('Met en avant', comp.metEnAvant);
+      cline('Canal probable', comp.canal);
+      cline('Objectif', comp.objectif);
+      if (comp.ecart) {
+        const e = el('div', 'dr-box dr-box-warning');
+        e.style.margin = '8px 0 0';
+        e.append(el('strong', null, 'Écart avec les informations déclarées : '), document.createTextNode(comp.ecart));
+        cb.appendChild(e);
+      }
 
-    const tags = $('tagsList');
-    tags.textContent = '';
-    (r.themes || []).forEach(t => tags.appendChild(el('span', 'dr-tag', t)));
+      const summary = $('summaryBox');
+      summary.textContent = '';
+      summary.appendChild(el('div', 'dr-summary-meta', 'Appréciation globale : ' + (app.valeur || '-')));
+      summary.appendChild(document.createTextNode(app.synthese || ''));
+
+      const strengths = $('strengthsList');
+      strengths.textContent = '';
+      strengths.appendChild(listElement(r.pointsForts, 'Aucun point fort relevé.'));
+
+      const list = $('findingsList');
+      list.textContent = '';
+      if (!(r.remarques || []).length) list.appendChild(el('p', 'dr-finding-line', 'Aucune remarque.'));
+      (r.remarques || []).forEach(x => list.appendChild(findingElement(x, r.labels, r.vignettes)));
+
+      const checks = $('checksList');
+      checks.textContent = '';
+      checks.appendChild(listElement(r.pointsAVerifier, 'Aucun point à vérifier signalé.'));
+    }
     onReportRendered(r);
     show('resultsCard');
     $('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // Soumission au Tracker CPL : possible pour le demandeur de l'analyse, une seule fois,
-  // même s'il reste des points bloquants. Le Tracker revérifie ces conditions.
+  // même s'il reste des points à traiter. Le Tracker revérifie ces conditions.
   function canSubmitToTracker(statut, refTracker, email) {
     return statut === STATUTS.analyse && !refTracker && String(email || '').toLowerCase() === me.email;
   }
@@ -1082,7 +1158,7 @@
     const body = $('historyBody');
     if (!sp.ready) { body.textContent = ''; body.appendChild(el('p', null, 'Historique indisponible.')); return; }
     try {
-      const select = '$expand=fields($select=Title,NomFichier,TypeDocument,Marche,Statut,Score,NbBloquants,NbAttention,DateAnalyse,Demandeur,DemandeurEmail,RefTracker)&$top=500';
+      const select = '$expand=fields($select=Title,NomFichier,TypeDocument,TypeFonds,Marche,Statut,Score,NbBloquants,NbAttention,DateAnalyse,Demandeur,DemandeurEmail,RefTracker)&$top=500';
       let items;
       if (isCPL) {
         items = await graphAll(`/sites/${sp.siteId}/lists/${sp.listId}/items?${select}`);
@@ -1098,18 +1174,22 @@
       if (!rows.length) { body.appendChild(el('p', null, 'Aucune analyse pour l\'instant.')); return; }
       const table = el('table', 'dr-table');
       const head = el('tr');
-      ['Référence', 'Fichier', 'Type', 'Date', isCPL ? 'Demandeur' : null, 'Statut', 'Score', 'B / A', 'Tracker', ''].filter(h => h !== null).forEach(h => head.appendChild(el('th', null, h)));
+      ['Référence', 'Fichier', 'Fonds · public', 'Nature détectée', 'Date', isCPL ? 'Demandeur' : null, 'Statut', 'Appréciation', 'À traiter / Recommandé', 'Tracker', ''].filter(h => h !== null).forEach(h => head.appendChild(el('th', null, h)));
       const thead = el('thead'); thead.appendChild(head); table.appendChild(thead);
       const tbody = el('tbody');
       rows.forEach(f => {
         const tr = el('tr');
         tr.appendChild(el('td', null, f.Title));
         tr.appendChild(el('td', null, f.NomFichier || ''));
-        tr.appendChild(el('td', null, (f.TypeDocument || '') + (f.Marche ? ' · ' + f.Marche : '')));
+        // Analyses de l'ancien format : pas de TypeFonds, TypeDocument choisi par l'utilisateur, score sur 100
+        const legacy = !f.TypeFonds;
+        tr.appendChild(el('td', null, (legacy ? '' : f.TypeFonds) + (f.Marche ? (legacy ? '' : ' · ') + f.Marche : '')));
+        tr.appendChild(el('td', null, f.TypeDocument || ''));
         tr.appendChild(el('td', null, f.DateAnalyse ? new Date(f.DateAnalyse).toLocaleString('fr-FR') : ''));
         if (isCPL) tr.appendChild(el('td', null, f.Demandeur || ''));
         const st = el('td'); st.appendChild(el('span', 'dr-status ' + statusClass(f.Statut), f.Statut || '')); tr.appendChild(st);
-        tr.appendChild(el('td', null, f.Score === undefined || f.Score === null ? '' : String(f.Score)));
+        const score = f.Score === undefined || f.Score === null ? '' : (legacy ? f.Score + ' / 100' : (APPRECIATION_PAR_SCORE[f.Score] || String(f.Score)));
+        tr.appendChild(el('td', null, score));
         tr.appendChild(el('td', null, f.NbBloquants === undefined || f.NbBloquants === null ? '' : `${f.NbBloquants} / ${f.NbAttention}`));
         tr.appendChild(el('td', null, f.RefTracker || ''));
         const actions = el('td');
@@ -1160,6 +1240,8 @@
     hide('runError');
     hide('progressWrap');
     $('fileInput').value = '';
+    $('typeFonds').value = '';
+    updateFormState();
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -1167,6 +1249,8 @@
   // ÉVÉNEMENTS
   // =====================================================================
   window.addEventListener('DOMContentLoaded', () => {
+    fillFundTypes();
+    $('typeFonds').onchange = updateFormState;
     setMarket('retail');
     $('btnRetail').onclick = () => setMarket('retail');
     $('btnPro').onclick = () => setMarket('professionnel');
