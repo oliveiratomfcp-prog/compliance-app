@@ -70,6 +70,18 @@
 .sla-table th:not(:first-child){text-align:right}
 .sla-table td{padding:7px 8px;border-bottom:1px solid var(--border);color:#374151}
 .sla-table td:not(:first-child){text-align:right}
+.sla-table tr.dash-click{cursor:pointer}
+.sla-table tr.dash-click:hover td{background:#F8F9FC}
+.kpi-delta{font-size:10.5px;color:var(--text-secondary);margin-top:4px}
+.dash-filters{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end;background:#fff;border:1px solid var(--border);border-radius:10px;padding:10px 14px;margin-bottom:12px}
+.dash-filters label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.06em}
+.dash-filters select,.dash-filters input{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;font-family:inherit;font-weight:400;text-transform:none;letter-spacing:0;color:#111;background:#fff;min-width:130px;max-width:220px}
+.dash-context{font-size:11.5px;color:var(--text-secondary);margin:2px 2px 10px;overflow:hidden}
+.dash-context strong{color:var(--navy)}
+.dash-tables{display:flex;flex-direction:column;gap:12px}
+.charts-wide{grid-template-columns:2fr 1fr}
+.bar-pair{display:flex;align-items:flex-end;gap:2px;width:100%;height:100px}
+.bar-pair .bar-fill{flex:1;min-height:1px}
 
 .detail-grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
 .back-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:13px;margin-bottom:14px;padding:0;font-family:inherit}
@@ -105,7 +117,7 @@
 @media(max-width:900px){
   .detail-grid{grid-template-columns:1fr}
   .kpi-grid{grid-template-columns:repeat(2,1fr)}
-  .charts-row{grid-template-columns:1fr}
+  .charts-row,.charts-wide{grid-template-columns:1fr}
 }
 [contenteditable][data-placeholder]:empty:before{content:attr(data-placeholder);color:#9CA3AF;pointer-events:none}
 
@@ -987,155 +999,433 @@ function exportCSV() {
 // ═══════════════════════════════════════════════════════════
 // DASHBOARD KPI (données réelles)
 // ═══════════════════════════════════════════════════════════
-function renderDashboard() {
-  const open    = requests.filter(r => OPEN_STATUSES.includes(r.statut)).length;
-  const resolved= requests.filter(r => ['Traité','Clôturé'].includes(r.statut)).length;
-  const rejected= requests.filter(r => r.statut === 'Rejeté').length;
-  const total   = requests.length;
+// Les délais sont exprimés en jours ouvrés (week-ends exclus, jours fériés non gérés) et
+// excluent le temps passé en "En attente d'informations", qui dépend du demandeur.
+// Période : les demandes reçues sont datées par leur soumission, les demandes traitées par
+// leur passage à Traité ou Clôturé. Le stock en cours reflète toujours l'état actuel.
+const SLA_JOURS = 5;
+const DAY_MS    = 86400000;
 
-  // Délai moyen de traitement (demandes traitées)
-  const resolvedReqs = requests.filter(r => r.statut === 'Traité' || r.statut === 'Clôturé');
+// Dimensions d'analyse : filtre du dashboard, tableau de répartition et colonne de la liste
+// utilisée pour le clic vers l'onglet Demandes
+const DASH_DIMS = [
+  { id: 'type',        label: 'Type de demande', listCol: 'objet',       vide: '(vide)' },
+  { id: 'dept',        label: 'Département',     listCol: 'dept',        vide: '(vide)' },
+  { id: 'responsable', label: 'Responsable CPL', listCol: 'responsable', vide: '(non attribué)' },
+  { id: 'prio',        label: 'Priorité',        listCol: 'prio',        vide: '(vide)' }
+];
+const DASH_PERIODS = [
+  ['30j',       '30 derniers jours'],
+  ['trimestre', 'Trimestre en cours'],
+  ['annee',     'Année en cours'],
+  ['12m',       '12 derniers mois'],
+  ['tout',      'Depuis le début'],
+  ['perso',     'Dates personnalisées']
+];
+const DASH_FILTERS_DEFAULT = { periode: '12m', du: '', au: '', type: '', dept: '', responsable: '', prio: '' };
+let dashFilters = { ...DASH_FILTERS_DEFAULT };
 
-  // Temps cumulé passé en "En attente d'informations" : ce délai dépend du demandeur,
-  // pas de la Compliance, donc il est soustrait du délai moyen de traitement.
-  const waitingInfoTime = (historique, endTs) => {
-    if (!historique || !historique.length) return 0;
-    const entries = historique.filter(h => h.date)
-      .sort((a,b) => new Date(a.date) - new Date(b.date));
-    let waiting = 0;
-    entries.forEach((h, i) => {
-      if (h.statut !== "En attente d'informations") return;
-      const startW = new Date(h.date).getTime();
-      const endW = i + 1 < entries.length ? new Date(entries[i+1].date).getTime() : endTs;
-      if (endW > startW) waiting += endW - startW;
-    });
-    return waiting;
-  };
+function setDashFilter(key, value) { dashFilters[key] = value; renderList(); }
+function resetDashFilters() { dashFilters = { ...DASH_FILTERS_DEFAULT }; renderList(); }
 
-  const avgDays = (() => {
-    if (!resolvedReqs.length) return '—';
-    let total = 0, count = 0;
-    resolvedReqs.forEach(r => {
-      const start = r._ts || 0;
-      if (!start) return;
-      let end = 0;
-      if (r.historique && r.historique.length) {
-        const traitéEntry = [...r.historique].reverse().find(h => h.statut === 'Traité' || h.statut === 'Clôturé');
-        if (traitéEntry?.date) end = new Date(traitéEntry.date).getTime();
-      }
-      if (!end) end = r._lastModified || 0;
-      if (!end || end <= start) return;
-      total += Math.max(0, (end - start) - waitingInfoTime(r.historique, end));
-      count++;
-    });
-    if (!count) return '—';
-    return (total / count / (1000*60*60*24)).toFixed(1);
-  })();
+function fmtDateFr(ts) { return new Date(ts).toLocaleDateString('fr-FR'); }
 
-  // Volume par mois (6 derniers mois)
+function dashPeriod() {
   const now = new Date();
-  const months = Array.from({length:6}, (_,i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1);
-    return { label: d.toLocaleDateString('fr-FR',{month:'short'}), year: d.getFullYear(), month: d.getMonth(), count: 0 };
-  });
-  requests.forEach(r => {
-    if (!r._ts) return;
-    const d = new Date(r._ts);
-    const m = months.find(x => x.year === d.getFullYear() && x.month === d.getMonth());
-    if (m) m.count++;
-  });
-  const maxVol = Math.max(...months.map(m => m.count), 1);
+  let start = 0, end = now.getTime();
+  switch (dashFilters.periode) {
+    case '30j':       start = end - 30 * DAY_MS; break;
+    case 'trimestre': start = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3, 1).getTime(); break;
+    case 'annee':     start = new Date(now.getFullYear(), 0, 1).getTime(); break;
+    case '12m':       start = new Date(now.getFullYear(), now.getMonth() - 11, 1).getTime(); break;
+    case 'perso':
+      if (dashFilters.du) start = new Date(dashFilters.du + 'T00:00:00').getTime();
+      if (dashFilters.au) end   = new Date(dashFilters.au + 'T23:59:59.999').getTime();
+      break;
+  }
+  const label = start ? `du ${fmtDateFr(start)} au ${fmtDateFr(end)}`
+              : (dashFilters.periode === 'perso' && dashFilters.au ? `jusqu'au ${fmtDateFr(end)}` : 'depuis le début');
+  // Période précédente de même durée, juste avant (pas de comparaison sans date de début)
+  const prev = start && end > start ? { start: start - (end - start), end: start - 1 } : null;
+  return { start, end, label, prev };
+}
 
-  const bars = months.map(m => `
-    <div class="bar-item">
-      <div class="bar-fill" style="height:${Math.round((m.count/maxVol)*110)}px" title="${m.count} demandes"></div>
-      <span class="bar-lbl">${m.label}</span>
+// Millisecondes ouvrées (lundi à vendredi) entre deux instants
+function workingMsBetween(a, b) {
+  if (!a || !b || b <= a) return 0;
+  let ms = 0;
+  const d = new Date(a); d.setHours(0, 0, 0, 0);
+  while (d.getTime() < b) {
+    const next = new Date(d); next.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) ms += Math.min(b, next.getTime()) - Math.max(a, d.getTime());
+    d.setTime(next.getTime());
+  }
+  return ms;
+}
+
+function sortedHistory(r) {
+  return (r.historique || []).filter(h => h && h.date)
+    .map(h => ({ statut: h.statut, t: new Date(h.date).getTime() }))
+    .filter(h => !isNaN(h.t))
+    .sort((a, b) => a.t - b.t);
+}
+
+// Date de traitement (dernier passage à Traité ou Clôturé), à défaut la dernière
+// modification de l'élément SharePoint (approx = true)
+function resolutionInfo(r) {
+  if (r.statut !== 'Traité' && r.statut !== 'Clôturé') return null;
+  const e = sortedHistory(r).reverse().find(h => h.statut === 'Traité' || h.statut === 'Clôturé');
+  if (e) return { t: e.t, approx: false };
+  return r._lastModified ? { t: r._lastModified, approx: true } : null;
+}
+
+// Jours ouvrés entre la soumission et endTs, hors attente d'informations
+function activeWorkingDays(r, endTs) {
+  if (!r._ts || endTs <= r._ts) return 0;
+  const h = sortedHistory(r);
+  let ms = workingMsBetween(r._ts, endTs);
+  h.forEach((e, i) => {
+    if (e.statut !== "En attente d'informations") return;
+    const s = Math.max(e.t, r._ts);
+    const f = Math.min(i + 1 < h.length ? h[i + 1].t : endTs, endTs);
+    ms -= workingMsBetween(s, f);
+  });
+  return Math.max(0, ms) / DAY_MS;
+}
+
+// Délai de prise en charge : soumission → premier changement de statut par la Compliance
+function priseEnChargeDays(r) {
+  const e = sortedHistory(r).find(h => h.t >= r._ts && !['À traiter', 'Soumis', STATUT_REPONSE].includes(h.statut));
+  return e ? workingMsBetween(r._ts, e.t) / DAY_MS : null;
+}
+
+function median(arr) {
+  if (!arr.length) return null;
+  const s = [...arr].sort((a, b) => a - b), m = Math.floor(s.length / 2);
+  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+}
+function mean(arr) { return arr.length ? arr.reduce((s, v) => s + v, 0) / arr.length : null; }
+
+function dashStats(list, p) {
+  const inP = t => t >= p.start && t <= p.end;
+  const recues   = list.filter(r => r._ts && inP(r._ts));
+  const traitees = list.map(r => ({ r, res: resolutionInfo(r) })).filter(x => x.res && inP(x.res.t));
+  const delais   = traitees.map(x => activeWorkingDays(x.r, x.res.t));
+  const enCours  = list.filter(r => OPEN_STATUSES.includes(r.statut));
+  const prises   = recues.map(priseEnChargeDays).filter(v => v != null);
+  return {
+    recues    : recues.length,
+    traitees  : traitees.length,
+    approx    : traitees.filter(x => x.res.approx).length,
+    enCours   : enCours.length,
+    aRevoir   : enCours.filter(r => r.statut === STATUT_REPONSE).length,
+    attente   : enCours.filter(r => r.statut === "En attente d'informations").length,
+    horsSla   : enCours.filter(r => r.sla > SLA_JOURS).length,
+    delaiMed  : median(delais),
+    delaiMoy  : mean(delais),
+    slaPct    : delais.length ? delais.filter(d => d <= SLA_JOURS).length / delais.length : null,
+    priseMed  : median(prises),
+    rejetPct  : recues.length ? recues.filter(r => r.statut === 'Rejeté').length / recues.length : null,
+    _recues   : recues,
+    _traitees : traitees,
+    _enCours  : enCours
+  };
+}
+
+function dimValueMatches(r, dimId, v) {
+  if (!v) return true;
+  return v === COL_FILTER_EMPTY ? !r[dimId] : r[dimId] === v;
+}
+
+function dimValueLabel(dim, v) { return v ? v : dim.vide; }
+
+// Toutes les données du dashboard (rendu, capture et export CSV)
+function computeDashboard() {
+  const p    = dashPeriod();
+  const base = requests.filter(r => DASH_DIMS.every(d => dimValueMatches(r, d.id, dashFilters[d.id])));
+  const st   = dashStats(base, p);
+  const prev = p.prev ? dashStats(base, p.prev) : null;
+
+  // Évolution : par semaine si la période couvre 3 mois au plus, sinon par mois (24 au plus)
+  const firstTs = p.start || Math.min(...base.map(r => r._ts).filter(Boolean), p.end);
+  const weekly  = p.end - firstTs <= 92 * DAY_MS;
+  const buckets = [];
+  const cur = new Date(firstTs); cur.setHours(0, 0, 0, 0);
+  if (weekly) cur.setDate(cur.getDate() - ((cur.getDay() + 6) % 7));   // lundi
+  else cur.setDate(1);
+  while (cur.getTime() <= p.end) {
+    const next = new Date(cur);
+    if (weekly) next.setDate(cur.getDate() + 7); else next.setMonth(cur.getMonth() + 1);
+    buckets.push({
+      start: cur.getTime(), end: next.getTime(),
+      label: weekly ? cur.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })
+                    : cur.toLocaleDateString('fr-FR', { month: 'short', year: '2-digit' }),
+      month: weekly ? null : { mm: String(cur.getMonth() + 1).padStart(2, '0'), yyyy: cur.getFullYear() },
+      recues: 0, traitees: 0
+    });
+    cur.setTime(next.getTime());
+  }
+  const shown = buckets.slice(-24);
+  const inB = (b, t) => t >= Math.max(b.start, p.start) && t < b.end && t <= p.end;
+  shown.forEach(b => {
+    b.recues   = st._recues.filter(r => inB(b, r._ts)).length;
+    b.traitees = st._traitees.filter(x => inB(b, x.res.t)).length;
+  });
+
+  // Ancienneté du stock en cours (jours ouvrés depuis la soumission, comme dans la liste)
+  const aging = [
+    { label: '0 à 2 j',    test: d => d <= 2 },
+    { label: '3 à 5 j',    test: d => d >= 3 && d <= 5 },
+    { label: '6 à 10 j',   test: d => d >= 6 && d <= 10 },
+    { label: 'Plus de 10 j', test: d => d > 10 }
+  ].map(a => ({ label: a.label, count: st._enCours.filter(r => a.test(r.sla)).length }));
+
+  // Répartitions : une ligne par valeur ayant une activité sur la période ou un stock en cours
+  const dims = DASH_DIMS.map(dim => {
+    const values = [...new Set(base.map(r => r[dim.id] || ''))];
+    const rows = values.map(v => ({ value: v, st: dashStats(base.filter(r => (r[dim.id] || '') === v), p) }))
+      .filter(x => x.st.recues || x.st.traitees || x.st.enCours)
+      .sort((a, b) => b.st.recues - a.st.recues || b.st.enCours - a.st.enCours);
+    return { dim, rows };
+  });
+
+  const filtres = DASH_DIMS.filter(d => dashFilters[d.id])
+    .map(d => `${d.label} : ${dashFilters[d.id] === COL_FILTER_EMPTY ? d.vide : dashFilters[d.id]}`);
+
+  return { p, base, st, prev, weekly, buckets: shown, truncated: buckets.length > shown.length, aging, dims, filtres };
+}
+
+function fmtDays(v) { return v == null ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + ' j'; }
+function fmtPct(v)  { return v == null ? '—' : Math.round(v * 100) + ' %'; }
+
+function deltaHtml(cur, prev) {
+  if (prev == null) return '';
+  if (prev === 0) return `<div class="kpi-delta">période précédente : 0</div>`;
+  const pct = Math.round((cur - prev) / prev * 100);
+  const arrow = pct > 0 ? '▲' : pct < 0 ? '▼' : '=';
+  return `<div class="kpi-delta">${arrow} ${Math.abs(pct)} % vs période précédente (${prev})</div>`;
+}
+
+function kpiCard(icon, bg, stroke, val, lbl, sub) {
+  return `<div class="kpi-card">
+    <div class="kpi-icon" style="background:${bg}">${svgIcon(icon, `stroke="${stroke}"`)}</div>
+    <div class="kpi-val">${val}</div><div class="kpi-lbl">${lbl}</div>${sub || ''}
+  </div>`;
+}
+
+const ICO = {
+  inbox : '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  check : '<polyline points="20 6 9 17 4 12"/>',
+  pulse : '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+  alert : '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  clock : '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  hand  : '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  x     : '<circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>'
+};
+
+function renderDashboard() {
+  const D = computeDashboard();
+  const { st, prev } = D;
+
+  // ── Barre de filtres (hors capture) ──
+  const optList = (dim) => {
+    const vals = [...new Set(requests.map(r => r[dim.id] || ''))];
+    const opts = vals.filter(v => v).sort((a, b) => a.localeCompare(b, 'fr'));
+    const cur = dashFilters[dim.id];
+    return `<label>${dim.label}
+      <select data-k="${dim.id}" onchange="setDashFilter(this.dataset.k,this.value)">
+        <option value="">Tous</option>
+        ${opts.map(v => `<option value="${escHtml(v)}" ${cur === v ? 'selected' : ''}>${escHtml(v)}</option>`).join('')}
+        ${vals.includes('') ? `<option value="${COL_FILTER_EMPTY}" ${cur === COL_FILTER_EMPTY ? 'selected' : ''}>${dim.vide}</option>` : ''}
+      </select></label>`;
+  };
+  const isDefault = Object.keys(DASH_FILTERS_DEFAULT).every(k => dashFilters[k] === DASH_FILTERS_DEFAULT[k]);
+  const filterBar = `
+    <div class="dash-filters">
+      <label>Période
+        <select onchange="setDashFilter('periode',this.value)">
+          ${DASH_PERIODS.map(([v, l]) => `<option value="${v}" ${dashFilters.periode === v ? 'selected' : ''}>${l}</option>`).join('')}
+        </select></label>
+      ${dashFilters.periode === 'perso' ? `
+        <label>Du<input type="date" value="${escHtml(dashFilters.du)}" onchange="setDashFilter('du',this.value)"></label>
+        <label>Au<input type="date" value="${escHtml(dashFilters.au)}" onchange="setDashFilter('au',this.value)"></label>` : ''}
+      ${DASH_DIMS.map(optList).join('')}
+      ${isDefault ? '' : `<button class="filter-pill" onclick="resetDashFilters()" style="color:#DC2626;border-color:#FECACA;align-self:flex-end">✕ Réinitialiser</button>`}
+      <div style="margin-left:auto;display:flex;gap:8px;align-self:flex-end">
+        <button class="btn-secondary" onclick="exportDashboardCSV()">
+          ${svgIcon('<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>')}
+          Exporter CSV
+        </button>
+        <button class="btn-secondary" id="btn-capture-dashboard" onclick="captureDashboard()">
+          ${svgIcon('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}
+          Copier en image
+        </button>
+      </div>
+    </div>`;
+
+  // ── Cartes ──
+  const cards = [
+    kpiCard(ICO.inbox, '#EFF6FF', '#2563EB', st.recues, 'Demandes reçues', deltaHtml(st.recues, prev && prev.recues)),
+    kpiCard(ICO.check, '#F0FDF4', '#15803D', st.traitees, 'Demandes traitées', deltaHtml(st.traitees, prev && prev.traitees)),
+    kpiCard(ICO.pulse, '#F5F3FF', '#6D28D9', st.enCours, 'Stock en cours <span style="opacity:.7">(actuel)</span>',
+      `<div class="kpi-delta">dont ${st.aRevoir} réponse${st.aRevoir > 1 ? 's' : ''} à revoir, ${st.attente} en attente d'infos</div>`),
+    kpiCard(ICO.alert, '#FEF2F2', '#DC2626', st.horsSla, `Hors SLA en cours <span style="opacity:.7">(plus de ${SLA_JOURS} j ouvrés)</span>`),
+    kpiCard(ICO.target, '#ECFDF5', '#065F46', fmtPct(st.slaPct), `Respect du SLA <span style="opacity:.7">(traitées en ${SLA_JOURS} j ouvrés max.)</span>`),
+    kpiCard(ICO.clock, '#FFF7ED', '#D18F41', fmtDays(st.delaiMed), 'Délai médian de traitement',
+      `<div class="kpi-delta">moyenne ${fmtDays(st.delaiMoy)}, hors attente d'infos</div>`),
+    kpiCard(ICO.hand, '#EFF6FF', '#00143B', fmtDays(st.priseMed), 'Délai médian de prise en charge',
+      `<div class="kpi-delta">soumission → premier statut Compliance</div>`),
+    kpiCard(ICO.x, '#FEF2F2', '#B91C1C', fmtPct(st.rejetPct), 'Taux de rejet <span style="opacity:.7">(sur les reçues)</span>')
+  ].join('');
+
+  // ── Évolution reçues / traitées ──
+  const maxB = Math.max(1, ...D.buckets.map(b => Math.max(b.recues, b.traitees)));
+  const bars = D.buckets.map(b => {
+    const click = b.month ? `onclick="dashDrillMonth('${b.month.mm}',${b.month.yyyy})" title="Voir les demandes soumises ce mois-ci"` : '';
+    return `<div class="bar-item" ${click} style="${b.month ? 'cursor:pointer' : ''}">
+      <div class="bar-pair">
+        <div class="bar-fill" style="height:${Math.round(b.recues / maxB * 100)}px" title="${b.recues} reçue${b.recues > 1 ? 's' : ''}"></div>
+        <div class="bar-fill" style="height:${Math.round(b.traitees / maxB * 100)}px;background:#D18F41" title="${b.traitees} traitée${b.traitees > 1 ? 's' : ''}"></div>
+      </div>
+      <span class="bar-lbl">${b.label}</span>
+    </div>`;
+  }).join('');
+  const legendDot = (c, l) => `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10.5px;color:var(--text-secondary)"><span style="width:8px;height:8px;border-radius:2px;background:${c}"></span>${l}</span>`;
+
+  // ── Ancienneté du stock ──
+  const maxA = Math.max(1, ...D.aging.map(a => a.count));
+  const AGE_C = ['#15803D', '#2563EB', '#D97706', '#DC2626'];
+  const agingRows = D.aging.map((a, i) => `
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+      <span style="width:78px;font-size:11.5px;color:#374151">${a.label}</span>
+      <div style="flex:1;background:#F3F4F6;border-radius:4px;height:14px">
+        <div style="width:${Math.round(a.count / maxA * 100)}%;background:${AGE_C[i]};height:14px;border-radius:4px"></div>
+      </div>
+      <span style="width:24px;text-align:right;font-size:12px;font-weight:600;color:var(--navy)">${a.count}</span>
     </div>`).join('');
 
-  // Répartition par type
-  const typeCount = {};
-  requests.forEach(r => { if(r.type) typeCount[r.type] = (typeCount[r.type]||0) + 1; });
-  const typeEntries = Object.entries(typeCount).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const PIE_C = ['#00143B','#D18F41','#006660','#2563EB','#7C3AED','#6B7280'];
+  // ── Tableaux de répartition ──
+  const dimTable = ({ dim, rows }) => `
+    <div class="sla-card">
+      <div class="chart-title">Par ${dim.label.toLowerCase()}</div>
+      ${rows.length ? `<div style="overflow-x:auto"><table class="sla-table">
+        <thead><tr><th>${dim.label}</th><th>Reçues</th><th>Traitées</th><th>En cours</th><th>Hors SLA</th><th>Délai méd.</th><th>SLA</th></tr></thead>
+        <tbody>${rows.map(({ value, st: s }) => `
+          <tr class="dash-click" data-dim="${dim.id}" data-val="${escHtml(value || COL_FILTER_EMPTY)}" onclick="dashDrill(this.dataset.dim,this.dataset.val)" title="Voir ces demandes dans la liste">
+            <td>${escHtml(dimValueLabel(dim, value))}</td><td>${s.recues}</td><td>${s.traitees}</td><td>${s.enCours}</td>
+            <td style="${s.horsSla ? 'color:#DC2626;font-weight:600' : ''}">${s.horsSla}</td>
+            <td>${fmtDays(s.delaiMed)}</td><td>${fmtPct(s.slaPct)}</td>
+          </tr>`).join('')}</tbody>
+      </table></div>` : '<p style="font-size:12.5px;color:var(--text-secondary)">Aucune donnée sur la période.</p>'}
+    </div>`;
+  const [dType, dDept, dResp, dPrio] = D.dims;
 
-  let pie = '<svg viewBox="0 0 100 100" width="110" height="110">';
-  if (typeEntries.length === 0) {
-    pie += '<circle cx="50" cy="50" r="47" fill="#F3F4F6"/><circle cx="50" cy="50" r="26" fill="#fff"/>';
-  } else {
-    const totalT = typeEntries.reduce((s,[,v])=>s+v,0);
-    let angle = -Math.PI/2;
-    typeEntries.forEach(([,count],i) => {
-      const r2 = (count/totalT)*2*Math.PI;
-      const x1=50+47*Math.cos(angle),y1=50+47*Math.sin(angle); angle+=r2;
-      const x2=50+47*Math.cos(angle),y2=50+47*Math.sin(angle);
-      pie += `<path d="M50,50 L${x1.toFixed(1)},${y1.toFixed(1)} A47,47 0 ${r2>Math.PI?1:0},1 ${x2.toFixed(1)},${y2.toFixed(1)} Z" fill="${PIE_C[i%PIE_C.length]}" stroke="#fff" stroke-width="1.5"/>`;
-    });
-    pie += '<circle cx="50" cy="50" r="26" fill="#fff"/>';
-  }
-  pie += '</svg>';
-
-  const legend = typeEntries.length ? typeEntries.map(([name,count],i) => `
-    <div class="pie-row">
-      <div class="pie-dot" style="background:${PIE_C[i%PIE_C.length]}"></div>
-      <span class="pie-name">${name}</span>
-      <span class="pie-pct">${count}</span>
-    </div>`).join('') : '<p style="font-size:12px;color:var(--text-secondary)">Aucune donnée</p>';
-
-  // Répartition par département
-  const deptCount = {};
-  requests.forEach(r => { if(r.dept) deptCount[r.dept] = (deptCount[r.dept]||0)+1; });
-  const deptRows = Object.entries(deptCount).sort((a,b)=>b[1]-a[1]).map(([dept,count]) => `
-    <tr><td style="padding:7px 8px;color:#374151">${dept}</td>
-    <td style="padding:7px 8px;text-align:right;font-weight:500;color:var(--navy)">${count}</td>
-    <td style="padding:7px 8px;text-align:right;color:var(--text-secondary)">${total?Math.round(count/total*100):0}%</td></tr>`).join('');
+  const notes = [];
+  if (D.truncated) notes.push('Évolution limitée aux 24 derniers mois.');
+  if (st.approx) notes.push(`${st.approx} délai${st.approx > 1 ? 's' : ''} estimé${st.approx > 1 ? 's' : ''} faute d'historique complet (date de dernière modification utilisée).`);
+  notes.push('Délais en jours ouvrés, hors attente d\'informations. Stock, hors SLA et ancienneté : état actuel, indépendant de la période.');
 
   return `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
-      <button class="btn-secondary" id="btn-capture-dashboard" onclick="captureDashboard()">
-        ${svgIcon('<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>')}
-        Copier en image
-      </button>
-    </div>
+    ${filterBar}
     <div id="dashboard-capture" style="background:var(--panel-bg);padding:4px">
-    <div class="kpi-grid">
-      <div class="kpi-card">
-        <div class="kpi-icon" style="background:#EFF6FF">${svgIcon('<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>','stroke="#2563EB"')}</div>
-        <div class="kpi-val">${open}</div><div class="kpi-lbl">Demandes ouvertes</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon" style="background:#F0FDF4">${svgIcon('<polyline points="20 6 9 17 4 12"/>','stroke="#15803D"')}</div>
-        <div class="kpi-val">${resolved}</div><div class="kpi-lbl">Résolues / Clôturées</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon" style="background:#FEF2F2">${svgIcon('<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>','stroke="#DC2626"')}</div>
-        <div class="kpi-val">${rejected}</div><div class="kpi-lbl">Rejetées</div>
-      </div>
-      <div class="kpi-card">
-        <div class="kpi-icon" style="background:#FFF7ED">${svgIcon('<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>','stroke="#D18F41"')}</div>
-        <div class="kpi-val">${avgDays}${avgDays !== '—' ? 'j' : ''}</div><div class="kpi-lbl">Délai moyen traitement <span style="opacity:.7">(hors attente d'informations)</span></div>
-      </div>
+    <div class="dash-context">
+      <strong>Tracker CPL · Dashboard KPI</strong> · Période ${escHtml(D.p.label)}
+      ${D.filtres.length ? ' · ' + D.filtres.map(escHtml).join(' · ') : ''}
+      <span style="float:right">${D.base.length} demande${D.base.length > 1 ? 's' : ''} dans le périmètre · généré le ${fmtDateFr(Date.now())}</span>
     </div>
-    <div class="charts-row">
+    <div class="kpi-grid">${cards}</div>
+    <div class="charts-row charts-wide">
       <div class="chart-card">
-        <div class="chart-title">Volume — 6 derniers mois</div>
-        <div class="bar-chart">${bars}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <div class="chart-title" style="margin:0">Reçues et traitées par ${D.weekly ? 'semaine' : 'mois'}</div>
+          <div style="display:flex;gap:10px">${legendDot('var(--navy)', 'Reçues')}${legendDot('#D18F41', 'Traitées')}</div>
+        </div>
+        <div class="bar-chart">${bars || '<p style="font-size:12px;color:var(--text-secondary)">Aucune donnée</p>'}</div>
       </div>
       <div class="chart-card">
-        <div class="chart-title">Par type de demande</div>
-        <div style="display:flex;align-items:center;gap:14px">${pie}<div style="flex:1">${legend}</div></div>
+        <div class="chart-title">Ancienneté du stock en cours <span style="font-weight:400;color:var(--text-secondary)">(jours ouvrés)</span></div>
+        ${agingRows}
       </div>
     </div>
-    <div class="sla-card">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
-        <div class="chart-title" style="margin:0">Demandes par département</div>
-        <span style="font-size:11px;color:var(--text-secondary)">${total} demande${total>1?'s':''} au total</span>
-      </div>
-      ${deptRows ? `<table class="sla-table">
-        <thead><tr><th>Département</th><th style="text-align:right">Demandes</th><th style="text-align:right">Part</th></tr></thead>
-        <tbody>${deptRows}</tbody>
-      </table>` : '<p style="font-size:13px;color:var(--text-secondary)">Aucune donnée disponible.</p>'}
+    <div class="dash-tables">
+      ${dimTable(dType)}
+      ${dimTable(dDept)}
+      <div class="charts-row" style="margin:0">${dimTable(dResp)}${dimTable(dPrio)}</div>
     </div>
+    <div style="font-size:10.5px;color:var(--text-secondary);margin-top:10px;line-height:1.6">${notes.map(escHtml).join('<br>')}</div>
     </div>`;
+}
+
+// ── Clic vers l'onglet Demandes : reprend les filtres du dashboard (hors période) ──
+function applyDashFiltersToList(extra) {
+  colFilters = {};
+  statusFilter = 'all';
+  const vals = { ...dashFilters, ...extra };
+  const cfg = getColConfig();
+  DASH_DIMS.forEach(d => {
+    const v = vals[d.id];
+    if (!v) return;
+    if (d.listCol === 'objet') { if (v === COL_FILTER_EMPTY) return; colFilters.objet = v; }   // filtre texte
+    else colFilters[d.listCol] = v;
+    cfg[d.listCol] = true;   // la colonne doit être visible pour que le filtre s'applique
+  });
+  if (extra.date) { colFilters.date = extra.date; cfg.date = true; }
+  localStorage.setItem('tracker_cpl_columns_v1', JSON.stringify(cfg));
+  cplTab = 'demandes';
+  renderList();
+  window.scrollTo(0, 0);
+  showToast('Filtres appliqués à la liste des demandes (la période n\'est pas reprise).', 'info');
+}
+
+function dashDrill(dimId, value) { applyDashFiltersToList({ [dimId]: value }); }
+function dashDrillMonth(mm, yyyy) { applyDashFiltersToList({ date: `/${mm}/${yyyy}` }); }
+
+// ── Export CSV des indicateurs filtrés (séparateur ; et décimales à la française pour Excel) ──
+function exportDashboardCSV() {
+  const D = computeDashboard();
+  const { st } = D;
+  const cell = v => {
+    const s = v == null ? '' : String(v);
+    return /[;"\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const num = v => v == null ? '' : v.toLocaleString('fr-FR', { maximumFractionDigits: 1 });
+  const pct = v => v == null ? '' : Math.round(v * 100);
+  const L = [];
+  const row = (...c) => L.push(c.map(cell).join(';'));
+  row('Tracker CPL - Dashboard KPI');
+  row('Période', D.p.label);
+  row('Filtres', D.filtres.join(' / ') || 'Aucun');
+  row('Généré le', fmtDateFr(Date.now()));
+  row('');
+  row('Indicateur', 'Valeur', 'Période précédente');
+  row('Demandes reçues', st.recues, D.prev ? D.prev.recues : '');
+  row('Demandes traitées', st.traitees, D.prev ? D.prev.traitees : '');
+  row('Stock en cours (actuel)', st.enCours);
+  row('dont Réponse à revoir', st.aRevoir);
+  row("dont En attente d'informations", st.attente);
+  row(`Hors SLA en cours (> ${SLA_JOURS} j ouvrés)`, st.horsSla);
+  row('Respect du SLA (%)', pct(st.slaPct));
+  row('Délai médian de traitement (j ouvrés)', num(st.delaiMed));
+  row('Délai moyen de traitement (j ouvrés)', num(st.delaiMoy));
+  row('Délai médian de prise en charge (j ouvrés)', num(st.priseMed));
+  row('Taux de rejet (%)', pct(st.rejetPct));
+  row('');
+  row(D.weekly ? 'Semaine du' : 'Mois', 'Reçues', 'Traitées');
+  D.buckets.forEach(b => row(b.label, b.recues, b.traitees));
+  row('');
+  row('Ancienneté du stock', 'Demandes');
+  D.aging.forEach(a => row(a.label, a.count));
+  D.dims.forEach(({ dim, rows }) => {
+    row('');
+    row(dim.label, 'Reçues', 'Traitées', 'En cours', 'Hors SLA', 'Délai médian (j ouvrés)', 'Respect SLA (%)');
+    rows.forEach(({ value, st: s }) => row(dimValueLabel(dim, value), s.recues, s.traitees, s.enCours, s.horsSla, num(s.delaiMed), pct(s.slaPct)));
+  });
+  const blob = new Blob(['﻿' + L.join('\n')], { type: 'text/csv;charset=utf-8;' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `tracker-cpl-kpi-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
+  URL.revokeObjectURL(a.href);
 }
 
 // ═══════════════════════════════════════════════════════════
