@@ -19,6 +19,7 @@
 .bdg-soumis{background:#EFF6FF;color:#2563EB;border-color:#BFDBFE}
 .bdg-en-cours{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}
 .bdg-en-attente{background:#FEFCE8;color:#B45309;border-color:#FDE68A}
+.bdg-a-revoir{background:#F5F3FF;color:#6D28D9;border-color:#DDD6FE}
 .bdg-resolu{background:#F0FDF4;color:#15803D;border-color:#BBF7D0}
 .bdg-cloture{background:#ECFDF5;color:#065F46;border-color:#6EE7B7}
 .bdg-rejete{background:#FEF2F2;color:#DC2626;border-color:#FECACA}
@@ -279,8 +280,14 @@ let spListId     = null;
 let spDriveId    = null;
 let spCommListId = null;  // liste Tracker CPL Commentaires
 let requests     = [];
-let sortCol      = '_ts';
+let sortCol      = '_activity';  // par défaut : dernière activité du demandeur
 let sortDir      = -1;    // -1 desc, 1 asc
+let colFilters   = {};    // filtres par colonne { idColonne: valeur }
+
+// Statut posé quand une personne hors Compliance répond sur une demande
+const STATUT_REPONSE = 'Réponse à revoir';
+// Statuts pour lesquels une action Compliance est attendue (SLA, compteurs)
+const OPEN_STATUSES = ['À traiter', STATUT_REPONSE, "En cours d'analyse", "En attente d'informations"];
 let assignedOnly = false; // filtre "mes demandes assignées" (CPL)
 let lastLoadedAt = null;
 
@@ -288,6 +295,19 @@ function sortBy(col) {
   if (sortCol === col) sortDir *= -1;
   else { sortCol = col; sortDir = 1; }
   renderList();
+}
+
+// Date du dernier message d'une personne hors Compliance (trace "Réponse à revoir" dans
+// l'historique des statuts), à défaut la date de soumission. Sert au tri par défaut.
+function lastRequesterActivity(historique, submittedTs) {
+  let ts = submittedTs || 0;
+  (historique || []).forEach(h => {
+    if (h && h.statut === STATUT_REPONSE && h.date) {
+      const t = new Date(h.date).getTime();
+      if (t > ts) ts = t;
+    }
+  });
+  return ts;
 }
 
 function workingDays(startTs) {
@@ -469,6 +489,7 @@ async function loadRequests() {
     );
     requests = data.value.map(item => {
       const f = item.fields;
+      const historique = (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })();
       return {
         spId   : item.id,
         ref    : f.Title        || '',
@@ -487,13 +508,14 @@ async function loadRequests() {
         responsable   : f.ResponsableCPL || '',
         followers     : f.CCEmails || '',
         refDocReview  : f.RefDocReview || '',
-        historique    : (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })(),
+        historique,
         _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
+        _activity     : lastRequesterActivity(historique, f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0),
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
         lastComment   : f.DernierCommentaire ? new Date(f.DernierCommentaire).getTime() : 0,
         comments: []
       };
-    }).sort((a, b) => b._ts - a._ts);
+    }).sort((a, b) => b._activity - a._activity);
     // Initialiser lastSeen pour les demandes jamais ouvertes
     requests.forEach(r => {
       const key = `lastSeen_${r.ref}`;
@@ -539,6 +561,37 @@ function showView(id) {
 
 function goList() { renderList(); showView('list'); window.scrollTo(0,0); }
 function setFilter(s) { statusFilter = s; renderList(); }
+
+// Filtres par colonne
+const COL_FILTER_TEXT  = ['ref', 'objet', 'date', 'deadline'];   // champ texte (contient)
+const COL_FILTER_EMPTY = '__vide__';                              // valeur "(vide)" des listes
+
+function colCellText(req, colId) {
+  if (colId === 'deadline') return req.deadline ? new Date(req.deadline).toLocaleDateString('fr-FR') : '';
+  if (colId === 'objet')    return `${req.objet} ${req.type}`;
+  return String(req[colId] || '');
+}
+
+function matchesColFilter(req, colId) {
+  if (colId === 'statut') return true;   // géré par statusFilter
+  const f = colFilters[colId];
+  if (!f) return true;
+  const v = colCellText(req, colId);
+  if (COL_FILTER_TEXT.includes(colId)) return v.toLowerCase().includes(f.toLowerCase());
+  return f === COL_FILTER_EMPTY ? v === '' : v === f;
+}
+
+function setColFilter(colId, value, isText) {
+  if (colId === 'statut') { setFilter(value || 'all'); return; }
+  if (value) colFilters[colId] = value; else delete colFilters[colId];
+  renderList();
+  if (isText) {   // renderList recrée le champ : on lui rend le focus
+    const el = document.querySelector(`.cpl-table input[data-col="${colId}"]`);
+    if (el) { el.focus(); el.setSelectionRange(value.length, value.length); }
+  }
+}
+
+function clearColFilters() { colFilters = {}; statusFilter = 'all'; renderList(); }
 function setCplTab(t) { cplTab = t; renderList(); }
 function toggleAssignedOnly() { assignedOnly = !assignedOnly; renderList(); }
 
@@ -553,7 +606,7 @@ async function manualRefresh() {
 // HELPERS
 // ═══════════════════════════════════════════════════════════
 const SC = {
-  'À traiter':'bdg-soumis',
+  'À traiter':'bdg-soumis', 'Réponse à revoir':'bdg-a-revoir',
   "En cours d'analyse":'bdg-en-cours',"En attente d'informations":'bdg-en-attente',
   'Traité':'bdg-resolu','Clôturé':'bdg-cloture','Rejeté':'bdg-rejete'
 };
@@ -740,15 +793,17 @@ function renderList() {
       .includes(currentUser.email.toLowerCase())
   );
   if (cplView && assignedOnly) all = all.filter(r => r.responsable === currentUser.name);
-  const filtered = statusFilter === 'all' ? all : all.filter(r => r.statut === statusFilter);
-  const open     = all.filter(r => ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const filtered = all.filter(r =>
+    (statusFilter === 'all' || r.statut === statusFilter) &&
+    activeCols.every(c => matchesColFilter(r, c.id)));
+  const open     = all.filter(r => OPEN_STATUSES.includes(r.statut)).length;
   const awaiting = all.filter(r => r.statut === "En attente d'informations").length;
-  const overSLA  = requests.filter(r => r.sla > 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const overSLA  = requests.filter(r => r.sla > 5 && OPEN_STATUSES.includes(r.statut)).length;
 
-  const STATUSES = ['all','À traiter',"En cours d'analyse","En attente d'informations",'Traité','Clôturé','Rejeté'];
-  const BG = {'À traiter':'#EFF6FF',"En cours d'analyse":'#FFF7ED',"En attente d'informations":'#FEFCE8','Traité':'#F0FDF4',Clôturé:'#ECFDF5',Rejeté:'#FEF2F2'};
-  const CO = {'À traiter':'#2563EB',"En cours d'analyse":'#C2410C',"En attente d'informations":'#B45309','Traité':'#15803D',Clôturé:'#065F46',Rejeté:'#DC2626'};
-  const BO = {'À traiter':'#BFDBFE',"En cours d'analyse":'#FED7AA',"En attente d'informations":'#FDE68A','Traité':'#BBF7D0',Clôturé:'#6EE7B7',Rejeté:'#FECACA'};
+  const STATUSES = ['all','À traiter',STATUT_REPONSE,"En cours d'analyse","En attente d'informations",'Traité','Clôturé','Rejeté'];
+  const BG = {'À traiter':'#EFF6FF','Réponse à revoir':'#F5F3FF',"En cours d'analyse":'#FFF7ED',"En attente d'informations":'#FEFCE8','Traité':'#F0FDF4',Clôturé:'#ECFDF5',Rejeté:'#FEF2F2'};
+  const CO = {'À traiter':'#2563EB','Réponse à revoir':'#6D28D9',"En cours d'analyse":'#C2410C',"En attente d'informations":'#B45309','Traité':'#15803D',Clôturé:'#065F46',Rejeté:'#DC2626'};
+  const BO = {'À traiter':'#BFDBFE','Réponse à revoir':'#DDD6FE',"En cours d'analyse":'#FED7AA',"En attente d'informations":'#FDE68A','Traité':'#BBF7D0',Clôturé:'#6EE7B7',Rejeté:'#FECACA'};
 
   const filterBtns = STATUSES.map(s => {
     const active = statusFilter === s;
@@ -760,8 +815,9 @@ function renderList() {
   }).join('');
 
   const sortedFiltered = [...filtered].sort((a, b) => {
-    let va = a[sortCol] ?? '';
-    let vb = b[sortCol] ?? '';
+    const key = sortCol === 'date' ? '_ts' : sortCol;   // "Soumis le" trié sur la date réelle
+    let va = a[key] ?? '';
+    let vb = b[key] ?? '';
     if (typeof va === 'string') va = va.toLowerCase();
     if (typeof vb === 'string') vb = vb.toLowerCase();
     return va < vb ? -sortDir : va > vb ? sortDir : 0;
@@ -782,9 +838,29 @@ function renderList() {
 
   const theadCells = activeCols.map((c, i) => th(c, i === activeCols.length - 1)).join('');
 
+  // Ligne de filtres par colonne : liste déroulante pour les colonnes à valeurs répétées,
+  // champ texte pour les autres. Le filtre Statut est celui des pastilles.
+  const fInput = 'width:100%;box-sizing:border-box;padding:3px 6px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;font-family:inherit;background:#fff;font-weight:400;color:var(--text-primary,#111)';
+  const filterCells = activeCols.map(c => {
+    if (COL_FILTER_TEXT.includes(c.id)) {
+      return `<td style="padding:4px 6px"><input type="text" data-col="${c.id}" value="${escHtml(colFilters[c.id] || '')}" placeholder="Filtrer…" oninput="setColFilter(this.dataset.col,this.value,true)" style="${fInput}"></td>`;
+    }
+    const cur = c.id === 'statut' ? statusFilter : (colFilters[c.id] || '');
+    const vals = [...new Set(all.map(r => r[c.id] || ''))];
+    const hasEmpty = vals.includes('');
+    const opts = vals.filter(v => v !== '').sort((a, b) => a.localeCompare(b, 'fr'));
+    return `<td style="padding:4px 6px"><select data-col="${c.id}" onchange="setColFilter(this.dataset.col,this.value)" style="${fInput}">
+      <option value="">Tous</option>
+      ${opts.map(v => `<option value="${escHtml(v)}" ${cur === v ? 'selected' : ''}>${escHtml(v)}</option>`).join('')}
+      ${hasEmpty ? `<option value="${COL_FILTER_EMPTY}" ${cur === COL_FILTER_EMPTY ? 'selected' : ''}>(vide)</option>` : ''}
+    </select></td>`;
+  }).join('');
+  const nbFilters = activeCols.filter(c => c.id === 'statut' ? statusFilter !== 'all' : !!colFilters[c.id]).length;
+  const clearFilters = nbFilters ? `<button class="filter-pill" onclick="clearColFilters()" style="color:#DC2626;border-color:#FECACA">✕ Effacer les filtres (${nbFilters})</button>` : '';
+
   const rows = sortedFiltered.map(req => {
-    const over = cplView && req.sla > 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
-    const near = cplView && req.sla >= 4 && req.sla <= 5 && ['À traiter',"En cours d'analyse","En attente d'informations"].includes(req.statut);
+    const over = cplView && req.sla > 5 && OPEN_STATUSES.includes(req.statut);
+    const near = cplView && req.sla >= 4 && req.sla <= 5 && OPEN_STATUSES.includes(req.statut);
     const lastSeen = parseInt(localStorage.getItem(`lastSeen_${req.ref}`) || '0');
     const hasNew = req.lastComment > 0 && req.lastComment > lastSeen && req.lastComment > req._ts;
     const badge = hasNew ? `<span style="display:inline-flex;align-items:center;justify-content:center;background:#DC2626;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;margin-left:6px">!</span>` : '';
@@ -852,10 +928,10 @@ function renderList() {
       style="${isCPL?'':'margin-left:auto;'}padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">`;
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
-    <div class="cpl-filters">${filterBtns}${assignedToggle}${searchBox}</div>
+    <div class="cpl-filters">${filterBtns}${assignedToggle}${clearFilters}${searchBox}</div>
     <div class="table-wrapper" style="overflow-x:auto;width:100%">
       <table class="data-table cpl-table">
-        <thead><tr>${theadCells}</tr></thead>
+        <thead><tr>${theadCells}</tr><tr style="background:#F8F9FC">${filterCells}</tr></thead>
         <tbody id="req-tbody">${rows}</tbody>
       </table>
     </div>`;
@@ -912,7 +988,7 @@ function exportCSV() {
 // DASHBOARD KPI (données réelles)
 // ═══════════════════════════════════════════════════════════
 function renderDashboard() {
-  const open    = requests.filter(r => ['À traiter',"En cours d'analyse","En attente d'informations"].includes(r.statut)).length;
+  const open    = requests.filter(r => OPEN_STATUSES.includes(r.statut)).length;
   const resolved= requests.filter(r => ['Traité','Clôturé'].includes(r.statut)).length;
   const rejected= requests.filter(r => r.statut === 'Rejeté').length;
   const total   = requests.length;
@@ -1706,6 +1782,7 @@ function openDetail(ref) {
   // ── Timeline depuis l'historique réel SharePoint ──────────
   const STATUS_COLORS = {
     'Soumis'                   : '#2563EB',
+    'Réponse à revoir'         : '#6D28D9',
     "En cours d'analyse"       : '#EA580C',
     "En attente d'informations": '#B45309',
     'Traité'                   : '#15803D',
@@ -2231,6 +2308,25 @@ async function sendComment() {
         { DernierCommentaire: new Date().toISOString() }
       );
     } catch(e) { console.warn('DernierCommentaire non mis à jour:', e); }
+
+    // Réponse d'une personne hors Compliance : la demande passe à "Réponse à revoir" et
+    // remonte en tête de liste (la date de la trace d'historique sert de clé de tri).
+    if (!isCPL) {
+      try {
+        const now     = new Date();
+        const history = [...(selectedReq.historique || []), { date: now.toISOString(), statut: STATUT_REPONSE, par: currentUser.name }];
+        await graphPatch(
+          `/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`,
+          { Statut: STATUT_REPONSE, HistoriqueStatuts: JSON.stringify(history) }
+        );
+        selectedReq.statut    = STATUT_REPONSE;
+        selectedReq.historique = history;
+        selectedReq._activity = now.getTime();
+      } catch(e) {
+        console.warn('Statut "Réponse à revoir" non appliqué (valeur absente de la liste SharePoint ?) :', e);
+        showToast('Message envoyé, mais le statut « Réponse à revoir » n\'a pas pu être appliqué.', 'error');
+      }
+    }
 
     document.getElementById('comment-editor').innerHTML = '';
     const cb = document.getElementById('comment-interne');
