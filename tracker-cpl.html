@@ -495,8 +495,9 @@ async function initSharePointThenLoad() {
   }
 }
 
-async function loadRequests() {
-  setListLoading(true);
+// silent : rafraîchissement automatique (pas d'indicateur de chargement ni de message d'erreur)
+async function loadRequests(silent) {
+  if (!silent) setListLoading(true);
   try {
     const data = await graphGet(
       `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$top=9999`
@@ -504,6 +505,9 @@ async function loadRequests() {
     requests = data.value.map(item => {
       const f = item.fields;
       const historique = (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })();
+      const submittedTs = f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0;
+      // Le délai SLA repart de la dernière réponse du demandeur (à défaut, de la soumission)
+      const activity = lastRequesterActivity(historique, submittedTs);
       return {
         spId   : item.id,
         ref    : f.Title        || '',
@@ -518,34 +522,56 @@ async function loadRequests() {
         dept   : f.DemandeurDept  || '',
         desc   : f.Description  || '',
         deadline: f.Deadline    || '',
-        sla           : f.DateSoumission ? workingDays(new Date(f.DateSoumission).getTime()) : 0,
+        sla           : workingDays(activity),
         responsable   : f.ResponsableCPL || '',
         followers     : f.CCEmails || '',
         refDocReview  : f.RefDocReview || '',
         historique,
-        _ts           : f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0,
-        _activity     : lastRequesterActivity(historique, f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0),
+        _ts           : submittedTs,
+        _activity     : activity,
         _lastModified : item.lastModifiedDateTime ? new Date(item.lastModifiedDateTime).getTime() : 0,
-        lastComment   : f.DernierCommentaire ? new Date(f.DernierCommentaire).getTime() : 0,
         comments: []
       };
     }).sort((a, b) => b._activity - a._activity);
-    // Initialiser lastSeen pour les demandes jamais ouvertes
-    requests.forEach(r => {
-      const key = `lastSeen_${r.ref}`;
-      if (!localStorage.getItem(key)) localStorage.setItem(key, Date.now().toString());
-    });
     lastLoadedAt = new Date();
     setListLoading(false);
     renderList();
     return true;
   } catch(e) {
+    if (silent) { console.warn('Rafraîchissement automatique échoué :', e.message); return false; }
     console.error('Erreur chargement demandes:', e);
     setListLoading(false);
     showListError(e.message);
     return false;
   }
 }
+
+// Rafraîchissement automatique de la liste et du dashboard toutes les 2 minutes. Il est
+// reporté si l'onglet est masqué, si une autre vue que la liste est ouverte, ou si
+// l'utilisateur est en train de saisir un filtre ou d'utiliser un menu de la liste.
+const AUTO_REFRESH_MS = 2 * 60 * 1000;
+let autoRefreshBusy = false;
+
+function autoRefreshAllowed() {
+  if (!spListId || document.visibilityState !== 'visible' || currentView !== 'list') return false;
+  if (document.getElementById('validation-modal')) return false;
+  const panel = document.getElementById('col-panel');
+  if (panel && panel.style.display !== 'none') return false;
+  const a = document.activeElement;
+  return !(a && a.closest && a.closest('#view-list') && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName));
+}
+
+async function autoRefresh() {
+  if (autoRefreshBusy || !autoRefreshAllowed()) return;
+  if (lastLoadedAt && Date.now() - lastLoadedAt.getTime() < AUTO_REFRESH_MS - 5000) return;
+  autoRefreshBusy = true;
+  const scrollY = window.scrollY;
+  try { if (await loadRequests(true)) window.scrollTo(0, scrollY); }
+  finally { autoRefreshBusy = false; }
+}
+
+setInterval(autoRefresh, 15000);   // vérification fréquente, chargement au plus toutes les 2 minutes
+document.addEventListener('visibilitychange', autoRefresh);
 
 function setListLoading(on) {
   const el = document.getElementById('list-loading');
@@ -573,7 +599,7 @@ function showView(id) {
   currentView = id;
 }
 
-function goList() { renderList(); showView('list'); window.scrollTo(0,0); }
+function goList() { renderList(); showView('list'); window.scrollTo(0,0); autoRefresh(); }
 function setFilter(s) { statusFilter = s; renderList(); }
 
 // Filtres par colonne
@@ -875,11 +901,8 @@ function renderList() {
   const rows = sortedFiltered.map(req => {
     const over = cplView && req.sla > 5 && OPEN_STATUSES.includes(req.statut);
     const near = cplView && req.sla >= 4 && req.sla <= 5 && OPEN_STATUSES.includes(req.statut);
-    const lastSeen = parseInt(localStorage.getItem(`lastSeen_${req.ref}`) || '0');
-    const hasNew = req.lastComment > 0 && req.lastComment > lastSeen && req.lastComment > req._ts;
-    const badge = hasNew ? `<span style="display:inline-flex;align-items:center;justify-content:center;background:#DC2626;color:white;border-radius:50%;width:18px;height:18px;font-size:10px;font-weight:700;margin-left:6px">!</span>` : '';
     const cells = activeCols.map(c => {
-      if (c.id === 'ref')         return `<td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}${badge}</td>`;
+      if (c.id === 'ref')         return `<td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}</td>`;
       if (c.id === 'objet')       return `<td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>`;
       if (c.id === 'from')        return `<td class="td-muted" style="color:#374151;white-space:nowrap">${req.from}</td>`;
       if (c.id === 'dept')        return `<td class="td-muted" style="white-space:nowrap">${req.dept}</td>`;
@@ -890,7 +913,9 @@ function renderList() {
       if (c.id === 'responsable') return `<td class="td-muted" style="white-space:nowrap">${req.responsable || '—'}</td>`;
       return '';
     }).join('');
-    return `<tr class="${over?'sla-over':''}" onclick="openDetail('${req.ref}')">${cells}</tr>`;
+    // Surbrillance tant que la réponse du demandeur n'a pas été traitée (statut "Réponse à revoir")
+    const aRevoir = cplView && req.statut === STATUT_REPONSE;
+    return `<tr class="${over || aRevoir ? 'sla-over' : ''}" onclick="openDetail('${req.ref}')">${cells}</tr>`;
   }).join('') || `<tr><td colspan="${colCount}" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune demande dans cette catégorie</td></tr>`;
 
   const tabBtns = isCPL ? `
@@ -938,7 +963,7 @@ function renderList() {
     </button>` : '';
 
   const searchBox = `
-    <input type="text" placeholder="Rechercher..." oninput="searchTable(this.value)"
+    <input type="text" placeholder="Rechercher..." value="${escHtml(searchQuery)}" oninput="searchTable(this.value)"
       style="${isCPL?'':'margin-left:auto;'}padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">`;
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
@@ -979,9 +1004,12 @@ function renderList() {
       </div>
     </div>
     ${content}`;
+  if (searchQuery) searchTable(searchQuery);   // la recherche survit aux rafraîchissements
 }
 
+let searchQuery = '';
 function searchTable(q) {
+  searchQuery = q;
   const rows = document.querySelectorAll('#req-tbody tr');
   rows.forEach(r => {
     r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
@@ -2069,7 +2097,6 @@ function formatDescription(text) {
 function openDetail(ref) {
   selectedReq = requests.find(r => r.ref === ref);
   if (!selectedReq) return;
-  localStorage.setItem(`lastSeen_${selectedReq.ref}`, Date.now().toString());
 
   // ── Timeline depuis l'historique réel SharePoint ──────────
   const STATUS_COLORS = {
@@ -2614,6 +2641,7 @@ async function sendComment() {
         selectedReq.statut    = STATUT_REPONSE;
         selectedReq.historique = history;
         selectedReq._activity = now.getTime();
+        selectedReq.sla       = 0;
       } catch(e) {
         console.warn('Statut "Réponse à revoir" non appliqué (valeur absente de la liste SharePoint ?) :', e);
         showToast('Message envoyé, mais le statut « Réponse à revoir » n\'a pas pu être appliqué.', 'error');
