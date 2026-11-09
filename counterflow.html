@@ -634,13 +634,7 @@ function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-// Statut calculé — jamais stocké, toujours recalculé à l'affichage.
-// Une demande de mise à jour du KYC en attente de validation compliance, ou déjà
-// rejetée par elle, prime sur le calcul habituel par date : le dossier réel n'a pas
-// (ou plus) changé, mais l'état "à traiter" par la compliance doit rester visible
-// tant qu'une nouvelle demande n'a pas été soumise et validée.
-// Une contrepartie sans date d'expiration est traitée comme "expiré" (pas de KYC
-// valide démontrable = à traiter en priorité).
+// Statuts calculés, jamais stockés, toujours recalculés à l'affichage.
 function hasPendingProposal(b) {
   return !!(b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length || b.niveauRisquePending);
 }
@@ -655,18 +649,43 @@ function estJamaisValidee(b) {
   return officielVide || (!b.dernierKYCPar && !b.dateValidation && !hasPendingProposal(b));
 }
 
-// Validité du dossier OFFICIEL, calculée uniquement à partir de la date d'expiration.
-// Indépendante de toute demande en cours (voir computeDemande) : une contrepartie
-// expirée reste "expiré" même si une mise à jour attend la validation.
-// Sans date d'expiration : "expiré" (pas de KYC valide démontrable).
-function computeValidite(broker, today) {
-  if (estJamaisValidee(broker)) return 'non validé';
+// Actions de l'historique qui valent validation du dossier officiel par la compliance
+const ACTIONS_VALIDATION = ['Création validée', 'Mise à jour du KYC validée', 'Dossier existant validé', 'Statut changé manuellement : Validé'];
+
+// Vrai si le dossier OFFICIEL a été validé par la compliance : statut "Validé", ou une
+// validation tracée dans l'historique (le statut peut ensuite changer avec une nouvelle
+// demande sans que le dossier officiel perde sa validation). Les contreparties entrées
+// avant le circuit de validation, ou directement dans SharePoint, ne le sont pas.
+function dossierOfficielValide(b) {
+  if (estJamaisValidee(b)) return false;
+  if (b.statutValidationKYC === 'Validé') return true;
+  return (b.historique || []).some(h => ACTIONS_VALIDATION.includes(h.action));
+}
+
+// Échéance du dossier OFFICIEL, uniquement à partir de la date d'expiration. Sert aux
+// relances et au clignotement, qu'il soit validé ou non : un KYC expiré doit être
+// renouvelé dans tous les cas. Sans date d'expiration : "expiré".
+function computeEcheance(broker, today) {
   today = today || new Date();
   if (!broker._expTs) return 'expiré';
   const days = Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
   if (days < 0) return 'expiré';
   if (days <= SEUIL_BIENTOT_JOURS) return 'bientôt expiré';
   return 'à jour';
+}
+
+// Validité affichée : "à jour", "bientôt expiré" ou "expiré" seulement pour un dossier
+// officiel validé par la compliance ; sinon "non validé", quelle que soit la date.
+function computeValidite(broker, today) {
+  return dossierOfficielValide(broker) ? computeEcheance(broker, today) : 'non validé';
+}
+
+// Échéance à signaler à côté d'un dossier non validé (créations jamais validées exclues :
+// leur dossier officiel est vide)
+function echeanceSecondaire(b) {
+  if (dossierOfficielValide(b) || estJamaisValidee(b)) return '';
+  const e = computeEcheance(b);
+  return e === 'à jour' ? '' : bdg(e, STATUS_CLASS[e]);
 }
 
 // État de la dernière demande (création ou mise à jour du KYC)
@@ -716,7 +735,7 @@ function countPiecesDossier(broker) {
 // compliance. Le nombre de pièces cochées n'a plus aucune influence ici — il reste
 // affiché à titre informatif via dossierBadge(), sans effet sur le clignotement.
 function needsBlinking(broker) {
-  return !broker.archive && (computeValidite(broker) === 'expiré' || broker.statutValidationKYC === 'Rejeté');
+  return !broker.archive && ((!estJamaisValidee(broker) && computeEcheance(broker) === 'expiré') || broker.statutValidationKYC === 'Rejeté');
 }
 
 // Le badge dossier (ex. "10/13") reste purement informatif : nombre de pièces
@@ -742,9 +761,17 @@ function classesActifLabel(b) {
 // sont jamais modifiées. `fresh` est la contrepartie relue juste avant l'écriture.
 function addHistorique(fields, fresh, action, detail) {
   if (!hasColumn('HistoriqueKYC')) return;
+  const histo = [...(fresh.historique || [])];
+  // Dossier validé avant la mise en place de l'historique : la validation est d'abord
+  // reportée dans l'historique, sinon elle serait perdue dès que le statut change.
+  if (fresh.statutValidationKYC === 'Validé' && !histo.some(h => ACTIONS_VALIDATION.includes(h.action))) {
+    histo.push({ date: fresh.dateValidation || new Date().toISOString(), action: 'Dossier existant validé',
+                 par: fresh.valideParEmail || '', email: fresh.valideParEmail || '', detail: "Validation antérieure à l'historique" });
+  }
   const entry = { date: new Date().toISOString(), action, par: currentUser.name, email: currentUser.email };
   if (detail) entry.detail = String(detail).slice(0, 1500);
-  fields.HistoriqueKYC = JSON.stringify([...(fresh.historique || []), entry]);
+  histo.push(entry);
+  fields.HistoriqueKYC = JSON.stringify(histo);
 }
 
 function resumeDossier(risque, lien, dateExp, pieces) {
@@ -790,10 +817,19 @@ function estAuteurDeLaDemande(b) {
 // ═══════════════════════════════════════════════════════════
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
+// Filtre "Validité KYC" : "Expiré" et "Bientôt expiré" portent sur l'échéance du
+// dossier officiel, validé ou non (comme les relances) ; "À jour" exige un dossier
+// validé ; "Non validé" regroupe les dossiers jamais validés par la compliance.
+function matchValidite(b, f) {
+  if (f === 'non validé') return !dossierOfficielValide(b);
+  if (f === 'à jour') return computeValidite(b) === 'à jour';
+  return !estJamaisValidee(b) && computeEcheance(b) === f;
+}
+
 function renderListe() {
   const visibles = brokers.filter(b => showArchived || !b.archive);
   const filtered = visibles.filter(b => {
-    if (statusFilter !== 'all' && computeValidite(b) !== statusFilter) return false;
+    if (statusFilter !== 'all' && !matchValidite(b, statusFilter)) return false;
     if (demandeFilter !== 'all' && computeDemande(b) !== demandeFilter) return false;
     if (equipeFilter !== 'all' && !b.equipes.includes(equipeFilter)) return false;
     if (risqueFilter !== 'all' && dossierAffiche(b).niveauRisque !== risqueFilter) return false;
@@ -806,7 +842,7 @@ function renderListe() {
     return `<button class="filter-pill" ${st} onclick="${setter}('${value.replace(/'/g,"\\'")}')">${label}${count!=null?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
   };
 
-  const nbValidite = s => visibles.filter(b => computeValidite(b) === s).length;
+  const nbValidite = s => visibles.filter(b => matchValidite(b, s)).length;
   const nbDemande  = s => visibles.filter(b => computeDemande(b) === s).length;
   const validitePills = [
     pill('Tous','all',statusFilter,'setStatusFilter',visibles.length),
@@ -839,7 +875,7 @@ function renderListe() {
       <td class="td-muted">${esc(classesActifLabel(b))}</td>
       <td class="td-muted">${formatDate(d.dateExpiration)}${d.proposition && d.dateExpiration ? ' <span style="opacity:.7">(proposée)</span>' : ''}</td>
       <td>${dossierBadge(b)}</td>
-      <td>${bdg(st, STATUS_CLASS[st])}</td>
+      <td>${bdg(st, STATUS_CLASS[st])} ${echeanceSecondaire(b)}</td>
       <td>${demandeBadge(b) || '<span class="td-muted">—</span>'}</td>
     </tr>`;
   }).join('') || `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
@@ -863,7 +899,8 @@ function renderListe() {
       Envoyer les relances KYC
     </button>` : '';
 
-  const nbExpirees = nbValidite('expiré');
+  const nbExpirees = visibles.filter(b => !estJamaisValidee(b) && computeEcheance(b) === 'expiré').length;
+  const nbNonValides = visibles.filter(b => !dossierOfficielValide(b)).length;
   const nbAValider = nbDemande('en attente');
   const aValider = isCPL && nbAValider
     ? `&nbsp;·&nbsp; <a href="#" onclick="event.preventDefault();setDemandeFilter('en attente')" style="color:#475569;font-weight:600">${nbAValider} demande${nbAValider>1?'s':''} à valider</a>`
@@ -875,7 +912,8 @@ function renderListe() {
         <div class="eyebrow" style="margin-bottom:9px">Contreparties autorisées · KYC</div>
         <h1 class="page-title" style="margin:0 0 7px">CounterFlow</h1>
         <p class="section-desc">${visibles.length} contrepartie${visibles.length>1?'s':''} suivie${visibles.length>1?'s':''}
-          &nbsp;·&nbsp; ${nbExpirees} expirée${nbExpirees>1?'s':''} ${aValider}
+          &nbsp;·&nbsp; ${nbExpirees} expirée${nbExpirees>1?'s':''}
+          ${nbNonValides ? `&nbsp;·&nbsp; <a href="#" onclick="event.preventDefault();setStatusFilter('non validé')" style="color:#475569;font-weight:600">${nbNonValides} non validée${nbNonValides>1?'s':''}</a>` : ''} ${aValider}
           &nbsp;·&nbsp;
           <button class="list-refresh" id="list-refresh-btn" onclick="manualRefresh()" title="Rafraîchir depuis SharePoint">
             ${svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>')}
@@ -941,8 +979,10 @@ function openDetail(spId) {
 
   // Raisons du clignotement, affichées sous le nom
   const days = daysToExpiration(b);
+  const echeance = computeEcheance(b);
+  const officielValide = dossierOfficielValide(b);
   const blinkReasons = [];
-  if (st === 'expiré') {
+  if (!jamaisValidee && echeance === 'expiré') {
     blinkReasons.push(days === null ? "Aucune date d'expiration renseignée" : `KYC expiré depuis ${Math.abs(days)} jour(s)`);
   }
   if (demande === 'rejetée') {
@@ -1032,6 +1072,12 @@ function openDetail(spId) {
         ${svgIcon('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>')}
         ${(demande === 'rejetée' || demande === 'complément demandé') && hasPending ? 'Corriger et resoumettre' : 'Mettre à jour le KYC'}
       </button>`;
+  // Validation d'un dossier officiel existant jamais validé (aucune demande en cours)
+  const validerExistantBtn = (isCPL && !officielValide && !jamaisValidee && demande === 'aucune' && !b.archive) ? `
+    <button class="btn-primary" style="width:100%;justify-content:center;margin-top:8px;background:#15803D;border-color:#15803D" onclick="validerDossierExistant()">
+      ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}
+      Valider le dossier actuel
+    </button>` : '';
   const archiveBtn = isCPL ? `
     <button class="btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="toggleArchive()">
       ${svgIcon('<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>')}
@@ -1061,6 +1107,7 @@ function openDetail(spId) {
               ${blinkReasonsHtml}
               <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
                 ${bdg(st, STATUS_CLASS[st])}
+                ${echeanceSecondaire(b)}
                 ${demandeBadge(b)}
                 ${b.archive ? bdg('Archivée','bdg-archive') : ''}
                 ${affiche.niveauRisque ? bdg(`Risque ${affiche.niveauRisque.toLowerCase()}`, RISQUE_CLASS[affiche.niveauRisque]) : ''}
@@ -1070,9 +1117,10 @@ function openDetail(spId) {
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:#374151">
-            ${jamaisValidee ? `<div style="font-size:12px;color:#475569;background:#F1F5F9;border-radius:6px;padding:8px 12px">Contrepartie pas encore validée par la compliance : les informations ci-dessous sont celles proposées, pas un dossier officiel.</div>` : ''}
+            ${jamaisValidee ? `<div style="font-size:12px;color:#475569;background:#F1F5F9;border-radius:6px;padding:8px 12px">Contrepartie pas encore validée par la compliance : les informations ci-dessous sont celles proposées, pas un dossier officiel.</div>`
+              : !officielValide ? `<div style="font-size:12px;color:#475569;background:#F1F5F9;border-radius:6px;padding:8px 12px">Dossier jamais validé par la compliance (contrepartie antérieure au circuit de validation ou saisie directement dans SharePoint).${isCPL && demande === 'aucune' ? ' Vérifiez-le puis utilisez « Valider le dossier actuel ».' : ''}</div>` : ''}
             <div><strong style="font-weight:600;color:var(--navy)">Classe(s) d'actif :</strong> ${esc(classesActifLabel(b))}</div>
-            <div><strong style="font-weight:600;color:var(--navy)">Expiration du KYC :</strong> ${formatDate(affiche.dateExpiration)} ${bdg(st, STATUS_CLASS[st])}</div>
+            <div><strong style="font-weight:600;color:var(--navy)">Expiration du KYC :</strong> ${formatDate(affiche.dateExpiration)} ${jamaisValidee ? '' : bdg(echeance, STATUS_CLASS[echeance])}</div>
             <div><strong style="font-weight:600;color:var(--navy)">Dossier KYC :</strong>
               ${renderLienCliquable(affiche.kycLink, 'Ouvrir le dossier SharePoint →', 'Aucun lien renseigné')}
             </div>
@@ -1117,6 +1165,7 @@ function openDetail(spId) {
         <div class="form-card">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Actions</div>
           ${b.archive ? '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Contrepartie archivée : elle n\'est plus suivie ni relancée.</p>' : majBtn}
+          ${validerExistantBtn}
           ${archiveBtn}
         </div>
         <div class="form-card">
@@ -1674,6 +1723,34 @@ async function ecrireStatutManuel(nouveauStatut) {
   }
 }
 
+// Validation par la compliance d'un dossier officiel existant qui ne l'a jamais été
+// (contrepartie antérieure au circuit de validation ou saisie dans SharePoint). Le
+// dossier n'est pas modifié : seule sa validation est enregistrée et historisée.
+async function validerDossierExistant() {
+  if (!isCPL || !selectedBroker) return;
+  const b = selectedBroker;
+  if (!confirm(`Valider le dossier actuel de ${b.nom} ?\n\nRisque ${b.niveauRisque || 'non renseigné'}, expiration ${formatDate(b.dateExpiration)}, ${countPiecesDossier(b)}/${getPiecesRequisesPourRisque(b.niveauRisque).length} pièces.\nLe dossier n'est pas modifié : seule sa validation est enregistrée.`)) return;
+  try {
+    const fresh = await fetchBroker(b.spId);
+    if (dossierOfficielValide(fresh)) throw new Error('ce dossier est déjà validé, rechargez la fiche');
+    if (computeDemande(fresh) !== 'aucune') throw new Error('une demande est en cours sur cette contrepartie : traitez-la d\'abord');
+    const fields = {};
+    if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'Validé';
+    if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
+    if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
+    if (hasColumn('MotifRejet')) fields.MotifRejet = '';
+    addHistorique(fields, fresh, 'Dossier existant validé',
+      resumeDossier(fresh.niveauRisque, fresh.kycLink, fresh.dateExpiration, fresh.piecesDossier));
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
+    showToast(`Dossier de ${esc(b.nom)} validé.`, 'success');
+    await loadBrokers();
+    openDetail(b.spId);
+  } catch(e) {
+    console.error(e);
+    showToast(`Validation impossible : ${esc(e.message)}`, 'error');
+  }
+}
+
 // Archivage (compliance) : la contrepartie n'est plus suivie, relancée ni comptée,
 // mais reste consultable avec son historique. Réversible.
 async function toggleArchive() {
@@ -1885,8 +1962,8 @@ function brokersToRelance() {
   const parEquipe = {};
   EQUIPES.forEach(e => parEquipe[e] = []);
   brokers.forEach(b => {
-    if (b.archive) return;
-    const st = computeValidite(b);
+    if (b.archive || estJamaisValidee(b)) return;
+    const st = computeEcheance(b);
     if (st !== 'expiré' && st !== 'bientôt expiré') return;
     b.equipes.forEach(e => { if (parEquipe[e]) parEquipe[e].push(b); });
   });
@@ -1911,7 +1988,7 @@ function goRelances() {
         <p style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Aucune contrepartie à signaler — aucun email ne sera envoyé à cette équipe.</p>
       </div>`;
     const rows = list.map(b => {
-      const st = computeValidite(b);
+      const st = computeEcheance(b);
       const days = daysToExpiration(b);
       const detail = days === null ? 'date d\'expiration non renseignée'
         : st === 'expiré' ? `expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`
@@ -1955,7 +2032,7 @@ function relanceEmailBody(equipe, list) {
   const appLink = spId => `${window.location.origin}/counterflow.html#${spId}`;
   const row = b => {
     const days = daysToExpiration(b);
-    const st = computeValidite(b);
+    const st = computeEcheance(b);
     const d = computeDemande(b);
     const detail = days === null ? 'date d\'expiration non renseignée'
       : st === 'expiré' ? `expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`
@@ -1982,8 +2059,8 @@ function relanceEmailBody(equipe, list) {
       ${rows}
     </table>`;
 
-  const expires  = list.filter(b => computeValidite(b) === 'expiré');
-  const bientots = list.filter(b => computeValidite(b) === 'bientôt expiré');
+  const expires  = list.filter(b => computeEcheance(b) === 'expiré');
+  const bientots = list.filter(b => computeEcheance(b) === 'bientôt expiré');
 
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">
