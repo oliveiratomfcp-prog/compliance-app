@@ -420,6 +420,20 @@ async function graphGet(path, token) {
   return res.json();
 }
 
+// Lecture de toutes les pages d'une liste Graph (suivi de @odata.nextLink) : une seule page
+// ne contient qu'une partie des éléments dès que la liste grossit, les plus récents manqueraient.
+async function graphGetAll(path) {
+  const base = 'https://graph.microsoft.com/v1.0';
+  let data = await graphGet(path);
+  const items = [...(data.value || [])];
+  for (let page = 0; data['@odata.nextLink'] && page < 200; page++) {
+    const next = data['@odata.nextLink'];
+    data = await graphGet(next.startsWith(base) ? next.slice(base.length) : next);
+    items.push(...(data.value || []));
+  }
+  return items;
+}
+
 async function graphPost(path, body, scopes) {
   const t = await getToken(scopes || GRAPH_SCOPES_SP);
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, {
@@ -499,10 +513,10 @@ async function initSharePointThenLoad() {
 async function loadRequests(silent) {
   if (!silent) setListLoading(true);
   try {
-    const data = await graphGet(
-      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$top=9999`
+    const rawItems = await graphGetAll(
+      `/sites/${spSiteId}/lists/${spListId}/items?expand=fields&$top=999`
     );
-    requests = data.value.map(item => {
+    requests = rawItems.map(item => {
       const f = item.fields;
       const historique = (() => { try { return f.HistoriqueStatuts ? JSON.parse(f.HistoriqueStatuts) : []; } catch(e) { return []; } })();
       const submittedTs = f.DateSoumission ? new Date(f.DateSoumission).getTime() : 0;
@@ -2472,10 +2486,10 @@ async function loadComments(ref) {
   }
   container.innerHTML = '<span style="font-size:12px;color:var(--text-secondary)">Chargement...</span>';
   try {
-    const data = await graphGet(
-      `/sites/${spSiteId}/lists/${spCommListId}/items?expand=fields,createdBy&$top=500`
+    const allItems = await graphGetAll(
+      `/sites/${spSiteId}/lists/${spCommListId}/items?expand=fields,createdBy&$top=999`
     );
-    const all = data.value
+    const all = allItems
       .filter(item => item.fields.Title === ref)
       .map(item => {
         const f = item.fields;
