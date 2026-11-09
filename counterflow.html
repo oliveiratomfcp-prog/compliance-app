@@ -21,6 +21,12 @@
 .bdg-actif{background:rgba(209,143,65,0.12);color:#92400E;border-color:rgba(209,143,65,0.3)}
 .bdg-attente-validation{background:#F1F5F9;color:#475569;border-color:#CBD5E1}
 .bdg-rejete{background:#FDF2F8;color:#9D174D;border-color:#FBCFE8}
+.bdg-complement{background:#FEFCE8;color:#A16207;border-color:#FDE68A}
+.bdg-archive{background:#F3F4F6;color:#6B7280;border-color:#D1D5DB}
+.cf-archived td{opacity:.55}
+.histo-item{position:relative;padding:0 0 12px 16px;border-left:1px solid var(--border);margin-left:4px}
+.histo-item::before{content:'';position:absolute;left:-4px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--navy)}
+.histo-item:last-child{border-left-color:transparent}
 
 .validation-card{border:1px solid #CBD5E1;background:#F8FAFC}
 .validation-compare{display:grid;grid-template-columns:1fr 1fr;gap:16px}
@@ -193,8 +199,9 @@ console.info(`CounterFlow — build ${CF_BUILD}`);
 // CONFIGURATION
 // ═══════════════════════════════════════════════════════════
 // CounterFlow est ouvert à tous les collaborateurs authentifiés (lecture + écriture
-// sur les contreparties). CPL_EMAILS ne sert ici qu'à conditionner l'affichage du
-// bouton "Envoyer les relances KYC" et du crayon d'édition du lien signé.
+// sur les contreparties). CPL_EMAILS conditionne l'affichage des actions compliance
+// (validation, statut manuel, archivage, relances, lien signé). Ce contrôle est fait
+// dans le navigateur : la vraie protection repose sur les permissions SharePoint.
 // Liste CPL_EMAILS et isCPLUser() : voir cpl-config.js.
 
 const SP = {
@@ -219,7 +226,11 @@ const SEUIL_BIENTOT_JOURS = 60;
 
 // Valeurs exactes de la colonne SharePoint "StatutValidationKYC" (choix). Utilisées
 // par le contrôle de statut manuel (compliance) — voir applyStatutManuel().
-const STATUTS_VALIDATION_KYC = ['Aucune demande', 'En attente de validation', 'Validé', 'Rejeté'];
+const STATUTS_VALIDATION_KYC = ['Aucune demande', 'En attente de validation', 'Complément demandé', 'Validé', 'Rejeté'];
+const STATUT_COMPLEMENT = 'Complément demandé';
+// Statuts d'une demande ouverte ou close sans validation (la proposition reste en *_Pending)
+const STATUTS_DEMANDE_OUVERTE = ['En attente de validation', STATUT_COMPLEMENT, 'Rejeté'];
+const CPL_MAIL = 'cpl@eiffel-ig.com';   // destinataire des notifications de nouvelles demandes
 
 // Pièces attendues dans le dossier de chaque contrepartie. Ces libellés doivent
 // correspondre EXACTEMENT aux 15 valeurs de la colonne SharePoint "PiecesDossier"
@@ -266,6 +277,8 @@ let currentView      = 'liste';
 let statusFilter     = 'all';
 let equipeFilter     = 'all';
 let risqueFilter     = 'all';
+let demandeFilter    = 'all';
+let showArchived     = false; // contreparties archivées masquées par défaut
 let selectedBroker   = null;
 let lastLoadedAt     = null;
 
@@ -341,6 +354,19 @@ async function graphGet(path, token) {
   const res = await fetch(`https://graph.microsoft.com/v1.0${path}`, { headers: { Authorization: `Bearer ${t}` } });
   if (!res.ok) throw new Error(`Graph GET ${path} → ${res.status}`);
   return res.json();
+}
+
+// Lecture de toutes les pages d'une liste Graph (suivi de @odata.nextLink)
+async function graphGetAll(path) {
+  const base = 'https://graph.microsoft.com/v1.0';
+  let data = await graphGet(path);
+  const items = [...(data.value || [])];
+  for (let page = 0; data['@odata.nextLink'] && page < 200; page++) {
+    const next = data['@odata.nextLink'];
+    data = await graphGet(next.startsWith(base) ? next.slice(base.length) : next);
+    items.push(...(data.value || []));
+  }
+  return items;
 }
 
 async function graphPost(path, body, scopes) {
@@ -438,48 +464,68 @@ function validateExternalLink(url, champ) {
   }
 }
 
+const asArray = v => Array.isArray(v) ? v : (v ? [v] : []);
+
+// Élément SharePoint → objet contrepartie (partagé par le chargement de la liste et la
+// relecture d'un élément juste avant une écriture)
+function parseBroker(item) {
+  const f = item.fields;
+  let historique = [];
+  try { historique = f.HistoriqueKYC ? JSON.parse(f.HistoriqueKYC) : []; } catch (e) { historique = []; }
+  return {
+    spId          : item.id,
+    nom           : f.Title || '',
+    kycLink       : f.KYC || '',
+    dateExpiration: f.DateExpirationKYC || '',
+    equipes       : asArray(f.Equipe),
+    niveauRisque  : f.NiveauRisque || '',
+    classesActif  : asArray(f.ClasseActif),
+    classeActifAutre : f.ClasseActifAutre || '',
+    piecesDossier : asArray(f.PiecesDossier),
+    commentaire   : f.commentaire || '', // nom interne SharePoint en minuscules (sensible à la casse)
+    dernierKYCPar : f.DernierKYCPar || '',
+    dateDernierKYC: f.DateDernierKYC || '',
+    // Workflow de validation compliance : le dossier "proposé" (*_Pending) reste distinct
+    // du dossier officiel tant que la compliance ne l'a pas validé. Il est conservé après
+    // un rejet ou une demande de complément pour être corrigé sans tout ressaisir.
+    statutValidationKYC  : f.StatutValidationKYC || '',
+    dateExpirationPending: f.DateExpirationKYC_Pending || '',
+    piecesDossierPending : asArray(f.PiecesDossier_Pending),
+    kycPending    : f.KYC_Pending || '',
+    niveauRisquePending: f.NiveauRisque_Pending || '',
+    demandeParEmail: f.DemandeParEmail || '',
+    dateDemande   : f.DateDemande || '',
+    valideParEmail: f.ValideParEmail || '',
+    dateValidation: f.DateValidation || '',
+    motifRejet    : f.MotifRejet || '',   // motif du rejet ou message de demande de complément
+    archive       : f.Archive === true,
+    historique,
+    _expTs        : f.DateExpirationKYC ? new Date(f.DateExpirationKYC).getTime() : 0
+  };
+}
+
+// Relecture d'une contrepartie juste avant une écriture : l'historique et le statut
+// utilisés sont ceux de SharePoint à cet instant, pas ceux chargés à l'ouverture de la page.
+async function fetchBroker(spId) {
+  return parseBroker(await graphGet(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${spId}?expand=fields`));
+}
+
 async function loadBrokers() {
   setListLoading(true);
   try {
-    const data = await graphGet(`/sites/${spSiteId}/lists/${spListBrokersId}/items?expand=fields&$top=4999`);
+    const items = await graphGetAll(`/sites/${spSiteId}/lists/${spListBrokersId}/items?expand=fields&$top=999`);
 
     // Séparation stricte dès le chargement : l'item __CONFIG__ (lien vers le
     // document signé) part dans counterflowConfig, tout le reste dans brokers.
     counterflowConfig = null;
     brokers = [];
-    data.value.forEach(item => {
+    items.forEach(item => {
       const f = item.fields;
       if ((f.Title || '').trim() === CONFIG_TITLE) {
         counterflowConfig = { spId: item.id, lienListeSignee: f.LienListeSignee || '' };
         return;
       }
-      brokers.push({
-        spId          : item.id,
-        nom           : f.Title || '',
-        kycLink       : f.KYC || '',
-        dateExpiration: f.DateExpirationKYC || '',
-        equipes       : Array.isArray(f.Equipe) ? f.Equipe : (f.Equipe ? [f.Equipe] : []),
-        niveauRisque  : f.NiveauRisque || '',
-        classesActif  : Array.isArray(f.ClasseActif) ? f.ClasseActif : (f.ClasseActif ? [f.ClasseActif] : []),
-        classeActifAutre : f.ClasseActifAutre || '',
-        piecesDossier : Array.isArray(f.PiecesDossier) ? f.PiecesDossier : (f.PiecesDossier ? [f.PiecesDossier] : []),
-        commentaire   : f.commentaire || '', // nom interne SharePoint en minuscules (sensible à la casse)
-        dernierKYCPar : f.DernierKYCPar || '',
-        dateDernierKYC: f.DateDernierKYC || '',
-        // Workflow de validation compliance sur la mise à jour du KYC : le dossier
-        // "proposé" (*_Pending) reste distinct du dossier validé tant que la
-        // compliance n'a pas tranché — voir "VALIDATION COMPLIANCE KYC" plus bas.
-        statutValidationKYC  : f.StatutValidationKYC || '',
-        dateExpirationPending: f.DateExpirationKYC_Pending || '',
-        piecesDossierPending : Array.isArray(f.PiecesDossier_Pending) ? f.PiecesDossier_Pending : (f.PiecesDossier_Pending ? [f.PiecesDossier_Pending] : []),
-        kycPending    : f.KYC_Pending || '',
-        demandeParEmail: f.DemandeParEmail || '',
-        dateDemande   : f.DateDemande || '',
-        valideParEmail: f.ValideParEmail || '',
-        dateValidation: f.DateValidation || '',
-        motifRejet    : f.MotifRejet || '',
-        _expTs        : f.DateExpirationKYC ? new Date(f.DateExpirationKYC).getTime() : 0
-      });
+      brokers.push(parseBroker(item));
     });
     brokers.sort((a,b) => a.nom.localeCompare(b.nom, 'fr'));
 
@@ -487,7 +533,7 @@ async function loadBrokers() {
     setListLoading(false);
     renderListe();
 
-    // Lien profond depuis les emails de relance : counterflow.html#<spId>
+    // Lien profond depuis les emails : counterflow.html#<spId>
     const hash = window.location.hash.replace('#','');
     if (hash && brokers.find(b => b.spId === hash)) {
       openDetail(hash);
@@ -570,6 +616,8 @@ function goListe() { renderListe(); showView('liste'); window.scrollTo(0,0); }
 function setStatusFilter(s) { statusFilter = s; renderListe(); }
 function setEquipeFilter(s) { equipeFilter = s; renderListe(); }
 function setRisqueFilter(s) { risqueFilter = s; renderListe(); }
+function setDemandeFilter(s) { demandeFilter = s; renderListe(); }
+function toggleShowArchived() { showArchived = !showArchived; renderListe(); }
 
 // ═══════════════════════════════════════════════════════════
 // HELPERS
@@ -593,9 +641,26 @@ function esc(s) {
 // tant qu'une nouvelle demande n'a pas été soumise et validée.
 // Une contrepartie sans date d'expiration est traitée comme "expiré" (pas de KYC
 // valide démontrable = à traiter en priorité).
-function computeStatus(broker, today) {
-  if (broker.statutValidationKYC === 'En attente de validation') return 'en attente de validation';
-  if (broker.statutValidationKYC === 'Rejeté') return 'rejeté';
+function hasPendingProposal(b) {
+  return !!(b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length || b.niveauRisquePending);
+}
+
+// Contrepartie créée mais jamais validée par la compliance. Nouveau circuit : la
+// proposition est en *_Pending et le dossier officiel est vide. Ancien circuit : la
+// création était écrite directement dans le dossier officiel, sans validation ni
+// dernier KYC enregistrés.
+function estJamaisValidee(b) {
+  if (!STATUTS_DEMANDE_OUVERTE.includes(b.statutValidationKYC)) return false;
+  const officielVide = !b.kycLink && !b._expTs && !(b.piecesDossier || []).length;
+  return officielVide || (!b.dernierKYCPar && !b.dateValidation && !hasPendingProposal(b));
+}
+
+// Validité du dossier OFFICIEL, calculée uniquement à partir de la date d'expiration.
+// Indépendante de toute demande en cours (voir computeDemande) : une contrepartie
+// expirée reste "expiré" même si une mise à jour attend la validation.
+// Sans date d'expiration : "expiré" (pas de KYC valide démontrable).
+function computeValidite(broker, today) {
+  if (estJamaisValidee(broker)) return 'non validé';
   today = today || new Date();
   if (!broker._expTs) return 'expiré';
   const days = Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
@@ -603,18 +668,44 @@ function computeStatus(broker, today) {
   if (days <= SEUIL_BIENTOT_JOURS) return 'bientôt expiré';
   return 'à jour';
 }
+
+// État de la dernière demande (création ou mise à jour du KYC)
+function computeDemande(broker) {
+  switch (broker.statutValidationKYC) {
+    case 'En attente de validation': return 'en attente';
+    case STATUT_COMPLEMENT: return 'complément demandé';
+    case 'Rejeté': return 'rejetée';
+    default: return 'aucune';
+  }
+}
 function daysToExpiration(broker, today) {
   today = today || new Date();
   if (!broker._expTs) return null;
   return Math.ceil((broker._expTs - today.getTime()) / (1000*60*60*24));
 }
-const STATUS_CLASS = { 'à jour':'bdg-a-jour', 'bientôt expiré':'bdg-bientot', 'expiré':'bdg-expire', 'en attente de validation':'bdg-attente-validation', 'rejeté':'bdg-rejete' };
+const STATUS_CLASS = { 'à jour':'bdg-a-jour', 'bientôt expiré':'bdg-bientot', 'expiré':'bdg-expire', 'non validé':'bdg-attente-validation' };
+const DEMANDE_CLASS = { 'en attente':'bdg-attente-validation', 'complément demandé':'bdg-complement', 'rejetée':'bdg-rejete' };
+const DEMANDE_LABEL = { 'en attente':'Demande en attente', 'complément demandé':'Complément demandé', 'rejetée':'Demande rejetée' };
+function demandeBadge(b) {
+  const d = computeDemande(b);
+  return d === 'aucune' ? '' : bdg(DEMANDE_LABEL[d], DEMANDE_CLASS[d]);
+}
 const RISQUE_CLASS = { 'Faible':'bdg-risque-faible', 'Moyen':'bdg-risque-moyen', 'Élevé':'bdg-risque-eleve' };
 
 // Nombre de pièces du référentiel présentes dans le dossier de la contrepartie,
 // parmi celles attendues pour SON niveau de risque (13 ou 14 selon le cas, jamais
 // un total fixe). Seuls les libellés exacts du référentiel comptent : une valeur
 // inconnue dans SharePoint n'augmente pas le compteur.
+// Dossier à afficher : la proposition pour une contrepartie jamais validée (le dossier
+// officiel est vide), sinon le dossier officiel.
+function dossierAffiche(b) {
+  if (estJamaisValidee(b) && hasPendingProposal(b)) {
+    return { proposition: true, niveauRisque: b.niveauRisquePending || b.niveauRisque, piecesDossier: b.piecesDossierPending,
+             dateExpiration: b.dateExpirationPending, kycLink: b.kycPending };
+  }
+  return { proposition: false, niveauRisque: b.niveauRisque, piecesDossier: b.piecesDossier, dateExpiration: b.dateExpiration, kycLink: b.kycLink };
+}
+
 function countPiecesDossier(broker) {
   const set = new Set(broker.piecesDossier || []);
   return getPiecesRequisesPourRisque(broker.niveauRisque).filter(p => set.has(p)).length;
@@ -625,14 +716,15 @@ function countPiecesDossier(broker) {
 // compliance. Le nombre de pièces cochées n'a plus aucune influence ici — il reste
 // affiché à titre informatif via dossierBadge(), sans effet sur le clignotement.
 function needsBlinking(broker) {
-  return computeStatus(broker) === 'expiré' || broker.statutValidationKYC === 'Rejeté';
+  return !broker.archive && (computeValidite(broker) === 'expiré' || broker.statutValidationKYC === 'Rejeté');
 }
 
 // Le badge dossier (ex. "10/13") reste purement informatif : nombre de pièces
 // cochées sur le total attendu pour le niveau de risque de la contrepartie.
 function dossierBadge(broker) {
-  const n = countPiecesDossier(broker);
-  const total = getPiecesRequisesPourRisque(broker.niveauRisque).length;
+  const d = dossierAffiche(broker);
+  const n = countPiecesDossier(d);
+  const total = getPiecesRequisesPourRisque(d.niveauRisque).length;
   const cls = n === total ? 'bdg-a-jour' : n >= 6 ? 'bdg-bientot' : 'bdg-expire';
   return bdg(`${n}/${total}`, cls);
 }
@@ -643,14 +735,68 @@ function classesActifLabel(b) {
 }
 
 // ═══════════════════════════════════════════════════════════
+// HISTORIQUE (journal en ajout seul, colonne HistoriqueKYC)
+// ═══════════════════════════════════════════════════════════
+// Chaque action (création, demande, décision, statut manuel, commentaire, archivage)
+// ajoute une entrée { date, action, par, email, detail }. Les entrées précédentes ne
+// sont jamais modifiées. `fresh` est la contrepartie relue juste avant l'écriture.
+function addHistorique(fields, fresh, action, detail) {
+  if (!hasColumn('HistoriqueKYC')) return;
+  const entry = { date: new Date().toISOString(), action, par: currentUser.name, email: currentUser.email };
+  if (detail) entry.detail = String(detail).slice(0, 1500);
+  fields.HistoriqueKYC = JSON.stringify([...(fresh.historique || []), entry]);
+}
+
+function resumeDossier(risque, lien, dateExp, pieces) {
+  const parts = [];
+  if (risque) parts.push(`risque ${risque}`);
+  if (dateExp) parts.push(`expiration ${formatDate(dateExp)}`);
+  parts.push(`${(pieces || []).length} pièce(s)`);
+  if (lien) parts.push(`lien ${lien}`);
+  return parts.join(', ');
+}
+
+// ═══════════════════════════════════════════════════════════
+// NOTIFICATIONS EMAIL (non bloquantes)
+// ═══════════════════════════════════════════════════════════
+function ficheLink(b) { return `${window.location.origin}/counterflow.html#${b.spId}`; }
+
+async function envoyerNotification(to, subject, paragraphs, b) {
+  if (!to) return;
+  const html = `<div style="font-family:Arial,sans-serif;font-size:14px;color:#111;line-height:1.6">
+    <p>Bonjour,</p>
+    ${paragraphs.map(p => `<p>${p}</p>`).join('')}
+    <p><a href="${ficheLink(b)}" style="color:#00143B;font-weight:600">Ouvrir la fiche dans CounterFlow →</a></p>
+    <p style="color:#6B7280;font-size:12px">CounterFlow · Eiffel Investment Group</p>
+  </div>`;
+  try {
+    await graphPost('/me/sendMail', {
+      message: { subject, body: { contentType: 'HTML', content: html }, toRecipients: [{ emailAddress: { address: to } }] },
+      saveToSentItems: true
+    }, GRAPH_SCOPES_MAIL);
+  } catch (e) { console.warn('Notification non envoyée :', e.message); }
+}
+
+// Demandeur à prévenir d'une décision (jamais l'auteur de la décision lui-même)
+function demandeurANotifier(b) {
+  const e = (b.demandeParEmail || '').toLowerCase();
+  return e && e !== (currentUser.email || '').toLowerCase() ? b.demandeParEmail : '';
+}
+
+function estAuteurDeLaDemande(b) {
+  return !!b.demandeParEmail && b.demandeParEmail.toLowerCase() === (currentUser.email || '').toLowerCase();
+}
+
+// ═══════════════════════════════════════════════════════════
 // VUE LISTE
 // ═══════════════════════════════════════════════════════════
 function renderListe() {
-  const filtered = brokers.filter(b => {
-    const st = computeStatus(b);
-    if (statusFilter !== 'all' && st !== statusFilter) return false;
+  const visibles = brokers.filter(b => showArchived || !b.archive);
+  const filtered = visibles.filter(b => {
+    if (statusFilter !== 'all' && computeValidite(b) !== statusFilter) return false;
+    if (demandeFilter !== 'all' && computeDemande(b) !== demandeFilter) return false;
     if (equipeFilter !== 'all' && !b.equipes.includes(equipeFilter)) return false;
-    if (risqueFilter !== 'all' && b.niveauRisque !== risqueFilter) return false;
+    if (risqueFilter !== 'all' && dossierAffiche(b).niveauRisque !== risqueFilter) return false;
     return true;
   });
 
@@ -660,33 +806,43 @@ function renderListe() {
     return `<button class="filter-pill" ${st} onclick="${setter}('${value.replace(/'/g,"\\'")}')">${label}${count!=null?` <span style="opacity:.6">(${count})</span>`:''}</button>`;
   };
 
-  const nbByStatus = s => brokers.filter(b => computeStatus(b) === s).length;
-  const statusPills = [
-    pill('Tous','all',statusFilter,'setStatusFilter',brokers.length),
-    pill('À jour','à jour',statusFilter,'setStatusFilter',nbByStatus('à jour')),
-    pill('Bientôt expiré','bientôt expiré',statusFilter,'setStatusFilter',nbByStatus('bientôt expiré')),
-    pill('Expiré','expiré',statusFilter,'setStatusFilter',nbByStatus('expiré')),
-    pill('En attente de validation','en attente de validation',statusFilter,'setStatusFilter',nbByStatus('en attente de validation')),
-    pill('Rejeté','rejeté',statusFilter,'setStatusFilter',nbByStatus('rejeté'))
+  const nbValidite = s => visibles.filter(b => computeValidite(b) === s).length;
+  const nbDemande  = s => visibles.filter(b => computeDemande(b) === s).length;
+  const validitePills = [
+    pill('Tous','all',statusFilter,'setStatusFilter',visibles.length),
+    pill('À jour','à jour',statusFilter,'setStatusFilter',nbValidite('à jour')),
+    pill('Bientôt expiré','bientôt expiré',statusFilter,'setStatusFilter',nbValidite('bientôt expiré')),
+    pill('Expiré','expiré',statusFilter,'setStatusFilter',nbValidite('expiré')),
+    pill('Non validé','non validé',statusFilter,'setStatusFilter',nbValidite('non validé'))
+  ].join('');
+  const demandePills = [
+    pill('Toutes','all',demandeFilter,'setDemandeFilter'),
+    pill('En attente','en attente',demandeFilter,'setDemandeFilter',nbDemande('en attente')),
+    pill('Complément demandé','complément demandé',demandeFilter,'setDemandeFilter',nbDemande('complément demandé')),
+    pill('Rejetée','rejetée',demandeFilter,'setDemandeFilter',nbDemande('rejetée'))
   ].join('');
   const equipePills = [pill('Tous','all',equipeFilter,'setEquipeFilter')]
     .concat(EQUIPES.map(e => pill(e, e, equipeFilter, 'setEquipeFilter'))).join('');
   const risquePills = [pill('Tous','all',risqueFilter,'setRisqueFilter')]
     .concat(NIVEAUX_RISQUE.map(r => pill(r, r, risqueFilter, 'setRisqueFilter'))).join('');
+  const nbArchivees = brokers.filter(b => b.archive).length;
+  const archivePill = nbArchivees ? `<button class="filter-pill" onclick="toggleShowArchived()" ${showArchived ? 'style="background:var(--navy);color:#fff;border-color:var(--navy)"' : ''}>Afficher les archivées <span style="opacity:.6">(${nbArchivees})</span></button>` : '';
 
   const rows = filtered.map(b => {
-    const st = computeStatus(b);
+    const st = computeValidite(b);
+    const d = dossierAffiche(b);
     const nameCls = needsBlinking(b) ? 'name-blink-expired' : '';
-    return `<tr onclick="openDetail('${b.spId}')">
-      <td><span class="${nameCls}" style="font-size:13px;${nameCls?'':'font-weight:600;color:#111827'}">${esc(b.nom)}</span></td>
+    return `<tr onclick="openDetail('${b.spId}')" class="${b.archive ? 'cf-archived' : ''}">
+      <td><span class="${nameCls}" style="font-size:13px;${nameCls?'':'font-weight:600;color:#111827'}">${esc(b.nom)}</span>${b.archive ? ' ' + bdg('Archivée','bdg-archive') : ''}</td>
       <td>${b.equipes.length ? b.equipes.map(e => bdg(e,'bdg-equipe')).join(' ') : '<span class="td-muted">—</span>'}</td>
-      <td>${b.niveauRisque ? bdg(b.niveauRisque, RISQUE_CLASS[b.niveauRisque]||'bdg-risque-moyen') : '<span class="td-muted">—</span>'}</td>
+      <td>${d.niveauRisque ? bdg(d.niveauRisque, RISQUE_CLASS[d.niveauRisque]||'bdg-risque-moyen') : '<span class="td-muted">—</span>'}</td>
       <td class="td-muted">${esc(classesActifLabel(b))}</td>
-      <td class="td-muted">${formatDate(b.dateExpiration)}</td>
+      <td class="td-muted">${formatDate(d.dateExpiration)}${d.proposition && d.dateExpiration ? ' <span style="opacity:.7">(proposée)</span>' : ''}</td>
       <td>${dossierBadge(b)}</td>
       <td>${bdg(st, STATUS_CLASS[st])}</td>
+      <td>${demandeBadge(b) || '<span class="td-muted">—</span>'}</td>
     </tr>`;
-  }).join('') || `<tr><td colspan="7" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
+  }).join('') || `<tr><td colspan="8" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune contrepartie dans cette catégorie</td></tr>`;
 
   const lienSigne = counterflowConfig?.lienListeSignee || '';
   const signedBtnLabel = `${svgIcon('<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>')}
@@ -707,13 +863,19 @@ function renderListe() {
       Envoyer les relances KYC
     </button>` : '';
 
+  const nbExpirees = nbValidite('expiré');
+  const nbAValider = nbDemande('en attente');
+  const aValider = isCPL && nbAValider
+    ? `&nbsp;·&nbsp; <a href="#" onclick="event.preventDefault();setDemandeFilter('en attente')" style="color:#475569;font-weight:600">${nbAValider} demande${nbAValider>1?'s':''} à valider</a>`
+    : '';
+
   document.getElementById('view-liste').innerHTML = `
     <div class="section-header">
       <div>
         <div class="eyebrow" style="margin-bottom:9px">Contreparties autorisées · KYC</div>
         <h1 class="page-title" style="margin:0 0 7px">CounterFlow</h1>
-        <p class="section-desc">${brokers.length} contrepartie${brokers.length>1?'s':''} suivie${brokers.length>1?'s':''}
-          &nbsp;·&nbsp; ${nbByStatus('expiré')} expirée${nbByStatus('expiré')>1?'s':''}
+        <p class="section-desc">${visibles.length} contrepartie${visibles.length>1?'s':''} suivie${visibles.length>1?'s':''}
+          &nbsp;·&nbsp; ${nbExpirees} expirée${nbExpirees>1?'s':''} ${aValider}
           &nbsp;·&nbsp;
           <button class="list-refresh" id="list-refresh-btn" onclick="manualRefresh()" title="Rafraîchir depuis SharePoint">
             ${svgIcon('<polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/><path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>')}
@@ -731,9 +893,13 @@ function renderListe() {
       </div>
     </div>
     <div class="cpl-filters">
-      <span class="filter-group-label">Statut</span>${statusPills}
-      <span class="filter-group-label" style="margin-left:10px">Équipe</span>${equipePills}
+      <span class="filter-group-label">Validité KYC</span>${validitePills}
+      <span class="filter-group-label" style="margin-left:10px">Demande</span>${demandePills}
+    </div>
+    <div class="cpl-filters">
+      <span class="filter-group-label">Équipe</span>${equipePills}
       <span class="filter-group-label" style="margin-left:10px">Risque</span>${risquePills}
+      ${archivePill}
       <input type="text" placeholder="Rechercher..." oninput="searchTable(this.value)"
         style="margin-left:auto;padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:170px">
     </div>
@@ -741,12 +907,13 @@ function renderListe() {
       <table class="data-table cf-table">
         <thead><tr>
           <th style="width:220px">Nom</th>
-          <th style="width:160px">Équipe(s)</th>
-          <th style="width:110px">Niveau de risque</th>
-          <th style="min-width:150px">Classe(s) d'actif</th>
-          <th style="width:115px">Expiration KYC</th>
-          <th style="width:80px">Dossier</th>
-          <th style="width:130px">Statut</th>
+          <th style="width:150px">Équipe(s)</th>
+          <th style="width:100px">Risque</th>
+          <th style="min-width:140px">Classe(s) d'actif</th>
+          <th style="width:120px">Expiration KYC</th>
+          <th style="width:75px">Dossier</th>
+          <th style="width:115px">Validité KYC</th>
+          <th style="width:160px">Demande</th>
         </tr></thead>
         <tbody id="cf-tbody">${rows}</tbody>
       </table>
@@ -766,98 +933,125 @@ function openDetail(spId) {
   selectedBroker = brokers.find(b => b.spId === spId);
   if (!selectedBroker) return;
   const b = selectedBroker;
-  const st = computeStatus(b);
+  const st = computeValidite(b);
+  const demande = computeDemande(b);
   const nameCls = needsBlinking(b) ? 'name-blink-expired' : '';
+  const jamaisValidee = estJamaisValidee(b);
+  const affiche = dossierAffiche(b);
 
-  // Raisons du clignotement, affichées sous le nom : KYC expiré et/ou dernière
-  // mise à jour rejetée par compliance. Le dossier incomplet n'en fait plus partie
-  // (voir needsBlinking) — il reste visible, à titre informatif, via dossierBadge().
+  // Raisons du clignotement, affichées sous le nom
   const days = daysToExpiration(b);
   const blinkReasons = [];
   if (st === 'expiré') {
     blinkReasons.push(days === null ? "Aucune date d'expiration renseignée" : `KYC expiré depuis ${Math.abs(days)} jour(s)`);
   }
-  if (b.statutValidationKYC === 'Rejeté') {
-    blinkReasons.push(`Mise à jour KYC rejetée par compliance${b.motifRejet ? ' : ' + b.motifRejet : ''}`);
+  if (demande === 'rejetée') {
+    blinkReasons.push(`Dernière demande rejetée par la compliance${b.motifRejet ? ' : ' + b.motifRejet : ''}`);
   }
-  const blinkReasonsHtml = blinkReasons.length
+  const blinkReasonsHtml = blinkReasons.length && !b.archive
     ? `<div style="margin-top:4px;font-size:12px;font-weight:600;color:#DC2626">${blinkReasons.map(esc).join(' · ')}</div>`
     : '';
-  const piecesRequises = getPiecesRequisesPourRisque(b.niveauRisque);
-  const nbPieces = countPiecesDossier(b);
+  const piecesRequises = getPiecesRequisesPourRisque(affiche.niveauRisque);
+  const nbPieces = countPiecesDossier(affiche);
 
   const piecesChecklist = piecesRequises.map(p => {
-    const ok = (b.piecesDossier || []).includes(p);
+    const ok = (affiche.piecesDossier || []).includes(p);
     return `<div style="display:flex;align-items:flex-start;gap:8px;padding:5px 0;font-size:12.5px;border-bottom:1px solid var(--row-sep)">
       <span style="flex-shrink:0;font-size:14px;line-height:1.3;${ok?'color:#15803D':'color:#9CA3AF'}">${ok?'☑':'☐'}</span>
       <span style="${ok?'color:#374151':'color:var(--text-muted)'}">${esc(p)}</span>
     </div>`;
   }).join('');
 
-  // Bloc "Validation compliance" : visible uniquement pour la compliance (isCPL) et
-  // uniquement lorsqu'une demande de mise à jour du KYC est en attente pour cette
-  // contrepartie. Le dossier principal (validé) n'est pas encore modifié à ce stade
-  // — SAUF cas particulier de la création (voir hasPendingProposal ci-dessous).
-  const hasPendingProposal = !!(b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length);
-  // Contrepartie fraîchement créée (voir submitNouvelle()) : aucun historique de
-  // validation, aucun *_Pending, car les champs principaux SONT déjà la proposition
-  // à valider — il n'y a pas de "avant" à comparer, seulement une saisie initiale.
-  const estNouvelleContrepartie = !b.dateValidation && !hasPendingProposal;
-  const dossierPanel = (titre, titreColor, dateExpVal, kycVal, piecesVal) => `
+  // Bloc "Validation compliance" (compliance uniquement, demande en attente)
+  const hasPending = hasPendingProposal(b);
+  const dossierPanel = (titre, titreColor, risque, dateExpVal, kycVal, piecesVal) => `
     <div>
       <div style="font-size:11px;font-weight:700;color:${titreColor};text-transform:uppercase;margin-bottom:6px">${titre}</div>
+      <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Niveau de risque :</strong> ${esc(risque || '—')}</div>
       <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Expiration :</strong> ${formatDate(dateExpVal)}</div>
       <div style="font-size:12.5px;color:#374151;margin-bottom:6px"><strong style="color:var(--navy)">Dossier KYC :</strong> ${renderLienCliquable(kycVal, 'Ouvrir →', 'Aucun lien')}</div>
-      <div style="font-size:12.5px;color:#374151;margin-bottom:4px"><strong style="color:var(--navy)">Pièces (${(piecesVal||[]).length}) :</strong></div>
+      <div style="font-size:12.5px;color:#374151;margin-bottom:4px"><strong style="color:var(--navy)">Pièces (${(piecesVal||[]).length}/${getPiecesRequisesPourRisque(risque).length}) :</strong></div>
       <ul style="margin:0 0 0 18px;padding:0;font-size:12px;color:var(--text-secondary)">
         ${(piecesVal||[]).map(p => `<li>${esc(p)}</li>`).join('') || '<li>Aucune</li>'}
       </ul>
     </div>`;
-  const validationBlockHtml = (isCPL && b.statutValidationKYC === 'En attente de validation') ? `
+  const proposePanel = hasPending
+    ? dossierPanel(jamaisValidee ? 'Dossier proposé (nouvelle contrepartie)' : 'Nouveau dossier proposé', '#2563EB',
+        b.niveauRisquePending || b.niveauRisque, b.dateExpirationPending, b.kycPending, b.piecesDossierPending)
+    : dossierPanel('Dossier proposé (nouvelle contrepartie)', '#2563EB', b.niveauRisque, b.dateExpiration, b.kycLink, b.piecesDossier);
+  const auteur = estAuteurDeLaDemande(b);
+  const validationBlockHtml = (isCPL && demande === 'en attente') ? `
     <div class="form-card validation-card" style="margin-bottom:14px">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
         <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase">Validation compliance</div>
-        ${bdg('En attente de validation','bdg-attente-validation')}
+        ${bdg('Demande en attente','bdg-attente-validation')}
       </div>
       <p style="font-size:12px;color:var(--text-secondary);margin-bottom:14px">
-        ${estNouvelleContrepartie
-          ? `Nouvelle contrepartie créée par ${esc(b.demandeParEmail || '—')} le ${formatDate(b.dateDemande)}.`
-          : `Demande envoyée par ${esc(b.demandeParEmail || '—')} le ${formatDate(b.dateDemande)}.`}
+        ${jamaisValidee ? 'Nouvelle contrepartie proposée' : 'Mise à jour du KYC demandée'} par ${esc(b.demandeParEmail || '—')} le ${formatDate(b.dateDemande)}.
       </p>
-      ${estNouvelleContrepartie
-        ? `<div class="validation-compare" style="grid-template-columns:1fr">
-             ${dossierPanel('Dossier proposé (nouvelle contrepartie)', '#2563EB', b.dateExpiration, b.kycLink, b.piecesDossier)}
-           </div>`
+      ${jamaisValidee
+        ? `<div class="validation-compare" style="grid-template-columns:1fr">${proposePanel}</div>`
         : `<div class="validation-compare">
-             ${dossierPanel('Dossier actuel (validé)', 'var(--text-muted)', b.dateExpiration, b.kycLink, b.piecesDossier)}
-             ${dossierPanel('Nouveau dossier proposé', '#2563EB', b.dateExpirationPending, b.kycPending, b.piecesDossierPending)}
+             ${dossierPanel('Dossier actuel (validé)', 'var(--text-muted)', b.niveauRisque, b.dateExpiration, b.kycLink, b.piecesDossier)}
+             ${proposePanel}
            </div>`}
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button class="btn-primary" style="flex:1;justify-content:center;background:#15803D;border-color:#15803D" onclick="validerKYCPending()">
+      ${auteur ? `<p style="font-size:12px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:6px;padding:8px 12px;margin-top:14px">
+          Vous êtes l'auteur de cette demande : elle doit être validée par un autre membre de la compliance. Vous pouvez la renvoyer ou la rejeter.</p>` : ''}
+      <div style="display:flex;gap:8px;margin-top:16px;flex-wrap:wrap">
+        <button class="btn-primary" style="flex:1;justify-content:center;background:#15803D;border-color:#15803D${auteur ? ';opacity:.45;cursor:not-allowed' : ''}" ${auteur ? 'disabled' : ''} onclick="validerKYCPending()">
           ${svgIcon('<polyline points="20 6 9 17 4 12"/>')}Valider
         </button>
-        <button class="btn-secondary" style="flex:1;justify-content:center;color:#DC2626;border-color:#FECACA" onclick="openRejectModal()">
+        <button class="btn-secondary" style="flex:1;justify-content:center;color:#A16207;border-color:#FDE68A" onclick="openDecisionModal('complement')">
+          ${svgIcon('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>')}Demander un complément
+        </button>
+        <button class="btn-secondary" style="flex:1;justify-content:center;color:#DC2626;border-color:#FECACA" onclick="openDecisionModal('rejet')">
           ${svgIcon('<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>')}Rejeter
         </button>
       </div>
     </div>` : '';
 
-  // Notice informative (visible de tous) sur la dernière demande rejetée : sans
-  // elle, l'auteur de la demande n'aurait aucun moyen de savoir pourquoi son dossier
-  // n'a pas été repris dans les champs principaux.
-  const rejetNoticeHtml = (b.statutValidationKYC === 'Rejeté' && b.motifRejet) ? `
-    <div class="form-card" style="border-color:#FBCFE8;background:#FDF2F8;margin-bottom:14px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
-        ${bdg('Rejeté','bdg-rejete')}
+  // Retour de la compliance (visible de tous) : complément demandé ou rejet
+  const retourHtml = ((demande === 'rejetée' || demande === 'complément demandé') && b.motifRejet) ? `
+    <div class="form-card" style="border-color:${demande === 'rejetée' ? '#FBCFE8;background:#FDF2F8' : '#FDE68A;background:#FEFCE8'};margin-bottom:14px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap">
+        ${demandeBadge(b)}
         <span style="font-size:12px;color:var(--text-secondary)">par ${esc(b.valideParEmail||'—')} le ${formatDate(b.dateValidation)}</span>
       </div>
-      <div style="font-size:12.5px;color:#374151"><strong>Motif :</strong> ${esc(b.motifRejet)}</div>
+      <div style="font-size:12.5px;color:#374151"><strong>${demande === 'rejetée' ? 'Motif' : 'Complément attendu'} :</strong> ${esc(b.motifRejet)}</div>
+      ${hasPending ? `<div style="font-size:12px;color:var(--text-secondary);margin-top:6px">La proposition est conservée : utilisez « Corriger et resoumettre » pour la reprendre.</div>` : ''}
     </div>` : '';
+
+  // Action principale : bloquée tant qu'une demande attend la validation
+  const majBtn = demande === 'en attente'
+    ? `<button class="btn-primary" style="width:100%;justify-content:center;opacity:.5;cursor:not-allowed" disabled>
+        ${svgIcon('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>')}
+        Mettre à jour le KYC
+      </button>
+      <p style="font-size:11.5px;color:var(--text-secondary);margin-top:8px">Une demande est déjà en attente de validation par la compliance.</p>`
+    : `<button class="btn-primary" style="width:100%;justify-content:center" onclick="goMajKYC()">
+        ${svgIcon('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>')}
+        ${(demande === 'rejetée' || demande === 'complément demandé') && hasPending ? 'Corriger et resoumettre' : 'Mettre à jour le KYC'}
+      </button>`;
+  const archiveBtn = isCPL ? `
+    <button class="btn-secondary" style="width:100%;justify-content:center;margin-top:8px" onclick="toggleArchive()">
+      ${svgIcon('<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>')}
+      ${b.archive ? 'Réactiver la contrepartie' : 'Archiver la contrepartie'}
+    </button>` : '';
+
+  // Historique (plus récent en premier)
+  const histo = [...(b.historique || [])].reverse();
+  const histoHtml = histo.length ? histo.map(h => `
+    <div class="histo-item">
+      <div style="font-size:12.5px;font-weight:600;color:#111827">${esc(h.action)}</div>
+      ${h.detail ? `<div style="font-size:12px;color:#374151;white-space:pre-wrap;margin-top:1px">${esc(h.detail)}</div>` : ''}
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px">${esc(h.par || h.email || '')} · ${h.date ? new Date(h.date).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}) : ''}</div>
+    </div>`).join('')
+    : `<p style="font-size:12.5px;color:var(--text-muted);font-style:italic">${hasColumn('HistoriqueKYC') ? 'Aucune action enregistrée depuis la mise en place de l\'historique.' : 'Historique indisponible : colonne HistoriqueKYC absente de la liste Brokers.'}</p>`;
 
   document.getElementById('view-detail').innerHTML = `
     <button class="back-btn" onclick="goListe()">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour aux contreparties</button>
     ${validationBlockHtml}
-    ${rejetNoticeHtml}
+    ${retourHtml}
     <div class="detail-grid">
       <div style="display:flex;flex-direction:column;gap:12px">
         <div class="form-card">
@@ -867,37 +1061,40 @@ function openDetail(spId) {
               ${blinkReasonsHtml}
               <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
                 ${bdg(st, STATUS_CLASS[st])}
-                ${b.niveauRisque ? bdg(`Risque ${b.niveauRisque.toLowerCase()}`, RISQUE_CLASS[b.niveauRisque]) : ''}
+                ${demandeBadge(b)}
+                ${b.archive ? bdg('Archivée','bdg-archive') : ''}
+                ${affiche.niveauRisque ? bdg(`Risque ${affiche.niveauRisque.toLowerCase()}`, RISQUE_CLASS[affiche.niveauRisque]) : ''}
                 ${b.equipes.map(e => bdg(e,'bdg-equipe')).join(' ')}
               </div>
               ${isCPL ? statutManuelHtml(b) : ''}
             </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:#374151">
+            ${jamaisValidee ? `<div style="font-size:12px;color:#475569;background:#F1F5F9;border-radius:6px;padding:8px 12px">Contrepartie pas encore validée par la compliance : les informations ci-dessous sont celles proposées, pas un dossier officiel.</div>` : ''}
             <div><strong style="font-weight:600;color:var(--navy)">Classe(s) d'actif :</strong> ${esc(classesActifLabel(b))}</div>
-            <div><strong style="font-weight:600;color:var(--navy)">Expiration du KYC :</strong> ${formatDate(b.dateExpiration)} ${bdg(st, STATUS_CLASS[st])}</div>
+            <div><strong style="font-weight:600;color:var(--navy)">Expiration du KYC :</strong> ${formatDate(affiche.dateExpiration)} ${bdg(st, STATUS_CLASS[st])}</div>
             <div><strong style="font-weight:600;color:var(--navy)">Dossier KYC :</strong>
-              ${renderLienCliquable(b.kycLink, 'Ouvrir le dossier SharePoint →', 'Aucun lien renseigné')}
+              ${renderLienCliquable(affiche.kycLink, 'Ouvrir le dossier SharePoint →', 'Aucun lien renseigné')}
             </div>
             <div class="td-muted" style="font-size:12px;margin-top:4px">
               ${b.dernierKYCPar
-                ? `Dernier KYC réalisé par ${esc(b.dernierKYCPar)} le ${formatDate(b.dateDernierKYC)}`
-                : 'Aucune mise à jour du KYC enregistrée via CounterFlow.'}
+                ? `Dernier KYC validé : demandé par ${esc(b.dernierKYCPar)}, le ${formatDate(b.dateDernierKYC)}`
+                : 'Aucune mise à jour du KYC validée via CounterFlow.'}
             </div>
           </div>
         </div>
 
-        <!-- PIÈCES DU DOSSIER (lecture seule — la saisie se fait dans les formulaires) -->
+        <!-- PIÈCES DU DOSSIER (lecture seule, la saisie se fait dans les formulaires) -->
         <div class="form-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase">Pièces du dossier</div>
+            <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase">Pièces du dossier${affiche.proposition ? ' (proposé)' : ''}</div>
             ${dossierBadge(b)}
           </div>
           <p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">${nbPieces}/${piecesRequises.length} pièces réunies</p>
           ${piecesChecklist}
         </div>
 
-        <!-- COMMENTAIRE (édition inline, ouverte à tous les collaborateurs) -->
+        <!-- COMMENTAIRE (édition inline, ouverte à tous ; chaque modification est historisée) -->
         <div class="form-card">
           <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
             <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase">Commentaire</div>
@@ -916,13 +1113,15 @@ function openDetail(spId) {
           </div>
         </div>
       </div>
-      <div>
+      <div style="display:flex;flex-direction:column;gap:12px">
         <div class="form-card">
           <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Actions</div>
-          <button class="btn-primary" style="width:100%;justify-content:center" onclick="goMajKYC()">
-            ${svgIcon('<polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>')}
-            Mettre à jour le KYC
-          </button>
+          ${b.archive ? '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:8px">Contrepartie archivée : elle n\'est plus suivie ni relancée.</p>' : majBtn}
+          ${archiveBtn}
+        </div>
+        <div class="form-card">
+          <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:12px">Historique</div>
+          ${histoHtml}
         </div>
       </div>
     </div>`;
@@ -967,17 +1166,16 @@ async function submitCommentaire() {
   btn.textContent = 'Enregistrement...';
 
   try {
-    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, {
-      commentaire: txt // nom interne SharePoint en minuscules (sensible à la casse)
-    });
-    selectedBroker.commentaire = txt; // même objet que dans brokers[] : la liste reste cohérente
-    renderCommentaireRead();
-    cancelEditCommentaire();
+    const fresh = await fetchBroker(selectedBroker.spId);
+    const fields = { commentaire: txt }; // nom interne SharePoint en minuscules (sensible à la casse)
+    addHistorique(fields, fresh, 'Commentaire modifié', txt || '(commentaire effacé)');
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, fields);
     showToast('Commentaire mis à jour.', 'success');
+    await loadBrokers();
+    openDetail(selectedBroker.spId);
   } catch(e) {
     console.error(e);
     showToast(`Erreur : ${e.message}`, 'error');
-  } finally {
     btn.disabled = false;
     btn.textContent = 'Enregistrer';
   }
@@ -1089,17 +1287,26 @@ let majKycRisqueSel = null;
 
 function goMajKYC() {
   const b = selectedBroker;
-  majKycRisqueSel = b.niveauRisque || null;
+  if (computeDemande(b) === 'en attente') { showToast('Une demande est déjà en attente de validation par la compliance.', 'error'); return; }
+  // Après un rejet ou une demande de complément, la proposition conservée est reprise
+  // pour être corrigée ; sinon le formulaire part du dossier officiel.
+  const reprise = hasPendingProposal(b) && ['complément demandé', 'rejetée'].includes(computeDemande(b));
+  majKycRisqueSel = (reprise && b.niveauRisquePending) || b.niveauRisque || b.niveauRisquePending || null;
+  const lienInitial = reprise ? (b.kycPending || b.kycLink) : b.kycLink;
+  const dateInitiale = reprise && b.dateExpirationPending ? String(b.dateExpirationPending).slice(0, 10) : '';
+  const piecesInitiales = reprise ? b.piecesDossierPending : b.piecesDossier;
   document.getElementById('view-maj-kyc').innerHTML = `
     <button class="back-btn" onclick="openDetail(selectedBroker.spId)">${svgIcon('<polyline points="15 18 9 12 15 6"/>')}Retour à la fiche</button>
     <div style="max-width:600px">
       <div class="form-card">
         <div style="margin-bottom:18px">
-          <h2 class="section-title" style="font-size:18px">Mettre à jour le KYC</h2>
+          <h2 class="section-title" style="font-size:18px">${reprise ? 'Corriger et resoumettre la demande' : 'Mettre à jour le KYC'}</h2>
           <p class="section-desc">Contrepartie : ${esc(b.nom)}</p>
         </div>
+        ${reprise && b.motifRejet ? `<p style="font-size:12.5px;color:#92400E;background:#FFFBEB;border:1px solid #FDE68A;border-radius:8px;padding:10px 12px;margin-bottom:10px">
+          <strong>Retour de la compliance :</strong> ${esc(b.motifRejet)}</p>` : ''}
         <p style="font-size:12.5px;color:var(--text-secondary);background:#F1F5F9;border-radius:8px;padding:10px 12px;margin-bottom:4px">
-          Cette mise à jour sera soumise à la validation de la compliance avant d'être appliquée au dossier officiel.
+          Cette demande (niveau de risque, lien, date d'expiration et pièces) sera soumise à la validation de la compliance avant d'être appliquée au dossier officiel.
         </p>
         <div class="form-grid">
           <div class="form-group full-width">
@@ -1109,14 +1316,14 @@ function goMajKYC() {
             </div>
           </div>
           <div class="form-group full-width">
-            <label class="form-label">Nouveau lien du dossier KYC (SharePoint) *</label>
-            <input type="url" id="kyc-lien" class="form-input" autocomplete="off" placeholder="https://eiffelinvestmentgroup.sharepoint.com/...">
+            <label class="form-label">Lien du dossier KYC (SharePoint) *</label>
+            <input type="url" id="kyc-lien" class="form-input" autocomplete="off" placeholder="https://eiffelinvestmentgroup.sharepoint.com/..." value="${esc(lienInitial || '')}">
           </div>
           <div class="form-group full-width">
             <label class="form-label">Nouvelle date d'expiration *</label>
-            <input type="date" id="kyc-date-exp" class="form-input">
+            <input type="date" id="kyc-date-exp" class="form-input" value="${esc(dateInitiale)}">
           </div>
-          ${piecesDossierFormSection('view-maj-kyc', 'majkyc-pieces-checklist', majKycRisqueSel, b.piecesDossier)}
+          ${piecesDossierFormSection('view-maj-kyc', 'majkyc-pieces-checklist', majKycRisqueSel, piecesInitiales)}
           ${commentaireFormSection('view-maj-kyc', 'kyc-commentaire', b.commentaire)}
         </div>
         <div class="form-actions">
@@ -1149,9 +1356,6 @@ async function submitMajKYC() {
   if (!majKycRisqueSel) { showToast('Le niveau de risque est obligatoire.', 'error'); return; }
   if (!lien || !dateExp) { showToast('Le lien KYC et la date d\'expiration sont obligatoires.', 'error'); return; }
   if (!validateExternalLink(lien, 'Lien KYC')) return;
-  // Dossier incomplet pour le niveau de risque choisi : le commentaire devient
-  // obligatoire (contexte des pièces manquantes), y compris pour cette demande
-  // qui sera de toute façon soumise à la validation compliance.
   if (piecesCochees.length < getPiecesRequisesPourRisque(majKycRisqueSel).length && !commentaireVal) {
     showToast('Dossier incomplet : un commentaire expliquant les pièces manquantes est obligatoire.', 'error');
     return;
@@ -1162,40 +1366,50 @@ async function submitMajKYC() {
   btn.textContent = 'Envoi...';
 
   try {
-    // Workflow de validation compliance : les colonnes principales (KYC,
-    // DateExpirationKYC, PiecesDossier) ne sont PAS touchées ici. La demande est
-    // déposée dans les colonnes "*_Pending" et n'est reprise dans le dossier
-    // officiel qu'après validation (voir validerKYCPending()). Le niveau de risque
-    // n'est pas soumis à validation : il s'applique immédiatement.
-    // Les colonnes optionnelles restent gardées par hasColumn() : une colonne
-    // absente de la liste ferait échouer toute la requête en 400.
+    // Relecture : une autre personne a pu soumettre une demande entre-temps
+    const fresh = await fetchBroker(selectedBroker.spId);
+    if (computeDemande(fresh) === 'en attente') {
+      throw new Error('une demande est déjà en attente de validation pour cette contrepartie (soumise par ' + (fresh.demandeParEmail || 'un autre collaborateur') + ')');
+    }
+
+    // Les colonnes officielles (KYC, DateExpirationKYC, PiecesDossier, NiveauRisque) ne
+    // sont PAS touchées : la demande est déposée dans les colonnes "*_Pending" et n'est
+    // reprise dans le dossier officiel qu'après validation (voir validerKYCPending()).
     const fields = {};
-    if (hasColumn('NiveauRisque')) fields.NiveauRisque = majKycRisqueSel;
+    if (hasColumn('NiveauRisque_Pending')) fields.NiveauRisque_Pending = majKycRisqueSel;
+    else if (hasColumn('NiveauRisque')) {
+      // Ancien fonctionnement tant que la colonne n'existe pas : application immédiate
+      console.warn('Colonne NiveauRisque_Pending absente : niveau de risque appliqué sans validation.');
+      fields.NiveauRisque = majKycRisqueSel;
+    }
     if (hasColumn('KYC_Pending')) fields.KYC_Pending = lien;
-    else console.warn('Colonne KYC_Pending absente de la liste Brokers : non enregistrée.');
     if (hasColumn('DateExpirationKYC_Pending')) fields.DateExpirationKYC_Pending = new Date(dateExp).toISOString();
-    else console.warn('Colonne DateExpirationKYC_Pending absente de la liste Brokers : non enregistrée.');
     if (hasColumn('PiecesDossier_Pending')) {
       fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
       fields.PiecesDossier_Pending = piecesCochees;
-    } else {
-      console.warn('Colonne PiecesDossier_Pending absente de la liste Brokers : cases non enregistrées.');
     }
     if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'En attente de validation';
-    else console.warn('Colonne StatutValidationKYC absente de la liste Brokers : statut non enregistré.');
     if (hasColumn('DemandeParEmail')) fields.DemandeParEmail = currentUser.email;
     if (hasColumn('DateDemande')) fields.DateDemande = new Date().toISOString();
-    // Le commentaire n'est pas soumis à validation (comme le niveau de risque) :
-    // il s'applique immédiatement, qu'il ait été rendu obligatoire ou non.
+    if (hasColumn('MotifRejet')) fields.MotifRejet = '';
+    // Le commentaire n'est pas soumis à validation : il s'applique immédiatement.
     fields.commentaire = commentaireVal; // nom interne SharePoint en minuscules
+    const resoumission = ['complément demandé', 'rejetée'].includes(computeDemande(fresh));
+    addHistorique(fields, fresh, resoumission ? 'Demande corrigée et resoumise' : 'Demande de mise à jour du KYC',
+      resumeDossier(majKycRisqueSel, lien, dateExp, piecesCochees)
+      + (commentaireVal && commentaireVal !== fresh.commentaire ? `\nCommentaire : ${commentaireVal}` : ''));
 
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${selectedBroker.spId}/fields`, fields);
-    showToast(`Demande de mise à jour du KYC de ${selectedBroker.nom} envoyée à la validation compliance.`, 'success');
+    envoyerNotification(CPL_MAIL, `[CounterFlow] KYC à valider : ${fresh.nom}`, [
+      `<strong>${esc(currentUser.name)}</strong> a ${resoumission ? 'corrigé et resoumis' : 'soumis'} une mise à jour du KYC de <strong>${esc(fresh.nom)}</strong>.`,
+      esc(resumeDossier(majKycRisqueSel, '', dateExp, piecesCochees)) + '.'
+    ], fresh);
+    showToast(`Demande de mise à jour du KYC de ${esc(selectedBroker.nom)} envoyée à la validation compliance.`, 'success');
     await loadBrokers();
     openDetail(selectedBroker.spId);
   } catch(e) {
     console.error(e);
-    showToast(`Erreur : ${e.message}`, 'error');
+    showToast(`Erreur : ${esc(e.message)}`, 'error');
     btn.disabled = false;
     btn.textContent = 'Soumettre à la validation compliance';
   }
@@ -1216,12 +1430,13 @@ function appliquerDossierPendingAuxChampsPrincipaux(fields, b) {
     fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
     fields.PiecesDossier = b.piecesDossierPending || [];
   }
+  if (b.niveauRisquePending && hasColumn('NiveauRisque')) fields.NiveauRisque = b.niveauRisquePending;
   if (hasColumn('DernierKYCPar')) fields.DernierKYCPar = b.demandeParEmail || currentUser.name;
   if (hasColumn('DateDernierKYC')) fields.DateDernierKYC = new Date().toISOString();
 }
 
-// Vide les trois colonnes "*_Pending" : toute proposition en cours est refermée,
-// qu'elle ait été validée, rejetée, ou effacée par une réinitialisation manuelle.
+// Vide les colonnes "*_Pending" : la proposition est refermée après validation ou
+// réinitialisation manuelle. Un rejet ou une demande de complément la conserve.
 function viderChampsPending(fields) {
   if (hasColumn('DateExpirationKYC_Pending')) fields.DateExpirationKYC_Pending = null;
   if (hasColumn('PiecesDossier_Pending')) {
@@ -1229,82 +1444,138 @@ function viderChampsPending(fields) {
     fields.PiecesDossier_Pending = [];
   }
   if (hasColumn('KYC_Pending')) fields.KYC_Pending = '';
+  if (hasColumn('NiveauRisque_Pending')) fields.NiveauRisque_Pending = '';
 }
 
 // Valider : reprend le dossier proposé (*_Pending) dans les colonnes principales,
-// puis vide les champs *_Pending et MotifRejet. Chaque colonne reste gardée par
-// hasColumn() : une colonne absente de la liste ne doit jamais faire échouer
-// l'ensemble de la requête en 400.
+// puis vide les champs *_Pending et MotifRejet. Refusé à l'auteur de la demande
+// (deux personnes distinctes pour proposer et valider). Chaque colonne reste gardée
+// par hasColumn() : une colonne absente ferait échouer toute la requête en 400.
 async function validerKYCPending() {
   const b = selectedBroker;
   if (!b || !isCPL) return;
 
   try {
+    const fresh = await fetchBroker(b.spId);
+    if (computeDemande(fresh) !== 'en attente') throw new Error('cette demande n\'est plus en attente de validation, rechargez la fiche');
+    if (estAuteurDeLaDemande(fresh)) throw new Error('vous êtes l\'auteur de cette demande, elle doit être validée par un autre membre de la compliance');
+
     const fields = {};
-    // Cas d'une nouvelle contrepartie (voir submitNouvelle()) : les champs
-    // principaux sont déjà la proposition à valider, les *_Pending sont vides par
-    // construction — rien à copier, sous peine d'écraser les bonnes valeurs avec
-    // du vide. On ne copie que s'il existe réellement une proposition en attente.
-    if (b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length) {
-      appliquerDossierPendingAuxChampsPrincipaux(fields, b);
+    // Ancien circuit de création : le dossier officiel contient déjà la proposition et les
+    // *_Pending sont vides, rien à copier.
+    if (hasPendingProposal(fresh)) appliquerDossierPendingAuxChampsPrincipaux(fields, fresh);
+    else {
+      if (hasColumn('DernierKYCPar')) fields.DernierKYCPar = fresh.demandeParEmail || currentUser.name;
+      if (hasColumn('DateDernierKYC')) fields.DateDernierKYC = new Date().toISOString();
     }
     if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'Validé';
     if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
     if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
     if (hasColumn('MotifRejet')) fields.MotifRejet = '';
     viderChampsPending(fields);
+    const jamaisValidee = estJamaisValidee(fresh);
+    addHistorique(fields, fresh, jamaisValidee ? 'Création validée' : 'Mise à jour du KYC validée',
+      hasPendingProposal(fresh) ? resumeDossier(fresh.niveauRisquePending || fresh.niveauRisque, fresh.kycPending, fresh.dateExpirationPending, fresh.piecesDossierPending) : '');
 
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
-    showToast(`KYC de ${b.nom} validé.`, 'success');
-    await loadBrokers();
-    openDetail(b.spId); // le bloc de validation se referme de lui-même : la condition n'est plus vraie
-  } catch(e) {
-    console.error(e);
-    showToast(`Erreur : ${e.message}`, 'error');
-  }
-}
-
-// Rejeter : ne touche PAS aux colonnes principales. Un motif est obligatoire avant
-// de valider l'action (modal dédiée, cohérente avec le patron cf-modal existant).
-function openRejectModal() {
-  if (!selectedBroker || !isCPL) return;
-  document.getElementById('modal-slot').innerHTML = `
-    <div class="cf-modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="cf-modal">
-        <h3 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">Rejeter la mise à jour du KYC</h3>
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">Le dossier proposé ne sera pas repris dans le dossier officiel. Précisez le motif du rejet.</p>
-        <textarea id="motif-rejet-textarea" class="form-input form-textarea" style="width:100%;min-height:100px" placeholder="Motif du rejet..."></textarea>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-          <button class="btn-secondary" onclick="closeModal()">Annuler</button>
-          <button class="btn-primary" style="background:#DC2626;border-color:#DC2626" onclick="confirmRejeterKYCPending()">Confirmer le rejet</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById('motif-rejet-textarea').focus();
-}
-
-async function confirmRejeterKYCPending() {
-  const b = selectedBroker;
-  if (!b || !isCPL) return;
-  const motif = document.getElementById('motif-rejet-textarea').value.trim();
-  if (!motif) { showToast('Le motif de rejet est obligatoire.', 'error'); return; }
-
-  try {
-    const fields = {};
-    if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'Rejeté';
-    if (hasColumn('MotifRejet')) fields.MotifRejet = motif;
-    if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
-    if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
-    viderChampsPending(fields);
-
-    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
-    closeModal();
-    showToast(`Mise à jour du KYC de ${b.nom} rejetée.`, 'success');
+    envoyerNotification(demandeurANotifier(fresh), `[CounterFlow] KYC validé : ${fresh.nom}`, [
+      `Votre ${jamaisValidee ? 'demande de création' : 'mise à jour du KYC'} pour <strong>${esc(fresh.nom)}</strong> a été validée par ${esc(currentUser.name)}.`
+    ], fresh);
+    showToast(`KYC de ${esc(b.nom)} validé.`, 'success');
     await loadBrokers();
     openDetail(b.spId);
   } catch(e) {
     console.error(e);
-    showToast(`Erreur : ${e.message}`, 'error');
+    showToast(`Validation impossible : ${esc(e.message)}`, 'error');
+  }
+}
+
+// Rejeter ou demander un complément : ne touche PAS au dossier officiel et conserve la
+// proposition (*_Pending) pour qu'elle soit corrigée puis resoumise. Message obligatoire.
+// kind : 'rejet' ou 'complement'. Un message est obligatoire dans les deux cas.
+const DECISIONS = {
+  rejet: {
+    titre: 'Rejeter la demande',
+    texte: 'Le dossier proposé ne sera pas repris dans le dossier officiel. Il reste consultable et le demandeur pourra le corriger puis le resoumettre. Précisez le motif du rejet.',
+    placeholder: 'Motif du rejet...', bouton: 'Confirmer le rejet', couleur: '#DC2626',
+    statut: 'Rejeté', histo: 'Demande rejetée', mail: 'rejetée', toast: 'rejetée'
+  },
+  complement: {
+    titre: 'Demander un complément',
+    texte: 'La demande est renvoyée au demandeur, qui pourra la compléter sans tout ressaisir. Précisez ce qui manque.',
+    placeholder: 'Pièces ou informations attendues...', bouton: 'Envoyer la demande de complément', couleur: '#A16207',
+    statut: STATUT_COMPLEMENT, histo: 'Complément demandé', mail: 'renvoyée pour complément', toast: 'renvoyée pour complément'
+  }
+};
+
+function openDecisionModal(kind) {
+  if (!selectedBroker || !isCPL || !DECISIONS[kind]) return;
+  const d = DECISIONS[kind];
+  document.getElementById('modal-slot').innerHTML = `
+    <div class="cf-modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="cf-modal">
+        <h3 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">${d.titre} : ${esc(selectedBroker.nom)}</h3>
+        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">${d.texte}</p>
+        <textarea id="decision-textarea" class="form-input form-textarea" style="width:100%;min-height:100px" placeholder="${d.placeholder}"></textarea>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+          <button class="btn-secondary" onclick="closeModal()">Annuler</button>
+          <button class="btn-primary" style="background:${d.couleur};border-color:${d.couleur}" onclick="confirmDecision('${kind}')">${d.bouton}</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('decision-textarea').focus();
+}
+
+function openRejectModal() { openDecisionModal('rejet'); }
+
+async function confirmDecision(kind) {
+  const b = selectedBroker;
+  const d = DECISIONS[kind];
+  if (!b || !isCPL || !d) return;
+  const message = document.getElementById('decision-textarea').value.trim();
+  if (!message) { showToast('Le message est obligatoire.', 'error'); return; }
+
+  try {
+    const fresh = await fetchBroker(b.spId);
+    const fields = {};
+    if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = d.statut;
+    if (hasColumn('MotifRejet')) fields.MotifRejet = message;
+    if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
+    if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
+    // La proposition (*_Pending) est conservée pour être corrigée. Ancien circuit de
+    // création (proposition écrite dans le dossier officiel) : elle est déplacée dans les
+    // *_Pending et le dossier officiel est vidé, pour qu'aucune donnée non validée ne
+    // puisse passer pour un dossier officiel.
+    if (estJamaisValidee(fresh) && !hasPendingProposal(fresh) && hasColumn('KYC_Pending')) {
+      fields.KYC_Pending = fresh.kycLink || '';
+      if (hasColumn('DateExpirationKYC_Pending')) fields.DateExpirationKYC_Pending = fresh.dateExpiration || null;
+      if (hasColumn('PiecesDossier_Pending')) {
+        fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
+        fields.PiecesDossier_Pending = fresh.piecesDossier || [];
+      }
+      if (hasColumn('NiveauRisque_Pending')) fields.NiveauRisque_Pending = fresh.niveauRisque || '';
+      if (hasColumn('KYC')) fields.KYC = '';
+      if (hasColumn('DateExpirationKYC')) fields.DateExpirationKYC = null;
+      if (hasColumn('PiecesDossier')) {
+        fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
+        fields.PiecesDossier = [];
+      }
+    }
+    addHistorique(fields, fresh, d.histo, message);
+
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
+    closeModal();
+    envoyerNotification(demandeurANotifier(fresh), `[CounterFlow] Demande ${d.mail} : ${fresh.nom}`, [
+      `Votre demande concernant <strong>${esc(fresh.nom)}</strong> a été ${d.mail} par ${esc(currentUser.name)}.`,
+      `<strong>${kind === 'rejet' ? 'Motif' : 'Complément attendu'} :</strong> ${esc(message)}`,
+      'Votre proposition est conservée : ouvrez la fiche et utilisez « Corriger et resoumettre ».'
+    ], fresh);
+    showToast(`Demande ${d.toast} : ${esc(b.nom)}.`, 'success');
+    await loadBrokers();
+    openDetail(b.spId);
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${esc(e.message)}`, 'error');
   }
 }
 
@@ -1343,11 +1614,16 @@ function applyStatutManuel() {
   if (!b || !select) return;
   const nouveauStatut = select.value;
 
-  if (nouveauStatut === 'Rejeté') { openStatutManuelRejetModal(); return; }
+  if (nouveauStatut === 'Rejeté') { openDecisionModal('rejet'); return; }
+  if (nouveauStatut === STATUT_COMPLEMENT) { openDecisionModal('complement'); return; }
+  if (nouveauStatut === 'Validé' && estAuteurDeLaDemande(b) && b.statutValidationKYC === 'En attente de validation') {
+    showToast('Vous êtes l\'auteur de cette demande : elle doit être validée par un autre membre de la compliance.', 'error');
+    return;
+  }
 
-  const hasPending = !!(b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length);
+  const hasPending = hasPendingProposal(b);
   const messages = {
-    'Aucune demande': `Réinitialiser le statut de ${b.nom} à "Aucune demande" ?\n\nLe motif de rejet et la demande en attente (le cas échéant) seront effacés. Le dossier officiel (KYC, date d'expiration, pièces) n'est pas modifié.`,
+    'Aucune demande': `Réinitialiser le statut de ${b.nom} à "Aucune demande" ?\n\nLe motif de rejet et le dossier proposé (le cas échéant) seront effacés. Le dossier officiel (KYC, date d'expiration, pièces) n'est pas modifié.`,
     'En attente de validation': `Repasser ${b.nom} en "En attente de validation" ?\n\nAucune autre donnée n'est modifiée.`,
     'Validé': hasPending
       ? `Valider le statut de ${b.nom} ?\n\nLe dossier proposé en attente (KYC, date d'expiration, pièces) sera repris dans le dossier officiel.`
@@ -1355,71 +1631,70 @@ function applyStatutManuel() {
   };
   if (!confirm(messages[nouveauStatut])) return;
 
-  ecrireStatutManuel(nouveauStatut, '');
+  ecrireStatutManuel(nouveauStatut);
 }
 
-function openStatutManuelRejetModal() {
-  if (!isCPL || !selectedBroker) return; // pas de bloc CPL affiché : rien à faire si contourné
-  document.getElementById('modal-slot').innerHTML = `
-    <div class="cf-modal-overlay" onclick="if(event.target===this)closeModal()">
-      <div class="cf-modal">
-        <h3 style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px">Changer le statut vers "Rejeté"</h3>
-        <p style="font-size:12.5px;color:var(--text-secondary);margin-bottom:14px">Le dossier officiel de ${esc(selectedBroker.nom)} n'est pas modifié. Précisez le motif du rejet.</p>
-        <textarea id="statut-manuel-motif-textarea" class="form-input form-textarea" style="width:100%;min-height:100px" placeholder="Motif du rejet..."></textarea>
-        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
-          <button class="btn-secondary" onclick="closeModal()">Annuler</button>
-          <button class="btn-primary" style="background:#DC2626;border-color:#DC2626" onclick="confirmStatutManuelRejet()">Confirmer</button>
-        </div>
-      </div>
-    </div>`;
-  document.getElementById('statut-manuel-motif-textarea').focus();
-}
-
-function confirmStatutManuelRejet() {
-  if (!isCPL) { showToast('Action réservée à la compliance.', 'error'); return; }
-  const motif = document.getElementById('statut-manuel-motif-textarea').value.trim();
-  if (!motif) { showToast('Le motif de rejet est obligatoire.', 'error'); return; }
-  ecrireStatutManuel('Rejeté', motif);
-}
-
-// Écriture Graph effective. isCPL est revérifié ici en dernier ressort : c'est ce
-// contrôle, pas l'affichage du bouton, qui empêche une écriture non autorisée.
-async function ecrireStatutManuel(nouveauStatut, motif) {
+// Écriture Graph effective. isCPL est revérifié ici, mais ce contrôle reste côté
+// navigateur : il évite les erreurs de manipulation, pas un contournement volontaire.
+async function ecrireStatutManuel(nouveauStatut) {
   if (!isCPL) { showToast('Action réservée à la compliance.', 'error'); return; }
   const b = selectedBroker;
-  if (!b || !STATUTS_VALIDATION_KYC.includes(nouveauStatut)) return;
+  if (!b || !['Aucune demande', 'En attente de validation', 'Validé'].includes(nouveauStatut)) return;
 
   try {
+    const fresh = await fetchBroker(b.spId);
+    if (nouveauStatut === 'Validé' && estAuteurDeLaDemande(fresh) && fresh.statutValidationKYC === 'En attente de validation') {
+      throw new Error('vous êtes l\'auteur de cette demande, elle doit être validée par un autre membre de la compliance');
+    }
     const fields = {};
     if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = nouveauStatut;
 
     if (nouveauStatut === 'Validé') {
-      if (b.dateExpirationPending || b.kycPending || (b.piecesDossierPending || []).length) {
-        appliquerDossierPendingAuxChampsPrincipaux(fields, b);
-      }
+      if (hasPendingProposal(fresh)) appliquerDossierPendingAuxChampsPrincipaux(fields, fresh);
       if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
       if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
       if (hasColumn('MotifRejet')) fields.MotifRejet = '';
-      viderChampsPending(fields);
-    } else if (nouveauStatut === 'Rejeté') {
-      if (hasColumn('MotifRejet')) fields.MotifRejet = motif;
-      if (hasColumn('ValideParEmail')) fields.ValideParEmail = currentUser.email;
-      if (hasColumn('DateValidation')) fields.DateValidation = new Date().toISOString();
       viderChampsPending(fields);
     } else if (nouveauStatut === 'Aucune demande') {
       if (hasColumn('MotifRejet')) fields.MotifRejet = '';
       viderChampsPending(fields);
     }
     // 'En attente de validation' : uniquement le statut, aucun autre champ touché.
+    addHistorique(fields, fresh, `Statut changé manuellement : ${nouveauStatut}`,
+      fresh.statutValidationKYC ? `Statut précédent : ${fresh.statutValidationKYC}` : '');
 
     await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
     closeModal();
-    showToast(`Statut de ${b.nom} changé manuellement en "${nouveauStatut}".`, 'success');
+    showToast(`Statut de ${esc(b.nom)} changé manuellement en "${nouveauStatut}".`, 'success');
     await loadBrokers();
     openDetail(b.spId);
   } catch(e) {
     console.error(e);
-    showToast(`Erreur : ${e.message}`, 'error');
+    showToast(`Erreur : ${esc(e.message)}`, 'error');
+  }
+}
+
+// Archivage (compliance) : la contrepartie n'est plus suivie, relancée ni comptée,
+// mais reste consultable avec son historique. Réversible.
+async function toggleArchive() {
+  if (!isCPL || !selectedBroker) return;
+  if (!hasColumn('Archive')) { showToast('Archivage indisponible : colonne Archive absente de la liste Brokers.', 'error'); return; }
+  const b = selectedBroker;
+  const archiver = !b.archive;
+  if (!confirm(archiver
+    ? `Archiver ${b.nom} ?\n\nElle sera masquée de la liste, exclue des relances et des compteurs. Son historique est conservé et l'archivage est réversible.`
+    : `Réactiver ${b.nom} ?`)) return;
+  try {
+    const fresh = await fetchBroker(b.spId);
+    const fields = { Archive: archiver };
+    addHistorique(fields, fresh, archiver ? 'Contrepartie archivée' : 'Contrepartie réactivée');
+    await graphPatch(`/sites/${spSiteId}/lists/${spListBrokersId}/items/${b.spId}/fields`, fields);
+    showToast(`${esc(b.nom)} ${archiver ? 'archivée' : 'réactivée'}.`, 'success');
+    await loadBrokers();
+    openDetail(b.spId);
+  } catch(e) {
+    console.error(e);
+    showToast(`Erreur : ${esc(e.message)}`, 'error');
   }
 }
 
@@ -1532,6 +1807,11 @@ async function submitNouvelle() {
     return;
   }
   if (kycLien && !validateExternalLink(kycLien, 'Lien KYC')) return;
+  const doublon = brokers.find(b => b.nom.trim().toLowerCase() === nom.toLowerCase());
+  if (doublon) {
+    showToast(`Une contrepartie nommée "${esc(doublon.nom)}" existe déjà${doublon.archive ? ' (archivée)' : ''}. Ouvrez sa fiche pour la mettre à jour.`, 'error');
+    return;
+  }
 
   const btn = document.querySelector('#view-nouvelle [onclick="submitNouvelle()"]');
   btn.disabled = true;
@@ -1542,33 +1822,49 @@ async function submitNouvelle() {
       Title: nom,
       'Equipe@odata.type': 'Collection(Edm.String)',
       Equipe: equipes,
-      NiveauRisque: nouvelleRisqueSel,
       'ClasseActif@odata.type': 'Collection(Edm.String)',
       ClasseActif: classes,
       ClasseActifAutre: classes.includes('Autres') ? classeAutre : ''
     };
-    if (hasColumn('PiecesDossier')) {
-      fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
-      fields.PiecesDossier = piecesCochees;
+    // Toute nouvelle contrepartie part "En attente de validation". Le dossier saisi est
+    // une PROPOSITION : il est déposé dans les colonnes *_Pending, comme une mise à jour,
+    // et le dossier officiel reste vide jusqu'à la validation. Si les colonnes *_Pending
+    // n'existent pas, ancien fonctionnement (écriture directe dans le dossier officiel).
+    const circuitPending = hasColumn('KYC_Pending') && hasColumn('DateExpirationKYC_Pending') && hasColumn('PiecesDossier_Pending');
+    if (circuitPending) {
+      if (hasColumn('NiveauRisque_Pending')) fields.NiveauRisque_Pending = nouvelleRisqueSel;
+      else fields.NiveauRisque = nouvelleRisqueSel;
+      fields.KYC_Pending = kycLien;
+      fields.DateExpirationKYC_Pending = dateExp ? new Date(dateExp).toISOString() : null;
+      fields['PiecesDossier_Pending@odata.type'] = 'Collection(Edm.String)';
+      fields.PiecesDossier_Pending = piecesCochees;
     } else {
-      console.warn('Colonne PiecesDossier absente de la liste Brokers : cases non enregistrées.');
+      console.warn('Colonnes *_Pending absentes : la création est écrite dans le dossier officiel.');
+      fields.NiveauRisque = nouvelleRisqueSel;
+      if (hasColumn('PiecesDossier')) {
+        fields['PiecesDossier@odata.type'] = 'Collection(Edm.String)';
+        fields.PiecesDossier = piecesCochees;
+      }
+      if (kycLien) fields.KYC = kycLien;
+      if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
     }
-    if (kycLien) fields.KYC = kycLien; // colonne texte : chaîne directe
-    if (dateExp) fields.DateExpirationKYC = new Date(dateExp).toISOString();
     if (commentaireVal) fields.commentaire = commentaireVal; // nom interne SharePoint en minuscules
-    // Toute nouvelle contrepartie part "En attente de validation" : même si un
-    // lien KYC, une date d'expiration et des pièces sont déjà saisis à la
-    // création, Compliance n'a pas encore revu le dossier. Les champs principaux
-    // (KYC, DateExpirationKYC, PiecesDossier) contiennent directement la
-    // proposition à valider — il n'y a pas de *_Pending à part pour une création
-    // (voir statutManuelHtml/validationBlockHtml dans openDetail()).
     if (hasColumn('StatutValidationKYC')) fields.StatutValidationKYC = 'En attente de validation';
     else console.warn('Colonne StatutValidationKYC absente de la liste Brokers : statut non enregistré.');
     if (hasColumn('DemandeParEmail')) fields.DemandeParEmail = currentUser.email;
     if (hasColumn('DateDemande')) fields.DateDemande = new Date().toISOString();
+    addHistorique(fields, { historique: [] }, 'Création proposée',
+      `Équipe(s) : ${equipes.join(', ')} ; ` + resumeDossier(nouvelleRisqueSel, kycLien, dateExp, piecesCochees)
+      + (commentaireVal ? `\nCommentaire : ${commentaireVal}` : ''));
 
-    await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
-    showToast(`${nom} ajoutée aux contreparties, en attente de validation compliance.`, 'success');
+    const created = await graphPost(`/sites/${spSiteId}/lists/${spListBrokersId}/items`, { fields });
+    if (created && created.id) {
+      envoyerNotification(CPL_MAIL, `[CounterFlow] Nouvelle contrepartie à valider : ${nom}`, [
+        `<strong>${esc(currentUser.name)}</strong> a proposé une nouvelle contrepartie : <strong>${esc(nom)}</strong> (${esc(equipes.join(', '))}).`,
+        esc(resumeDossier(nouvelleRisqueSel, '', dateExp, piecesCochees)) + '.'
+      ], { spId: created.id });
+    }
+    showToast(`${esc(nom)} ajoutée aux contreparties, en attente de validation compliance.`, 'success');
     await loadBrokers();
     goListe();
   } catch(e) {
@@ -1583,12 +1879,15 @@ async function submitNouvelle() {
 // RELANCES KYC PAR ÉQUIPE (Compliance uniquement)
 // ═══════════════════════════════════════════════════════════
 function brokersToRelance() {
-  // Contreparties "bientôt expiré" ou "expiré", groupées par équipe.
+  // Contreparties dont le dossier OFFICIEL est bientôt expiré ou expiré, groupées par
+  // équipe, y compris celles qui ont une demande en cours (signalée dans le mail).
+  // Exclues : contreparties archivées et créations jamais validées.
   const parEquipe = {};
   EQUIPES.forEach(e => parEquipe[e] = []);
   brokers.forEach(b => {
-    const st = computeStatus(b);
-    if (st === 'à jour') return;
+    if (b.archive) return;
+    const st = computeValidite(b);
+    if (st !== 'expiré' && st !== 'bientôt expiré') return;
     b.equipes.forEach(e => { if (parEquipe[e]) parEquipe[e].push(b); });
   });
   return parEquipe;
@@ -1612,7 +1911,7 @@ function goRelances() {
         <p style="font-size:12.5px;color:var(--text-secondary);margin-top:4px">Aucune contrepartie à signaler — aucun email ne sera envoyé à cette équipe.</p>
       </div>`;
     const rows = list.map(b => {
-      const st = computeStatus(b);
+      const st = computeValidite(b);
       const days = daysToExpiration(b);
       const detail = days === null ? 'date d\'expiration non renseignée'
         : st === 'expiré' ? `expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`
@@ -1621,6 +1920,7 @@ function goRelances() {
         ${bdg(st, STATUS_CLASS[st])}
         <span style="font-weight:600;color:#111827">${esc(b.nom)}</span>
         <span class="td-muted">${detail}</span>
+        ${demandeBadge(b)}
       </div>`;
     }).join('');
     return `
@@ -1655,7 +1955,8 @@ function relanceEmailBody(equipe, list) {
   const appLink = spId => `${window.location.origin}/counterflow.html#${spId}`;
   const row = b => {
     const days = daysToExpiration(b);
-    const st = computeStatus(b);
+    const st = computeValidite(b);
+    const d = computeDemande(b);
     const detail = days === null ? 'date d\'expiration non renseignée'
       : st === 'expiré' ? `expiré depuis ${Math.abs(days)} jour${Math.abs(days)>1?'s':''}`
       : `expire dans ${days} jour${days>1?'s':''}`;
@@ -1664,6 +1965,7 @@ function relanceEmailBody(equipe, list) {
       <td style="padding:7px 12px">${formatDate(b.dateExpiration)}</td>
       <td style="padding:7px 12px">${detail}</td>
       <td style="padding:7px 12px">${esc(b.niveauRisque || '—')}</td>
+      <td style="padding:7px 12px">${d === 'aucune' ? '—' : DEMANDE_LABEL[d]}</td>
       <td style="padding:7px 12px"><a href="${appLink(b.spId)}" style="color:#00143B;font-weight:600">Ouvrir la fiche →</a></td>
     </tr>`;
   };
@@ -1674,13 +1976,14 @@ function relanceEmailBody(equipe, list) {
         <th style="padding:8px 12px;text-align:left">Expiration</th>
         <th style="padding:8px 12px;text-align:left">Statut</th>
         <th style="padding:8px 12px;text-align:left">Risque</th>
+        <th style="padding:8px 12px;text-align:left">Demande en cours</th>
         <th style="padding:8px 12px;text-align:left">Fiche</th>
       </tr>
       ${rows}
     </table>`;
 
-  const expires  = list.filter(b => computeStatus(b) === 'expiré');
-  const bientots = list.filter(b => computeStatus(b) === 'bientôt expiré');
+  const expires  = list.filter(b => computeValidite(b) === 'expiré');
+  const bientots = list.filter(b => computeValidite(b) === 'bientôt expiré');
 
   return `
     <div style="font-family:Arial,sans-serif;font-size:14px;color:#111">

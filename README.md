@@ -88,3 +88,33 @@ s'affiche dans la colonne Équipe du tableau.
   l'attestation PDF et la vérification en masse).
 - Code : logique testable dans `positions-core.js` (sans dépendance à Graph ni au DOM),
   intégration dans `app.js`. Lecture Excel : SheetJS 0.20.3 (`cdn.sheetjs.com`, empreinte SRI).
+
+## CounterFlow : circuit de validation KYC
+
+- **Proposer** : tout collaborateur peut créer une contrepartie ou demander la mise à jour de son
+  KYC (niveau de risque, lien, date d'expiration, pièces). La proposition est stockée dans les
+  colonnes `*_Pending` ; le dossier officiel n'est modifié qu'à la validation. Une seule demande
+  à la fois par contrepartie ; les noms en double sont refusés à la création.
+- **Décider** (profils Compliance) : Valider, Demander un complément ou Rejeter (message
+  obligatoire). L'auteur d'une demande ne peut pas la valider lui-même. Après un complément ou un
+  rejet, la proposition est conservée et le demandeur la corrige via « Corriger et resoumettre ».
+- **Notifications** : email à `cpl@eiffel-ig.com` à chaque soumission, email au demandeur à chaque
+  décision (envoyés depuis la boîte de l'utilisateur, non bloquants).
+- **Statuts** : deux informations distinctes, la validité du dossier officiel (à jour, bientôt
+  expiré, expiré, non validé) et l'état de la demande (en attente, complément demandé, rejetée).
+  Les relances portent sur la validité, demande en cours ou non ; les contreparties archivées et
+  les créations jamais validées en sont exclues.
+- **Historique** : chaque action est ajoutée à la colonne `HistoriqueKYC` (JSON, ajout seul) et
+  affichée sur la fiche.
+- **Colonnes de la liste Brokers ajoutées pour ce circuit** (détectées au chargement ; tant
+  qu'une colonne manque, l'ancien fonctionnement correspondant s'applique) :
+
+| Colonne (nom interne) | Type SharePoint | Rôle |
+|---|---|---|
+| `NiveauRisque_Pending` | Une seule ligne de texte | Niveau de risque proposé, soumis à validation |
+| `HistoriqueKYC` | Plusieurs lignes de texte (texte brut) | Historique des actions |
+| `Archive` | Oui/Non | Contrepartie archivée (masquée, non relancée) |
+| `StatutValidationKYC` | Choix existant | Ajouter la valeur `Complément demandé` |
+
+Le contrôle du profil Compliance est fait dans le navigateur : la protection réelle repose sur les
+permissions SharePoint de la liste Brokers.
