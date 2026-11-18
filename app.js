@@ -16,7 +16,9 @@ const CONFIG = {
     sitePath: "/sites/CPLDashboard",
     listHistory: "Historique Compliance",
     listGifts: "Registre cadeaux",
-    listPositions: "positions portefeuilles"
+    listPositions: "positions portefeuilles",
+    listPositionsHistory: "Historique positions",
+    libPositionsBackup: "Sauvegardes positions"
   }
 };
 
@@ -128,10 +130,27 @@ function isExpired(dateFin) {
   return new Date(dateFin) < new Date();
 }
 
-async function loadRestrictedList() {
-  showElement("restricted-loading");
-  hideElement("restricted-table-container");
-  hideElement("restricted-error");
+// silent : rafraîchissement automatique. Pas d'écran de chargement, la recherche et le tri en
+// cours sont conservés, et un échec ne remplace jamais les données déjà affichées.
+let restrictedLoading = false;
+let restrictedLoadedAt = 0;
+
+async function loadRestrictedList(silent) {
+  if (restrictedLoading) return;
+  restrictedLoading = true;
+  try {
+    await loadRestrictedListInner(!!silent);
+  } finally {
+    restrictedLoading = false;
+  }
+}
+
+async function loadRestrictedListInner(silent) {
+  if (!silent) {
+    showElement("restricted-loading");
+    hideElement("restricted-table-container");
+    hideElement("restricted-error");
+  }
 
   // Positions en portefeuille : chargement séparé qui ne rejette jamais, pour ne
   // jamais empêcher l'affichage des NDA et informations privilégiées.
@@ -172,16 +191,26 @@ async function loadRestrictedList() {
       };
     }).filter(item => !isExpired(item.dateFin));
 
-    const positions = await positionsPromise;
-    applyPositionsState(positions);
+    let positions = await positionsPromise;
+    // Rafraîchissement automatique : une lecture ratée des positions ne doit pas faire
+    // disparaître celles déjà affichées (on garde la dernière lecture réussie).
+    if (silent && positions.status !== "ok" && positionsState.status === "ok") {
+      console.warn("Rafraîchissement des positions échoué, dernière lecture conservée :", positions.reason);
+      positions = positionsState;
+    } else {
+      applyPositionsState(positions);
+    }
 
     allRestrictedItems = [...ndaItems, ...infoPrivItems, ...positions.items];
+    restrictedLoadedAt = Date.now();
     hideElement("restricted-loading");
-    renderRestrictedTable(allRestrictedItems);
+    if (silent) refreshRestrictedView();
+    else renderRestrictedTable(allRestrictedItems);
     showElement("restricted-table-container");
 
   } catch (err) {
     console.error("Erreur chargement:", err);
+    if (silent) return;
     hideElement("restricted-loading");
     showElement("restricted-error");
     document.getElementById("restricted-error-msg").textContent = "Impossible de charger la liste. V\u00e9rifiez vos permissions SharePoint.";
@@ -225,6 +254,42 @@ function renderRestrictedTable(items) {
 }
 
 let currentSort = { col: null, dir: 1 };
+
+// Réaffiche le tableau avec la recherche et le tri en cours (après un rafraîchissement)
+function refreshRestrictedView() {
+  const query = document.getElementById("search-restricted").value.toLowerCase().trim();
+  const items = query
+    ? allRestrictedItems.filter(item => PositionsCore.matchesSearch(item, query))
+    : [...allRestrictedItems];
+  const col = currentSort.col;
+  if (col) {
+    items.sort((a, b) => {
+      let valA = a[col] || "";
+      let valB = b[col] || "";
+      if (col === "dateDebut" || col === "dateFin") {
+        valA = valA ? new Date(valA).getTime() : 0;
+        valB = valB ? new Date(valB).getTime() : 0;
+        return (valA - valB) * currentSort.dir;
+      }
+      return valA.localeCompare(valB, "fr") * currentSort.dir;
+    });
+  }
+  renderRestrictedTable(items);
+}
+
+// Rafraîchissement automatique toutes les 2 minutes : reporté si l'onglet est masqué ou si un
+// dépôt de positions est en cours. Vérification toutes les 15 s, chargement au plus toutes les 2 min.
+const RESTRICTED_REFRESH_MS = 2 * 60 * 1000;
+
+function autoRefreshRestricted() {
+  if (!siteId || restrictedLoading || positionsDepositBusy || document.visibilityState !== "visible") return;
+  if (Date.now() - restrictedLoadedAt < RESTRICTED_REFRESH_MS - 5000) return;
+  loadRestrictedList(true);
+}
+
+setInterval(autoRefreshRestricted, 15000);
+document.addEventListener("visibilitychange", autoRefreshRestricted);
+
 const RESTRICTED_SORT_COLUMNS = ["nom", "isin", "type", "equipe", "signataire", "dateDebut", "dateFin"];
 
 function sortTable(col) {
@@ -429,6 +494,8 @@ function generateBulkPDF(resultData) {
 
   if (lastBulkPositionsUnavailable) {
     y = addPositionsUnavailablePdfNotice(doc, y);
+  } else {
+    y = addPositionsFreshnessPdfLine(doc, y - 6) + 6;
   }
 
   doc.setDrawColor(200,200,200); doc.line(20, y, 190, y); y += 10;
@@ -593,6 +660,8 @@ function generateRestrictedPDF(query, opts = {}) {
   if (!opts.fromHistory && positionsUnavailable()) {
     if (y > 230) { doc.addPage(); y = 20; }
     y = addPositionsUnavailablePdfNotice(doc, y);
+  } else if (!opts.fromHistory) {
+    y = addPositionsFreshnessPdfLine(doc, y - 2) + 2;
   }
 
   if (y > 220) { doc.addPage(); y = 20; }
@@ -1346,6 +1415,8 @@ function generateRestrictedPDFFromHistory(item) {
 // remplacement) est dans positions-core.js ; ce bloc ne gère que Graph et le DOM.
 
 const POSITIONS_LOAD_TIMEOUT_MS = 30000;
+// Au-delà de ce nombre de jours sans nouveau dépôt, les positions sont signalées comme anciennes
+const POSITIONS_MAX_AGE_DAYS = 7;
 const POSITIONS_REQUIRED_COLUMNS = ["Title", "ISIN", "Fonds", "IdDepot"];
 const POSITIONS_TEXT_COLUMNS = ["ISIN", "Fonds", "IdDepot"];
 
@@ -1359,6 +1430,15 @@ let positionsPreview = null;
 let positionsDepositBusy = false;
 
 function positionsUnavailable() { return positionsState.status === "unavailable"; }
+
+// Historique des dépôts (liste) et sauvegardes de l'ancienne liste (bibliothèque), sur CPLDashboard.
+// Facultatifs : s'ils manquent, le dépôt reste possible mais sans verrou ni sauvegarde, et la
+// Compliance en est avertie. La liste doit contenir au moins la colonne Statut.
+const positionsHistory = { resolved: false, listId: null, driveId: null, columns: new Set(), error: null, entries: [] };
+
+class PositionsLockError extends Error {
+  constructor(message) { super(message); this.name = "PositionsLockError"; }
+}
 
 // Remplace les {cle} d'un texte traduit
 function tf(key, vars = {}) {
@@ -1439,6 +1519,148 @@ async function listPositionItems(target) {
   return graphGetAllPages(`/sites/${target.siteId}/lists/${target.listId}/items?$expand=${expand}&$top=500`);
 }
 
+// Ne rejette jamais : renseigne positionsHistory (liste, bibliothèque, colonnes, entrées récentes)
+async function resolvePositionsHistory() {
+  try {
+    if (!positionsHistory.resolved) {
+      const lists = await graphGetAllPages(`/sites/${siteIdHistory}/lists?$select=id,displayName`);
+      const hist = lists.filter(l => l.displayName === CONFIG.sharepointHistory.listPositionsHistory);
+      positionsHistory.listId = hist.length === 1 ? hist[0].id : null;
+      const drives = await graphGetAllPages(`/sites/${siteIdHistory}/drives?$select=id,name`);
+      const lib = drives.filter(d => d.name === CONFIG.sharepointHistory.libPositionsBackup);
+      positionsHistory.driveId = lib.length === 1 ? lib[0].id : null;
+      if (positionsHistory.listId) {
+        const cols = await graphGetAllPages(`/sites/${siteIdHistory}/lists/${positionsHistory.listId}/columns`);
+        positionsHistory.columns = new Set(cols.map(c => c.name));
+        if (!positionsHistory.columns.has("Statut")) positionsHistory.listId = null;
+      }
+      positionsHistory.resolved = true;
+    }
+    positionsHistory.error = null;
+    positionsHistory.entries = positionsHistory.listId ? await loadPositionsHistoryEntries() : [];
+  } catch (err) {
+    console.warn("Historique des dépôts de positions indisponible :", err);
+    positionsHistory.error = err.message || String(err);
+    positionsHistory.entries = [];
+  }
+}
+
+async function loadPositionsHistoryEntries() {
+  const items = await graphGetAllPages(`/sites/${siteIdHistory}/lists/${positionsHistory.listId}/items?$expand=fields&$top=500`);
+  return items.map(it => {
+    const f = it.fields || {};
+    return {
+      id: Number(it.id), title: f.Title || "", statut: f.Statut || "", auteur: f.Auteur || "",
+      createdMs: it.createdDateTime ? Date.parse(it.createdDateTime) : NaN
+    };
+  });
+}
+
+function positionsHistoryHasColumn(name) { return positionsHistory.columns.has(name); }
+
+// Écritures sans redirection (une redirection en plein dépôt serait dangereuse)
+async function graphWriteNoRedirect(method, endpoint, body) {
+  const token = await acquireGraphTokenNoRedirect();
+  const response = await fetch(`https://graph.microsoft.com/v1.0${endpoint}`, {
+    method,
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+    body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error?.message || `Erreur API: ${response.status}`); }
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
+}
+
+function positionsHistoryFields(fields) {
+  const out = {};
+  Object.keys(fields).forEach(k => { if (k === "Title" || positionsHistoryHasColumn(k)) out[k] = fields[k]; });
+  return out;
+}
+
+// "Nom (email)" enregistré dans l'historique pour la traçabilité ; seul le nom est affiché
+function displayAuthor(author) { return String(author || "").replace(/\s*\([^)]*\)\s*$/, "").trim(); }
+
+function shortTime(ms) { return new Date(ms).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" }); }
+
+// Verrou optimiste : une entrée "En cours" est créée dans l'historique, puis relue. S'il existe
+// une autre entrée "En cours" non expirée plus ancienne (id plus bas), ce dépôt s'efface devant
+// elle. Renvoie l'entrée créée, ou null si l'historique n'est pas configuré (pas de verrou).
+async function acquirePositionsLock(idDepot, preview, files) {
+  if (!positionsHistory.listId) return null;
+  const busy = lock => new PositionsLockError(tf("pos_lock_busy", { who: displayAuthor(lock.auteur) || "?", time: shortTime(lock.createdMs) }));
+
+  const before = PositionsCore.activeLocks(await loadPositionsHistoryEntries(), Date.now());
+  if (before.length) throw busy(before[0]);
+
+  const author = `${currentUser.displayName || ""} (${currentUser.mail || currentUser.userPrincipalName || ""})`.trim();
+  const created = await graphWriteNoRedirect("POST", `/sites/${siteIdHistory}/lists/${positionsHistory.listId}/items`, {
+    fields: positionsHistoryFields({
+      Title: idDepot, Statut: PositionsCore.LOCK_STATUS, Auteur: author,
+      Fichiers: files.join(", ").slice(0, 250), NbLignes: preview.total, NbAnciennes: preview.currentTotal
+    })
+  });
+  const ownId = Number(created.id);
+
+  const after = PositionsCore.activeLocks(await loadPositionsHistoryEntries(), Date.now());
+  if (after.length && after[0].id !== ownId) {
+    try { await graphWriteNoRedirect("PATCH", `/sites/${siteIdHistory}/lists/${positionsHistory.listId}/items/${created.id}/fields`, positionsHistoryFields({ Statut: "Annulé", Detail: "Dépôt simultané" })); }
+    catch (e) { console.warn("Entrée d'historique non annulée :", e); }
+    throw busy(after[0]);
+  }
+  return { id: created.id };
+}
+
+// Sauvegarde de l'ancienne liste en CSV (avant sa suppression). Si la bibliothèque est configurée
+// et que l'enregistrement échoue, l'erreur remonte : rien n'est supprimé.
+let lastBackupFile = null;
+async function backupPositionsBeforeDelete(idDepot, oldItems) {
+  lastBackupFile = null;
+  if (!positionsHistory.driveId) return;
+  const name = PositionsCore.backupFileName(idDepot);
+  const token = await acquireGraphTokenNoRedirect();
+  const response = await fetch(`https://graph.microsoft.com/v1.0/drives/${positionsHistory.driveId}/root:/${encodeURIComponent(name)}:/content`, {
+    method: "PUT",
+    headers: { "Authorization": `Bearer ${token}`, "Content-Type": "text/csv" },
+    body: new Blob([PositionsCore.buildBackupCsv(oldItems)], { type: "text/csv;charset=utf-8" })
+  });
+  if (!response.ok) { const err = await response.json().catch(() => ({})); throw new Error(err.error?.message || `HTTP ${response.status}`); }
+  lastBackupFile = name;
+}
+
+// Clôture l'entrée d'historique (jamais bloquant). Renvoie un message si elle n'a pas pu être mise à jour.
+async function finalizePositionsHistory(lock, result, fatal, preview) {
+  if (!lock) return null;
+  let statut = "Échec";
+  let detail = "";
+  if (fatal) detail = fatal.message;
+  else if (result && result.ok) { statut = result.deleteFailed ? "Terminé avec erreurs" : "Terminé"; if (result.deleteFailed) detail = `${result.deleteFailed} suppression(s) échouée(s)`; }
+  else if (result) detail = result.failure ? result.failure.message : "";
+  const sum = list => list.reduce((n, x) => n + x.count, 0);
+  try {
+    await graphWriteNoRedirect("PATCH", `/sites/${siteIdHistory}/lists/${positionsHistory.listId}/items/${lock.id}/fields`, positionsHistoryFields({
+      Statut: statut, NbAjoutees: sum(preview.added), NbRetirees: sum(preview.removed), NbManuelles: preview.manualRows.length,
+      Sauvegarde: lastBackupFile || "", Detail: detail.slice(0, 250)
+    }));
+    return null;
+  } catch (err) {
+    console.warn("Historique du dépôt non mis à jour :", err);
+    return tf("pos_history_not_updated", { n: Math.round(PositionsCore.LOCK_TTL_MS / 60000) });
+  }
+}
+
+// Dernier dépôt présent dans la liste : date (portée par l'IdDepot) et auteur (historique, s'il existe)
+function positionsDepotInfo() {
+  if (positionsState.status !== "ok") return null;
+  const latest = PositionsCore.latestDepot(positionsState.idDepots);
+  if (!latest) return null;
+  const entry = positionsHistory.entries.find(e => e.title === latest.idDepot && e.auteur);
+  return { date: latest.date, author: entry ? displayAuthor(entry.auteur) : "", ageDays: (Date.now() - latest.date.getTime()) / 86400000 };
+}
+
+function formatDepotDate(d) {
+  return `${d.toLocaleDateString("fr-FR")} ${d.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
 function withTimeout(promise, ms, message) {
   let timer;
   const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(message)), ms); });
@@ -1459,6 +1681,7 @@ async function loadPortfolioPositionsSafe() {
         throw err;
       }
       if (!positionsColumnsOk) await checkPositionsColumns(target);
+      await resolvePositionsHistory();
       return listPositionItems(target);
     })(), POSITIONS_LOAD_TIMEOUT_MS, "Délai de chargement dépassé (30 s).");
     return {
@@ -1510,12 +1733,37 @@ function renderPositionsBanners() {
     txBanner.classList.toggle("hidden", !positionsUnavailable());
   }
 
+  const info = positionsDepotInfo();
+  const infoEl = document.getElementById("restricted-positions-info");
+  if (infoEl) {
+    infoEl.textContent = !info ? ""
+      : info.author ? tf("pos_last_deposit_by", { date: formatDepotDate(info.date), author: info.author })
+      : tf("pos_last_deposit", { date: formatDepotDate(info.date) });
+  }
+
+  // Positions anciennes ou liste vide : visible de tous (une vérification s'appuie sur ces données)
+  const staleEl = document.getElementById("positions-stale-banner");
+  if (staleEl) {
+    let text = "";
+    if (positionsState.status === "ok") {
+      if (positionsState.items.length === 0) text = t("pos_empty_banner");
+      else if (info && info.ageDays > POSITIONS_MAX_AGE_DAYS) {
+        text = tf("pos_stale_banner", { date: formatDepotDate(info.date), days: Math.floor(info.ageDays) });
+      }
+    }
+    staleEl.textContent = text;
+    staleEl.classList.toggle("hidden", !text);
+  }
+
   if (cplWarn) {
     cplWarn.textContent = "";
     const lines = [];
     if (isCPL && positionsState.status === "ok") {
       if (positionsColumnsError) lines.push(tf("pos_columns_warning", { detail: positionsColumnsError }));
       if (positionsState.idDepots.length > 1) lines.push(tf("pos_multi_depot", { n: positionsState.idDepots.length }));
+      if (positionsHistory.error) lines.push(tf("pos_history_error", { detail: positionsHistory.error }));
+      else if (positionsHistory.resolved && !positionsHistory.listId) lines.push(tf("pos_history_missing_list", { name: CONFIG.sharepointHistory.listPositionsHistory }));
+      if (positionsHistory.resolved && !positionsHistory.driveId) lines.push(tf("pos_history_missing_lib", { name: CONFIG.sharepointHistory.libPositionsBackup }));
     }
     lines.forEach(text => {
       const div = document.createElement("div");
@@ -1541,6 +1789,24 @@ function addPositionsUnavailablePdfNotice(doc, y) {
   doc.setFontSize(9);
   doc.text("Liste des positions en portefeuille indisponible, contactez la Compliance avant toute opération.", 28, y + 10);
   return y + 24;
+}
+
+// Date du dernier dépôt de positions dans les PDF (attestation, vérification en masse)
+function addPositionsFreshnessPdfLine(doc, y) {
+  const info = positionsDepotInfo();
+  if (!info) return y;
+  const stale = info.ageDays > POSITIONS_MAX_AGE_DAYS;
+  let text = info.author
+    ? tf("pos_pdf_fresh_by", { date: formatDepotDate(info.date), author: info.author })
+    : tf("pos_pdf_fresh", { date: formatDepotDate(info.date) });
+  if (stale) text += ` ${tf("pos_pdf_fresh_old", { days: Math.floor(info.ageDays) })}`;
+  if (y > 270) { doc.addPage(); y = 20; }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  doc.setTextColor(stale ? 154 : 110, stale ? 52 : 110, stale ? 18 : 110);
+  const lines = doc.splitTextToSize(text, 170);
+  doc.text(lines, 20, y);
+  return y + lines.length * 4 + 4;
 }
 
 function updateRoleLabel() {
@@ -1597,7 +1863,7 @@ function insertPositionsDepositUI() {
       </div>
       <div class="declare-alert" style="margin-bottom:14px">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-        <span id="pos-form-format-el"></span>
+        <span><span id="pos-form-format-el"></span> <a id="pos-template-link" href="templates/template-depot-positions.xlsx" download style="color:inherit;font-weight:600;text-decoration:underline;white-space:nowrap"></a></span>
       </div>
       <div id="pos-config-msg" class="form-message error hidden" style="margin-bottom:14px"></div>
       <div id="pos-dropzone" class="positions-dropzone">
@@ -1646,6 +1912,7 @@ function setPositionsStaticTexts() {
   setText("pos-form-title-el", t("pos_form_title"));
   setText("pos-form-subtitle-el", t("pos_form_subtitle"));
   setText("pos-form-format-el", t("pos_form_format"));
+  setText("pos-template-link", t("pos_template_link"));
   setText("pos-drop-text-el", t("pos_drop_text"));
   setText("pos-select-btn-el", t("pos_select_btn"));
   setText("pos-busy-el", t("pos_busy_warning"));
@@ -1717,7 +1984,7 @@ async function handlePositionsFiles(files) {
   }
   const current = positionsState.rawItems.map(it => {
     const f = it.fields || {};
-    return { nom: f.Title, isin: f.ISIN, strategie: f.Fonds };
+    return { nom: f.Title, isin: f.ISIN, strategie: f.Fonds, idDepot: f.IdDepot };
   });
   positionsPreview = PositionsCore.buildPreview(parsed, current);
   renderPositionsPreview(positionsPreview);
@@ -1768,6 +2035,14 @@ function renderPositionsPreview(p) {
       ${p.blocking.empty ? `<p>${t("pos_block_empty")}</p>` : ""}
       ${p.blocking.tooLong.length ? `<p>${tf("pos_block_toolong", { n: p.blocking.tooLong.length, max: PositionsCore.MAX_CELL_LENGTH })}</p>
         <ul>${p.blocking.tooLong.map(x => `<li>${lineRef(x.row)} : ${fieldLabel(x.field)} (${x.length})</li>`).join("")}</ul>` : ""}
+    </div>`;
+  }
+
+  if (p.manualRows.length) {
+    html += `<div class="positions-box positions-box-error">
+      <strong>${tf("pos_manual_title", { n: p.manualRows.length })}</strong>
+      <p>${t("pos_manual_text")}</p>
+      ${detailsList(tf("pos_manual_list", { n: p.manualRows.length }), p.manualRows.map(r => `${cell(r.nom)} / ${cell(r.isin)} / ${cell(r.strategie)}`))}
     </div>`;
   }
 
@@ -1858,18 +2133,25 @@ async function runPositionsDeposit() {
 
   let result = null;
   let fatal = null;
+  let lock = null;
+  let historyNote = null;
+  lastBackupFile = null;
   try {
+    const idDepot = PositionsCore.generateIdDepot();
+    lock = await acquirePositionsLock(idDepot, preview, preview.byFile.map(f => f.fileName));
     result = await PositionsCore.runReplacement({
       graph: positionsGraphAdapter,
       target: positionsTarget,
       rows: preview.rows,
-      idDepot: PositionsCore.generateIdDepot(),
-      onProgress: updatePositionsProgress
+      idDepot,
+      onProgress: updatePositionsProgress,
+      beforeDelete: oldItems => backupPositionsBeforeDelete(idDepot, oldItems)
     });
   } catch (err) {
-    console.error("Erreur dépôt positions:", err);
+    if (!(err instanceof PositionsLockError)) console.error("Erreur dépôt positions:", err);
     fatal = err;
   } finally {
+    if (!(fatal instanceof PositionsLockError)) historyNote = await finalizePositionsHistory(lock, result, fatal, preview);
     window.removeEventListener("beforeunload", positionsBeforeUnload);
     positionsDepositBusy = false;
   }
@@ -1879,16 +2161,20 @@ async function runPositionsDeposit() {
   const previewEl = document.getElementById("pos-preview");
   previewEl.classList.add("hidden");
   previewEl.innerHTML = "";
-  renderPositionsResult(result, fatal);
+  renderPositionsResult(result, fatal, historyNote);
   await loadRestrictedList();
 }
 
-function renderPositionsResult(result, fatal) {
+function renderPositionsResult(result, fatal, historyNote) {
   const el = document.getElementById("pos-result");
   el.textContent = "";
   const box = document.createElement("div");
   const lines = [];
-  if (fatal) {
+  if (fatal && fatal.name === "PositionsLockError") {
+    box.className = "positions-box positions-box-warning";
+    lines.push(fatal.message);
+    lines.push(t("pos_lock_nothing_changed"));
+  } else if (fatal) {
     box.className = "positions-box positions-box-error";
     lines.push(tf("pos_result_fatal", { detail: fatal.message }));
   } else if (result.ok && result.deleteFailed === 0) {
@@ -1905,6 +2191,8 @@ function renderPositionsResult(result, fatal) {
       lines.push(tf("pos_result_rollback_incomplete", { failed: result.rollbackFailed }));
     }
   }
+  if (result && result.ok && lastBackupFile) lines.push(tf("pos_result_backup", { file: lastBackupFile }));
+  if (historyNote) lines.push(historyNote);
   lines.forEach(text => {
     const p = document.createElement("p");
     p.textContent = text;

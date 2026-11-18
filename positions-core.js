@@ -191,7 +191,13 @@ const PositionsCore = (() => {
       });
     });
 
-    const current = (currentPositions || []).map(p => ({ nom: toText(p.nom).trim(), isin: toText(p.isin).trim(), strategie: toText(p.strategie).trim() }));
+    const current = (currentPositions || []).map(p => ({
+      nom: toText(p.nom).trim(), isin: toText(p.isin).trim(), strategie: toText(p.strategie).trim(),
+      idDepot: toText(p.idDepot).trim()
+    }));
+    // Lignes sans IdDepot : jamais créées par un dépôt (ajoutées à la main dans SharePoint).
+    // Le remplacement supprime toute ligne dont l'IdDepot diffère du nouveau, donc celles-ci aussi.
+    const manualRows = current.filter(p => p.idDepot === '');
     const newCounts = countKeys(rows);
     const curCounts = countKeys(current);
 
@@ -205,7 +211,8 @@ const PositionsCore = (() => {
       isBlocked: blocking.empty || blocking.tooLong.length > 0,
       added: multisetDiff(newCounts, curCounts),
       removed: multisetDiff(curCounts, newCounts),
-      currentTotal: current.length
+      currentTotal: current.length,
+      manualRows
     };
   }
 
@@ -406,7 +413,9 @@ const PositionsCore = (() => {
   // 2. vérification : exactement rows.length lignes portent le nouvel IdDepot
   // 3. seulement alors : suppression des lignes dont l'IdDepot est différent
   // En cas d'échec en 1 ou 2 : suppression des lignes du nouvel IdDepot, ancienne liste intacte.
-  async function runReplacement({ graph, target, rows, idDepot, onProgress, sleep, maxAttempts }) {
+  // beforeDelete(oldItems) : appelé après la vérification et avant la suppression de l'ancienne
+  // liste (sauvegarde). S'il échoue, rien n'est supprimé et les nouvelles lignes sont retirées.
+  async function runReplacement({ graph, target, rows, idDepot, onProgress, sleep, maxAttempts, beforeDelete }) {
     if (!target || !issuedTargets.has(target)) throw new GuardError('Remplacement refusé : cible non résolue.');
     if (!Array.isArray(rows) || rows.length === 0) throw new Error('Remplacement refusé : aucune ligne à déposer.');
     const tooLong = rows.some(r => ['nom', 'isin', 'strategie'].some(f => toText(r[f]).length > MAX_CELL_LENGTH));
@@ -451,6 +460,15 @@ const PositionsCore = (() => {
         }
       } catch (e) {
         failure = { step: 'verify', message: `Relecture impossible : ${e.message}` };
+      }
+    }
+
+    // Étape 2b : sauvegarde de l'ancienne liste avant sa suppression
+    if (!failure && typeof beforeDelete === 'function') {
+      try {
+        await beforeDelete(items.filter(it => (it.fields || {}).IdDepot !== idDepot));
+      } catch (e) {
+        failure = { step: 'backup', message: `Sauvegarde de l'ancienne liste impossible : ${e.message}.` };
       }
     }
 
@@ -556,6 +574,63 @@ const PositionsCore = (() => {
     return types.map(tp => (tp === POSITION_TYPE && strategies.length ? `${tp} (${strategies.join(', ')})` : tp)).join(', ');
   }
 
+  // -----------------------------------------------
+  // SAUVEGARDE, VERROU ET DATE DU DERNIER DÉPÔT
+  // -----------------------------------------------
+
+  // Cellule CSV : guillemets doublés, et apostrophe devant =, +, - ou @ pour qu'Excel
+  // n'interprète jamais une valeur comme une formule.
+  function csvCell(v) {
+    let t = toText(v);
+    if (/^[=+\-@\t\r]/.test(t)) t = "'" + t;
+    return `"${t.replace(/"/g, '""')}"`;
+  }
+
+  // CSV (séparateur ;, BOM UTF-8 pour Excel) des éléments SharePoint de la liste des positions
+  function buildBackupCsv(items) {
+    const header = ['Nom du titre', 'ISIN', 'Stratégie', 'IdDepot', 'IdSharePoint'].map(csvCell).join(';');
+    const lines = (items || []).map(it => {
+      const f = (it && it.fields) || {};
+      return [f.Title, f.ISIN, f.Fonds, f.IdDepot, it && it.id].map(csvCell).join(';');
+    });
+    return '\uFEFF' + [header].concat(lines).join('\r\n') + '\r\n';
+  }
+
+  // Nom de fichier SharePoint valide (pas de ":" dans un IdDepot horodaté)
+  function backupFileName(idDepot) {
+    return `positions-avant-depot-${toText(idDepot).replace(/[^0-9A-Za-z_-]/g, '-')}.csv`;
+  }
+
+  // Date d'un IdDepot ("2026-11-18T09:44:25.000Z_uuid") ou null
+  function parseIdDepotDate(idDepot) {
+    const m = /^(\d{4}-\d{2}-\d{2}T[^_]+)_/.exec(toText(idDepot));
+    if (!m) return null;
+    const d = new Date(m[1]);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  // Dépôt le plus récent parmi les IdDepot présents : { idDepot, date } ou null
+  function latestDepot(idDepots) {
+    let best = null;
+    (idDepots || []).forEach(id => {
+      const date = parseIdDepotDate(id);
+      if (date && (!best || date > best.date)) best = { idDepot: id, date };
+    });
+    return best;
+  }
+
+  const LOCK_TTL_MS = 60 * 60 * 1000;   // un dépôt "En cours" de plus d'une heure est considéré abandonné
+  const LOCK_STATUS = 'En cours';
+
+  // entries : [{ id: number, statut, createdMs, auteur }] de l'historique des dépôts.
+  // Renvoie les dépôts en cours non expirés, le plus ancien (id le plus bas) en premier.
+  function activeLocks(entries, nowMs, ttlMs) {
+    const ttl = ttlMs || LOCK_TTL_MS;
+    return (entries || [])
+      .filter(e => e.statut === LOCK_STATUS && Number.isFinite(e.createdMs) && nowMs - e.createdMs < ttl)
+      .sort((a, b) => a.id - b.id);
+  }
+
   // Nombre de dépôts distincts (IdDepot) présents dans la liste
   function distinctIdDepots(items) {
     const set = new Set();
@@ -572,6 +647,7 @@ const PositionsCore = (() => {
     makePositionsTarget, assertDeletable, buildDeleteRequest, buildCreateRequest, assertBatchRequestAllowed,
     parseRetryAfter, executeBatch, deleteItems, generateIdDepot, runReplacement,
     positionToRestrictedItem, matchesSecurity, matchesBulkEntry, matchesSearch, isPositionItem,
-    describeMatchTypes, distinctIdDepots
+    describeMatchTypes, distinctIdDepots,
+    buildBackupCsv, backupFileName, parseIdDepotDate, latestDepot, activeLocks, LOCK_TTL_MS, LOCK_STATUS
   });
 })();

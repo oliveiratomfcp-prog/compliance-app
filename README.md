@@ -86,6 +86,30 @@ s'affiche dans la colonne Équipe du tableau.
 - **Indisponibilité** : si la liste ne peut pas être lue, NDA et informations privilégiées restent
   affichées, avec un bandeau invitant à contacter la Compliance (également repris dans
   l'attestation PDF et la vérification en masse).
+- **Modèle Excel** : lien « Télécharger le modèle Excel » dans le formulaire de dépôt
+  (`templates/template-depot-positions.xlsx`, en-têtes seuls : Nom du titre, ISIN, Stratégie). Les
+  fichiers du site étant accessibles sans connexion, ce dossier ne doit jamais contenir de vraies positions.
+- **Verrou et historique des dépôts** : chaque dépôt crée une entrée « En cours » dans la liste
+  « Historique positions » (site CPLDashboard), relue juste après pour départager deux dépôts
+  simultanés (le plus ancien gagne, l'autre est refusé). Un verrou « En cours » de plus d'une heure
+  est considéré abandonné. L'entrée est clôturée avec le résultat (Terminé, Terminé avec erreurs,
+  Échec, Annulé), l'auteur, les fichiers et les nombres de lignes.
+- **Sauvegarde avant suppression** : avant de supprimer l'ancienne liste, elle est enregistrée en CSV
+  dans la bibliothèque « Sauvegardes positions ». Si l'enregistrement échoue, rien n'est supprimé et
+  les nouvelles lignes sont retirées. Restauration manuelle : rouvrir le CSV et le redéposer.
+- **Lignes ajoutées à la main** : les lignes sans `IdDepot` seraient supprimées par un remplacement ;
+  l'aperçu les liste dans un encadré rouge avant confirmation (elles figurent dans la sauvegarde).
+- **Fraîcheur** : la date (et l'auteur, si l'historique existe) du dernier dépôt s'affiche au-dessus du
+  tableau et sur les PDF (attestation, vérification en masse). Au-delà de `POSITIONS_MAX_AGE_DAYS`
+  (7 jours, `app.js`) ou si la liste est vide, un bandeau d'alerte s'affiche pour tous.
+- **Rafraîchissement automatique** : la Restricted List se recharge toutes les 2 minutes (onglet visible,
+  hors dépôt en cours). La recherche et le tri sont conservés ; en cas d'échec, les données affichées
+  sont conservées.
+- Colonnes de la liste « Historique positions » (seule `Statut` est indispensable ; les autres sont
+  renseignées si elles existent) : `Title` (IdDepot), `Statut`, `Auteur`, `Fichiers`, `NbLignes`,
+  `NbAnciennes`, `NbAjoutees`, `NbRetirees`, `NbManuelles`, `Sauvegarde`, `Detail` (texte ; les colonnes
+  `Nb...` peuvent être de type Nombre). Si la liste ou la bibliothèque manque, le dépôt reste possible
+  mais sans verrou ni sauvegarde, et la Compliance en est avertie.
 - Code : logique testable dans `positions-core.js` (sans dépendance à Graph ni au DOM),
   intégration dans `app.js`. Lecture Excel : SheetJS 0.20.3 (`cdn.sheetjs.com`, empreinte SRI).
 

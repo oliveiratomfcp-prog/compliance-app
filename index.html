@@ -4,11 +4,11 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>Compliance App — Eiffel IG</title>
-<link rel="stylesheet" href="style.css?v=20260930-2" />
+<link rel="stylesheet" href="style.css?v=20261118-1" />
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js" integrity="sha384-EnyY0/GSHQGSxSgMwaIPzSESbqoOLSexfnSMN2AP+39Ckmn92stwABZynq1JyzdT" crossorigin="anonymous"></script>
-<script src="translations.js?v=20260930-2"></script>
+<script src="translations.js?v=20261118-1"></script>
 <script>
 const msalConfig = {
   auth: {
@@ -203,6 +203,7 @@ const msalConfig = {
 
       <div id="positions-banner" class="positions-banner hidden" role="status"></div>
       <div id="positions-cpl-warning" class="positions-cpl-warning hidden" role="status"></div>
+      <div id="positions-stale-banner" class="positions-banner positions-banner-warn hidden" role="status"></div>
 
       <div id="restricted-loading" class="loading-state">
         <div class="spinner"></div>
@@ -215,6 +216,7 @@ const msalConfig = {
       <div id="restricted-table-container" class="hidden">
         <div class="table-meta">
           <span id="restricted-count" class="table-count">0 titres</span>
+          <span id="restricted-positions-info" class="table-date" style="margin-left:12px;margin-right:auto"></span>
           <span class="table-date" id="restricted-realtime-el">Mis à jour en temps réel depuis SharePoint</span>
         </div>
         <div class="table-wrapper">
@@ -497,8 +499,8 @@ const msalConfig = {
   </div>
 </div>
 
-<script src="cpl-config.js?v=20260930-2"></script>
-<script src="positions-core.js?v=20260930-2"></script>
-<script src="app.js?v=20260930-2"></script>
+<script src="cpl-config.js?v=20261118-1"></script>
+<script src="positions-core.js?v=20261118-1"></script>
+<script src="app.js?v=20261118-1"></script>
 </body>
 </html>
