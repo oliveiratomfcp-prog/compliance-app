@@ -517,6 +517,7 @@ async function initSharePointThenLoad() {
     await loadRequests();
     await handleDocReviewParam();
     openRequestFromHash();
+    showAiNotice();
   } catch(e) {
     console.error('SharePoint init error:', e);
     setListLoading(false);
@@ -1203,10 +1204,11 @@ const SIMILAR_SKIP_TYPES = [TYPE_VALIDATION_DOC, 'Franchissement de seuil'];
 async function checkSimilarRequests(draft) {
   // Sujets uniques à chaque fois : pas d'analyse IA, la soumission continue directement.
   if (SIMILAR_SKIP_TYPES.indexOf(draft.type) !== -1) return { proceed: true };
+  const progress = showAnalysisProgress();
   try {
     const idx = await withDeadline(getCommentsIndex(), 3000, commentsIndex.map || new Map());
     const cat = TrackerAiCore.buildCatalogue(requests, idx, { isCPL, email: currentUser.email, mode: 'similar' });
-    if (!cat.entries.length) return { proceed: true };
+    if (!cat.entries.length) { progress.close(); return { proceed: true }; }
 
     const payload = { objet: draft.objet, type: draft.type, description: draft.description, catalogue: cat.entries };
     const key = `similar|${TrackerAiCore.catalogueSignature(cat.entries)}|${JSON.stringify([draft.objet, draft.type, draft.description]).toLowerCase()}`;
@@ -1215,6 +1217,7 @@ async function checkSimilarRequests(draft) {
       resp = await callAi('/api/ai-similar', payload, AI_SIMILAR_TIMEOUT_MS);
       aiCachePut(key, resp);
     }
+    await progress.finish();
     const items = (resp.similaires || []).filter(s => s && cat.byRef.has(s.ref) && s.categorie !== 'sans_interet').slice(0, 5)
       .map(s => Object.assign({}, s, { info: cat.byRef.get(s.ref) }));
     if (!items.length) return { proceed: true };
@@ -1225,10 +1228,109 @@ async function checkSimilarRequests(draft) {
       audit: { v: 1, date: new Date().toISOString(), propose: items.map(s => ({ ref: s.ref, similarite: s.similarite, categorie: s.categorie })), choix: 'soumis_quand_meme' }
     };
   } catch (e) {
+    progress.close();
     console.warn('Demandes similaires :', e);
     showToast('Analyse des demandes similaires indisponible : la demande est soumise normalement.', 'info');
     return { proceed: true };
   }
+}
+
+// Message d'information sur les fonctions IA, affiché à chaque arrivée sur le Tracker tant que
+// l'utilisateur n'a pas coché « Ne plus afficher ce message » (choix mémorisé dans ce navigateur).
+const AI_NOTICE_KEY = 'trackerCpl.aiNotice.v1';
+function showAiNotice() {
+  try { if (localStorage.getItem(AI_NOTICE_KEY) === 'masque') return; } catch (e) { /* stockage indisponible : on affiche */ }
+  if (document.getElementById('ai-notice')) return;
+  const overlay = document.createElement('div');
+  overlay.id = 'ai-notice';
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:1001;display:flex;align-items:center;justify-content:center;padding:16px';
+  const h4 = 'font-size:13.5px;font-weight:700;color:var(--navy);margin:14px 0 4px';
+  const p = 'font-size:13px;color:#374151;line-height:1.55;margin:0 0 6px';
+  const ul = 'font-size:13px;color:#374151;line-height:1.55;margin:0 0 6px;padding-left:20px';
+  overlay.innerHTML = `
+    <div role="dialog" aria-modal="true" aria-labelledby="ai-notice-title" style="background:white;border-radius:12px;max-width:620px;width:100%;max-height:90vh;overflow:auto;padding:24px 26px;box-shadow:0 20px 50px rgba(0,0,0,0.25)">
+      <h3 id="ai-notice-title" style="font-size:17px;font-weight:700;color:var(--navy);margin:0 0 2px">✦ Nouveau : le Tracker CPL s'appuie désormais sur l'IA</h3>
+      <div style="${h4}">Avant de soumettre une demande</div>
+      <p style="${p}">Quand vous soumettez une nouvelle demande, l'IA vérifie en quelques secondes si une question proche a déjà été posée à la Compliance. Si c'est le cas, elle vous présente ces demandes avec :</p>
+      <ul style="${ul}">
+        <li>un résumé de ce qu'il faut retenir de la réponse de la Compliance ;</li>
+        <li>le message de la Compliance tel qu'il a été écrit ;</li>
+        <li>un signal si la même demande est déjà en cours, pour la suivre plutôt que d'en créer une nouvelle.</li>
+      </ul>
+      <p style="${p}">Vous pouvez ensuite revenir au formulaire ou soumettre quand même : vous gardez toujours le choix.</p>
+      <div style="${h4}">Recherche IA</div>
+      <p style="${p}">Le bouton « ✦ Recherche IA » retrouve les demandes par leur sens, et pas seulement par les mots exacts. Par exemple, une recherche « KYC » remonte aussi les demandes de connaissance client ou de bénéficiaire effectif.</p>
+      <div style="${h4}">Bon à savoir</div>
+      <ul style="${ul}">
+        <li>L'analyse ne porte que sur les demandes que vous pouvez déjà consulter, ainsi que sur celles que la Compliance a choisi de partager, sans le nom du demandeur.</li>
+        <li>Les résumés sont produits par l'IA : la réponse d'origine de la Compliance reste affichée pour vérification.</li>
+        <li>Les demandes « Validation documentation commerciale » et « Franchissement de seuil » ne sont pas analysées.</li>
+      </ul>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:18px;padding-top:14px;border-top:1px solid var(--border)">
+        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-secondary);cursor:pointer">
+          <input type="checkbox" id="ai-notice-hide"> <span>Ne plus afficher ce message</span>
+        </label>
+        <button class="btn-primary" id="ai-notice-ok">J'ai compris</button>
+      </div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const close = () => {
+    if (document.getElementById('ai-notice-hide').checked) {
+      try { localStorage.setItem(AI_NOTICE_KEY, 'masque'); } catch (e) { /* stockage indisponible */ }
+    }
+    document.removeEventListener('keydown', onKey, true);
+    overlay.remove();
+  };
+  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  document.addEventListener('keydown', onKey, true);
+  document.getElementById('ai-notice-ok').onclick = close;
+  document.getElementById('ai-notice-ok').focus();
+}
+
+// Fenêtre de progression pendant l'analyse : la barre avance vite puis ralentit (sans jamais
+// atteindre 100 % tant que la réponse n'est pas arrivée), avec des étapes qui changent, pour
+// montrer que l'analyse travaille. finish() la complète puis la ferme ; close() la ferme aussitôt.
+function showAnalysisProgress() {
+  const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text !== undefined) e.textContent = text; return e; };
+  const overlay = el('div', 'position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px');
+  overlay.id = 'analysis-progress';
+  const box = el('div', 'background:white;border-radius:12px;max-width:440px;width:100%;padding:22px 24px;box-shadow:0 20px 50px rgba(0,0,0,0.25)');
+  box.appendChild(el('div', 'font-size:15px;font-weight:700;color:var(--navy);margin-bottom:4px', '✦ Analyse des demandes similaires'));
+  box.appendChild(el('div', 'font-size:12.5px;color:var(--text-secondary);margin-bottom:14px', "L'IA vérifie si votre question a déjà été traitée par la Compliance. Cela prend quelques secondes."));
+  const track = el('div', 'height:8px;background:#E5E7EB;border-radius:99px;overflow:hidden');
+  const bar = el('div', 'height:100%;width:0%;background:linear-gradient(90deg,var(--navy),#3B5BDB);border-radius:99px;transition:width .4s ease');
+  track.appendChild(bar);
+  box.appendChild(track);
+  const row = el('div', 'display:flex;justify-content:space-between;gap:10px;margin-top:8px;font-size:12px;color:var(--text-secondary)');
+  const step = el('span', '', 'Lecture des demandes existantes...');
+  const pct = el('span', 'font-variant-numeric:tabular-nums', '0 %');
+  row.append(step, pct);
+  box.appendChild(row);
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+
+  const STEPS = [[0, 'Lecture des demandes existantes...'], [2500, 'Comparaison avec votre demande...'],
+    [7000, 'Rédaction des synthèses...'], [12000, 'Finalisation...']];
+  const started = Date.now();
+  const set = p => { bar.style.width = p + '%'; pct.textContent = Math.round(p) + ' %'; };
+  const timer = setInterval(() => {
+    const t = Date.now() - started;
+    set(95 * (1 - Math.exp(-t / 6000)));
+    const s = STEPS.filter(x => t >= x[0]).pop();
+    if (s && step.textContent !== s[1]) step.textContent = s[1];
+  }, 200);
+  let closed = false;
+  const close = () => { if (closed) return; closed = true; clearInterval(timer); overlay.remove(); };
+  return {
+    close,
+    finish: () => new Promise(resolve => {
+      if (closed) return resolve();
+      clearInterval(timer);
+      step.textContent = 'Analyse terminée';
+      set(100);
+      setTimeout(() => { close(); resolve(); }, 450);
+    })
+  };
 }
 
 // Fenêtre « Demandes similaires trouvées » (DOM construit sans innerHTML : les textes viennent des
