@@ -142,3 +142,61 @@ s'affiche dans la colonne Équipe du tableau.
 
 Le contrôle du profil Compliance est fait dans le navigateur : la protection réelle repose sur les
 permissions SharePoint de la liste Brokers.
+
+## Tracker CPL : recherche IA et demandes similaires
+
+Deux fonctions s'appuient sur l'API OpenAI déjà configurée pour Doc Review (mêmes `OPENAI_API_KEY` et
+`OPENAI_BASE_URL`), via les Azure Functions `api/ai-search` et `api/ai-similar` (mêmes règles
+d'authentification que les autres Functions, 15 appels par minute et par utilisateur).
+
+- **Recherche IA** : bouton « ✦ Recherche IA » (ou Entrée) à côté du champ « Rechercher... ». Le tableau
+  se filtre sur les demandes pertinentes, dans l'ordre de pertinence, avec un badge « Résultats IA »,
+  un score et la justification en infobulle. Modifier le texte ou « Revenir à la recherche classique »
+  quitte le mode IA. La recherche texte reste le comportement par défaut et le repli en cas
+  d'indisponibilité, de délai de 8 s dépassé ou de limite atteinte.
+- **Demandes similaires** : au clic sur « Soumettre » d'une nouvelle demande, l'IA cherche des demandes
+  passées ou en cours sur le même sujet. S'il y en a, une fenêtre les affiche avec la réponse apportée
+  par la Compliance ; l'utilisateur choisit « Soumettre quand même » ou « Annuler et revenir au
+  formulaire ». Sans demande similaire, aucune fenêtre ; en cas d'échec, la soumission continue. Les
+  références proposées et le choix sont enregistrés dans la colonne `DemandesSimilaires` et visibles
+  de la Compliance sur la demande et dans l'email de nouvelle demande.
+- **Qui voit quoi** : la Compliance voit toutes les demandes. Un collaborateur ne voit que les siennes
+  et celles où il est en copie ; à la création, il voit en plus les demandes d'autres personnes que la
+  Compliance a cochées « Partageable » (case du panneau « Partage » de la demande), sans nom ni
+  département du demandeur et sans lien vers la demande. Ce filtrage est fait dans le navigateur,
+  comme celui du tableau : la protection réelle dépend des permissions SharePoint.
+- **Réponse apportée** : commentaires publics des membres de la Compliance, plus le motif d'un rejet.
+  Les notes internes (`[INTERNE]`) ne sont jamais envoyées au modèle (double filtre navigateur et
+  serveur). Le texte affiché vient toujours des données, jamais du modèle ; le serveur ignore toute
+  référence absente du catalogue envoyé.
+- **Catalogue** : construit par le navigateur (référence, objet, type, statut, extraits de la description
+  et de la réponse, et demandeur et département quand l'utilisateur y a droit), envoyé avec la
+  requête. Le catalogue est placé en tête du prompt pour profiter du cache de prompt automatique d'OpenAI.
+- **Prompts** : `api/shared/prompts-tracker-ai.md` (sections RECHERCHE, SIMILAIRES et GLOSSAIRE, modifiables
+  sans toucher au code).
+
+Configuration : aucune variable supplémentaire n'est obligatoire. Les fonctions utilisent `OPENAI_API_KEY`
+et `OPENAI_BASE_URL` de Doc Review, et par défaut le même modèle (`OPENAI_MODEL_SYNTHESE`, sinon le modèle
+par défaut de Doc Review) avec un effort de raisonnement `low`. Réglages facultatifs (Application
+Settings des Functions, jamais dans le dépôt) :
+
+| Variable | Rôle |
+|---|---|
+| `OPENAI_MODEL_RECHERCHE` | Modèle de la recherche IA (défaut : `OPENAI_MODEL_SYNTHESE`) |
+| `OPENAI_MODEL_SIMILAIRES` | Modèle des demandes similaires (défaut : celui de la recherche) |
+| `OPENAI_EFFORT_RECHERCHE` | Effort de raisonnement de la recherche (défaut `low`) |
+| `OPENAI_EFFORT_SIMILAIRES` | Effort de raisonnement des demandes similaires (défaut : celui de la recherche) |
+| `OPENAI_TIMEOUT_MS_TRACKER` | Délai maximal d'un appel au modèle en ms (défaut 7000, de 1000 à 40000) |
+
+Les appels sont synchrones (sans mode background) : un modèle rapide ou un effort faible est nécessaire pour
+tenir le délai de 8 s du navigateur.
+
+Colonnes à créer dans la liste « Tracker CPL Demandes » :
+
+| Colonne (nom interne) | Type | Rôle |
+|---|---|---|
+| `DemandesSimilaires` | Plusieurs lignes de texte (texte brut) | Demandes proposées et choix de l'utilisateur (JSON) |
+| `Partageable` | Oui/Non | Demande visible, anonymisée, dans les demandes similaires des autres |
+
+Sans ces colonnes, les fonctions marchent mais l'enregistrement du choix et le partage échouent (message
+d'erreur pour le partage).

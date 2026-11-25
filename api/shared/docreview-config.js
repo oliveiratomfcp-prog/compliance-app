@@ -32,13 +32,20 @@ function effort(value, fallback, name) {
   return v;
 }
 
-function readConfig() {
-  const env = process.env;
+// Clé et URL de base OpenAI, partagées par Doc Review et les fonctions IA du Tracker CPL
+function readBase(env) {
+  env = env || process.env;
   const baseUrl = String(env.OPENAI_BASE_URL || 'https://api.openai.com/v1').trim().replace(/\/+$/, '');
   if (!/^https:\/\/[A-Za-z0-9.-]+(\/[A-Za-z0-9._\/-]*)?$/.test(baseUrl)) throw new Error('OPENAI_BASE_URL invalide (https obligatoire).');
+  return { apiKey: env.OPENAI_API_KEY || '', baseUrl: baseUrl };
+}
+
+function readConfig() {
+  const env = process.env;
+  const base = readBase(env);
   return {
-    apiKey: env.OPENAI_API_KEY || '',
-    baseUrl: baseUrl,
+    apiKey: base.apiKey,
+    baseUrl: base.baseUrl,
     pages: {
       model: model(env.OPENAI_MODEL_PAGES, 'OPENAI_MODEL_PAGES'),
       effort: effort(env.OPENAI_EFFORT_PAGES, 'low', 'OPENAI_EFFORT_PAGES'),
@@ -58,4 +65,4 @@ function readRules() {
   return rulesCache;
 }
 
-module.exports = { readConfig: readConfig, readRules: readRules, EFFORTS: EFFORTS };
+module.exports = { readConfig: readConfig, readBase: readBase, readRules: readRules, model: model, effort: effort, EFFORTS: EFFORTS, DEFAULT_MODEL: DEFAULT_MODEL };

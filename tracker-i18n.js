@@ -238,6 +238,42 @@ const TRACKER_EN = {
   "Dashboard copié dans le presse-papier, collez-le dans votre reporting.": "Dashboard copied to the clipboard, paste it into your report.",
   "Presse-papier indisponible : image téléchargée à la place.": "Clipboard unavailable: image downloaded instead.",
 
+  // Recherche IA et demandes similaires
+  "✦ Recherche IA": "✦ AI search",
+  "✦ Analyse…": "✦ Analysing…",
+  "Recherche IA : comprend les synonymes, les abréviations et les fautes de frappe": "AI search: understands synonyms, abbreviations and typos",
+  "✦ Résultats IA": "✦ AI results",
+  "Revenir à la recherche classique": "Back to classic search",
+  "Saisissez au moins 2 caractères pour la recherche IA.": "Enter at least 2 characters for the AI search.",
+  "Aucune demande à analyser.": "No request to analyse.",
+  "Recherche IA trop lente : la recherche classique est conservée.": "AI search too slow: classic search kept.",
+  "Trop de recherches IA, réessayez dans une minute. La recherche classique est conservée.": "Too many AI searches, try again in a minute. Classic search kept.",
+  "Recherche IA indisponible : la recherche classique est conservée.": "AI search unavailable: classic search kept.",
+  "Analyse des demandes similaires...": "Analysing similar requests...",
+  "Analyse des demandes similaires indisponible : la demande est soumise normalement.": "Similar request analysis unavailable: the request is submitted normally.",
+  "Demandes similaires trouvées": "Similar requests found",
+  "Des demandes déjà traitées ou en cours portent peut-être sur le même sujet. Lisez-les avant de soumettre : la réponse de la Compliance y répond peut-être déjà.": "Requests already processed or in progress may cover the same topic. Read them before submitting: the Compliance answer may already address yours.",
+  "Similarité forte": "Strong similarity",
+  "Similarité moyenne": "Medium similarity",
+  "Soumise le": "Submitted on",
+  "Demandeur :": "Requester:",
+  "Pourquoi :": "Why:",
+  "Demande d'un autre collaborateur, partagée par la Compliance (identité masquée).": "Request from another employee, shared by Compliance (identity hidden).",
+  "Réponse apportée par la Compliance": "Answer given by Compliance",
+  "Aucune réponse enregistrée pour cette demande.": "No answer recorded for this request.",
+  "Réponse tronquée.": "Answer truncated.",
+  "Réponse tronquée : ouvrez la demande pour le texte complet.": "Answer truncated: open the request for the full text.",
+  "Annuler et revenir au formulaire": "Cancel and go back to the form",
+  "Soumettre quand même": "Submit anyway",
+  "Demandes similaires proposées par l'IA avant la soumission :": "Similar requests suggested by the AI before submission:",
+  "Le demandeur a choisi de soumettre quand même.": "The requester chose to submit anyway.",
+  "Partage (demandes similaires)": "Sharing (similar requests)",
+  "Partageable avec les autres collaborateurs": "Shareable with other employees",
+  "Quand un collaborateur crée une demande similaire, l'objet, le statut, la date et votre réponse lui sont montrés, sans nom ni département du demandeur. À cocher seulement si le contenu n'est pas confidentiel.": "When an employee creates a similar request, the subject, status, date and your answer are shown to them, without the requester's name or department. Tick only if the content is not confidential.",
+  "Demande marquée comme partageable.": "Request marked as shareable.",
+  "Demande retirée du partage.": "Request removed from sharing.",
+  "Impossible de modifier le partage : la colonne « Partageable » existe-t-elle dans la liste ?": "Unable to change sharing: does the \"Partageable\" column exist in the list?",
+
   // Export CSV du dashboard
   "Tracker CPL - Dashboard KPI": "Tracker CPL - KPI Dashboard",
   "Filtres": "Filters",
@@ -306,6 +342,11 @@ const TRACKER_EN_PATTERNS = [
   // Détail
   [/^par (.+)$/, (_, a) => `by ${a}`],
   [/^Analyse Doc Review liée : (.+)$/, (_, a) => `Linked Doc Review analysis: ${a}`],
+
+  // Recherche IA
+  [/^(\d+) demandes? pour « (.*) »(?: \((\d+) masquées? par vos filtres\))?$/, (_, n, q, h) =>
+    `${n} ${plur(n, 'request', 'requests')} for « ${q} »` + (h ? ` (${h} hidden by your filters)` : '')],
+  [/^IA (\d+)$/, (_, n) => `AI ${n}`],
 
   // Notifications
   [/^Erreur : (.*)$/, (_, a) => `Error: ${a}`],

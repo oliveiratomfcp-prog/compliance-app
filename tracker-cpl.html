@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="cpl-validation-core.js"></script>
+<script src="tracker-ai-core.js?v=20261125-1"></script>
 <style>
 /* ── Tracker CPL — styles spécifiques ───────────────────────────── */
 .bdg{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
@@ -83,6 +84,15 @@
 .charts-wide{grid-template-columns:2fr 1fr}
 .bar-pair{display:flex;align-items:flex-end;gap:2px;width:100%;height:100px}
 .bar-pair .bar-fill{flex:1;min-height:1px}
+.ai-btn{font-size:11.5px;font-weight:600;padding:4px 11px;border-radius:6px;cursor:pointer;background:#fff;color:var(--navy);border:1px solid var(--border);font-family:inherit;white-space:nowrap}
+.ai-btn:hover{border-color:var(--gold)}
+.ai-btn.on{background:var(--navy);color:#fff;border-color:var(--navy)}
+.ai-btn:disabled{opacity:.6;cursor:wait}
+.ai-banner{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px;padding:8px 12px;border-radius:8px;background:#F5F3FF;border:1px solid #DDD6FE;color:#4C1D95;font-size:12.5px}
+.ai-badge{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;background:#6D28D9;color:#fff;padding:2px 9px;border-radius:20px}
+.ai-chip{display:inline-block;margin-left:6px;font-size:10px;font-weight:700;color:#6D28D9;background:#F5F3FF;border:1px solid #DDD6FE;border-radius:20px;padding:0 6px;cursor:help}
+.bdg-sim-forte{background:#FFF7ED;color:#C2410C;border-color:#FED7AA}
+.bdg-sim-moyenne{background:#EFF6FF;color:#2563EB;border-color:#BFDBFE}
 
 .detail-grid{display:grid;grid-template-columns:1fr 320px;gap:14px}
 .back-btn{display:inline-flex;align-items:center;gap:5px;background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:13px;margin-bottom:14px;padding:0;font-family:inherit}
@@ -304,10 +314,14 @@ const STATUT_REPONSE = 'Réponse à revoir';
 const OPEN_STATUSES = ['À traiter', STATUT_REPONSE, "En cours d'analyse", "En attente d'informations"];
 let assignedOnly = false; // filtre "mes demandes assignées" (CPL)
 let lastLoadedAt = null;
+let aiSearch = null;      // recherche IA affichée : { query, items: [{ ref, score, pourquoi }], keepOrder }
+let aiBusy = false;
+let aiSeq = 0;
 
 function sortBy(col) {
   if (sortCol === col) sortDir *= -1;
   else { sortCol = col; sortDir = 1; }
+  if (aiSearch) aiSearch.keepOrder = false;   // le tri choisi remplace l'ordre de pertinence
   renderList();
 }
 
@@ -502,6 +516,7 @@ async function initSharePointThenLoad() {
 
     await loadRequests();
     await handleDocReviewParam();
+    openRequestFromHash();
   } catch(e) {
     console.error('SharePoint init error:', e);
     setListLoading(false);
@@ -540,6 +555,9 @@ async function loadRequests(silent) {
         responsable   : f.ResponsableCPL || '',
         followers     : f.CCEmails || '',
         refDocReview  : f.RefDocReview || '',
+        motifRejet    : f.MotifRejet || '',
+        partageable   : f.Partageable === true,
+        similaires    : TrackerAiCore.parseSimilaires(f.DemandesSimilaires),
         historique,
         _ts           : submittedTs,
         _activity     : activity,
@@ -839,17 +857,23 @@ function renderList() {
   const colCount   = activeCols.length;
   const pctMap     = computeActivePcts(activeCols, storedPcts);
 
-  let all = cplView ? requests : requests.filter(r =>
-    r.email === currentUser.email ||
-    (r.followers || '').toLowerCase()
-      .split(',')
-      .map(e => e.trim())
-      .includes(currentUser.email.toLowerCase())
-  );
+  const baseVisible = userVisibleRequests();
+  let all = baseVisible;
   if (cplView && assignedOnly) all = all.filter(r => r.responsable === currentUser.name);
-  const filtered = all.filter(r =>
+  let filtered = all.filter(r =>
     (statusFilter === 'all' || r.statut === statusFilter) &&
     activeCols.every(c => matchesColFilter(r, c.id)));
+
+  // Résultats IA : seules les demandes de la liste de l'utilisateur, dans l'ordre de pertinence ;
+  // les filtres de statut et de colonnes restent actifs (le nombre de demandes masquées est indiqué)
+  const aiHits = aiSearch ? new Map(aiSearch.items.map((it, i) => [it.ref, Object.assign({ rank: i }, it)])) : null;
+  let aiHidden = 0;
+  if (aiHits) {
+    const baseRefs = new Set(baseVisible.map(r => r.ref));
+    const inList = aiSearch.items.filter(it => baseRefs.has(it.ref)).length;
+    filtered = filtered.filter(r => aiHits.has(r.ref));
+    aiHidden = inList - filtered.length;
+  }
   const open     = all.filter(r => OPEN_STATUSES.includes(r.statut)).length;
   const awaiting = all.filter(r => r.statut === "En attente d'informations").length;
   const overSLA  = requests.filter(r => r.sla > 5 && OPEN_STATUSES.includes(r.statut)).length;
@@ -869,6 +893,7 @@ function renderList() {
   }).join('');
 
   const sortedFiltered = [...filtered].sort((a, b) => {
+    if (aiHits && aiSearch.keepOrder) return aiHits.get(a.ref).rank - aiHits.get(b.ref).rank;
     const key = sortCol === 'date' ? '_ts' : sortCol;   // "Soumis le" trié sur la date réelle
     let va = a[key] ?? '';
     let vb = b[key] ?? '';
@@ -916,7 +941,7 @@ function renderList() {
     const over = cplView && req.sla > 5 && OPEN_STATUSES.includes(req.statut);
     const near = cplView && req.sla >= 4 && req.sla <= 5 && OPEN_STATUSES.includes(req.statut);
     const cells = activeCols.map(c => {
-      if (c.id === 'ref')         return `<td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}</td>`;
+      if (c.id === 'ref')         return `<td class="td-ref">${req.ref}${over?' <span style="color:#DC2626;font-size:10px">⚠ SLA</span>':''}${near?' <span style="color:#D97706;font-size:10px">⚡</span>':''}${aiHits ? ` <span class="ai-chip" title="${escHtml(aiHits.get(req.ref).pourquoi || '')}">IA ${aiHits.get(req.ref).score}</span>` : ''}</td>`;
       if (c.id === 'objet')       return `<td><div class="td-objet-main">${req.objet}</div><div class="td-objet-sub">${req.type}</div></td>`;
       if (c.id === 'from')        return `<td class="td-muted" style="color:#374151;white-space:nowrap">${req.from}</td>`;
       if (c.id === 'dept')        return `<td class="td-muted" style="white-space:nowrap">${req.dept}</td>`;
@@ -929,7 +954,8 @@ function renderList() {
     }).join('');
     // Surbrillance tant que la réponse du demandeur n'a pas été traitée (statut "Réponse à revoir")
     const aRevoir = cplView && req.statut === STATUT_REPONSE;
-    return `<tr class="${over || aRevoir ? 'sla-over' : ''}" onclick="openDetail('${req.ref}')">${cells}</tr>`;
+    const aiWhy = aiHits ? ` title="${escHtml(aiHits.get(req.ref).pourquoi || '')}"` : '';
+    return `<tr class="${over || aRevoir ? 'sla-over' : ''}"${aiWhy} onclick="openDetail('${req.ref}')">${cells}</tr>`;
   }).join('') || `<tr><td colspan="${colCount}" style="padding:24px;text-align:center;color:var(--text-secondary)">Aucune demande dans cette catégorie</td></tr>`;
 
   const tabBtns = isCPL ? `
@@ -977,11 +1003,23 @@ function renderList() {
     </button>` : '';
 
   const searchBox = `
-    <input type="text" placeholder="Rechercher..." value="${escHtml(searchQuery)}" oninput="searchTable(this.value)"
-      style="${isCPL?'':'margin-left:auto;'}padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">`;
+    <span style="display:inline-flex;gap:6px;align-items:center;${isCPL?'':'margin-left:auto;'}">
+      <input type="text" id="search-requests" placeholder="Rechercher..." value="${escHtml(searchQuery)}" oninput="searchTable(this.value)"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();runAiSearch()}"
+        style="padding:4px 10px;border-radius:6px;border:1px solid var(--border);font-size:12px;font-family:inherit;width:150px">
+      <button class="ai-btn ${aiSearch ? 'on' : ''}" id="ai-search-btn" onclick="runAiSearch()" ${aiBusy ? 'disabled' : ''}
+        title="Recherche IA : comprend les synonymes, les abréviations et les fautes de frappe">${aiBusy ? '✦ Analyse…' : '✦ Recherche IA'}</button>
+    </span>`;
+  const aiBanner = aiSearch ? `
+    <div class="ai-banner">
+      <span class="ai-badge">✦ Résultats IA</span>
+      <span>${filtered.length} demande${filtered.length > 1 ? 's' : ''} pour « ${escHtml(aiSearch.query)} »${aiHidden > 0 ? ` (${aiHidden} masquée${aiHidden > 1 ? 's' : ''} par vos filtres)` : ''}</span>
+      <button class="filter-pill" onclick="leaveAiSearch(false)">Revenir à la recherche classique</button>
+    </div>` : '';
 
   const content = (cplTab === 'dashboard' && isCPL) ? renderDashboard() : `
     <div class="cpl-filters">${filterBtns}${assignedToggle}${clearFilters}${searchBox}</div>
+    ${aiBanner}
     <div class="table-wrapper" style="overflow-x:auto;width:100%">
       <table class="data-table cpl-table">
         <thead><tr>${theadCells}</tr><tr style="background:#F8F9FC">${filterCells}</tr></thead>
@@ -1018,12 +1056,293 @@ function renderList() {
       </div>
     </div>
     ${content}`;
-  if (searchQuery) searchTable(searchQuery);   // la recherche survit aux rafraîchissements
+  if (searchQuery && !aiSearch) searchTable(searchQuery);   // la recherche survit aux rafraîchissements
+}
+
+// ═══════════════════════════════════════════════════════════
+// RECHERCHE IA ET DEMANDES SIMILAIRES
+// ═══════════════════════════════════════════════════════════
+// Les appels passent par les Functions /api/ai-search et /api/ai-similar (API OpenAI, comme Doc Review). Le
+// navigateur construit le catalogue (tracker-ai-core.js), envoie la requête avec le catalogue et
+// n'affiche que les références validées par le serveur : le texte des réponses de la Compliance
+// vient toujours des données locales, jamais du modèle. Tout échec ou délai dépassé laisse le
+// comportement habituel (recherche texte, soumission normale).
+const AI_TIMEOUT_MS = 8000;
+const AI_CACHE_TTL_MS = 10 * 60 * 1000;
+const COMMENTS_INDEX_TTL_MS = 5 * 60 * 1000;
+const commentsIndex = { map: null, at: 0, loading: null };
+const aiCache = new Map();
+
+// Demandes de la liste de l'utilisateur : toutes pour la Compliance, les siennes et celles où
+// il est en copie pour les autres
+function userVisibleRequests() {
+  return isCPL ? requests : requests.filter(r => TrackerAiCore.visibleTo(r, currentUser));
+}
+
+// Résout avec `fallback` si la promesse échoue ou dépasse le délai
+function withDeadline(promise, ms, fallback) {
+  let timer;
+  const deadline = new Promise(resolve => { timer = setTimeout(() => resolve(fallback), ms); });
+  return Promise.race([Promise.resolve(promise).catch(() => fallback), deadline]).finally(() => clearTimeout(timer));
+}
+
+// Réponses des membres de la Compliance, lues une fois dans la liste des commentaires
+async function getCommentsIndex() {
+  if (!spCommListId) return new Map();
+  if (commentsIndex.map && Date.now() - commentsIndex.at < COMMENTS_INDEX_TTL_MS) return commentsIndex.map;
+  if (!commentsIndex.loading) {
+    commentsIndex.loading = (async () => {
+      const items = await graphGetAll(`/sites/${spSiteId}/lists/${spCommListId}/items?expand=fields,createdBy&$top=999`);
+      commentsIndex.map = TrackerAiCore.buildCommentsIndex(items, { cplEmails: CPL_EMAILS, cplNames: CPL_TEAM.map(m => m.name) });
+      commentsIndex.at = Date.now();
+      return commentsIndex.map;
+    })().finally(() => { commentsIndex.loading = null; });
+  }
+  return commentsIndex.loading;
+}
+
+async function aiApiHeaders() {
+  const token = await getToken(['User.Read']);
+  return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token, 'X-EIG-Graph-Token': token };
+}
+
+async function callAi(path, payload, timeoutMs) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs || AI_TIMEOUT_MS);
+  try {
+    const res = await fetch(path, { method: 'POST', headers: await aiApiHeaders(), body: JSON.stringify(payload), signal: ctrl.signal });
+    if (!res.ok) {
+      let msg = '';
+      try { msg = (await res.json()).error.message; } catch (e) { /* corps non JSON */ }
+      const err = new Error(msg || `HTTP ${res.status}`);
+      err.status = res.status;
+      throw err;
+    }
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function aiCacheGet(key) {
+  const hit = aiCache.get(key);
+  if (hit && Date.now() - hit.at < AI_CACHE_TTL_MS) return hit.resp;
+  aiCache.delete(key);
+  return null;
+}
+function aiCachePut(key, resp) {
+  aiCache.set(key, { at: Date.now(), resp });
+  while (aiCache.size > 30) aiCache.delete(aiCache.keys().next().value);
+}
+
+// ── Recherche IA (Entrée ou bouton) ──
+function setAiBusyUi(on) {
+  const b = document.getElementById('ai-search-btn');
+  if (!b) return;
+  b.disabled = on;
+  b.textContent = on ? '✦ Analyse…' : '✦ Recherche IA';
+}
+
+function leaveAiSearch(keepFocus) {
+  aiSearch = null;
+  aiSeq++;   // une réponse encore en attente ne doit plus s'afficher
+  renderList();
+  if (keepFocus) {
+    const el = document.getElementById('search-requests');
+    if (el) { el.focus(); el.setSelectionRange(el.value.length, el.value.length); }
+  }
+}
+
+function aiErrorMessage(e) {
+  if (e && e.name === 'AbortError') return 'Recherche IA trop lente : la recherche classique est conservée.';
+  if (e && e.status === 429) return 'Trop de recherches IA, réessayez dans une minute. La recherche classique est conservée.';
+  return 'Recherche IA indisponible : la recherche classique est conservée.';
+}
+
+async function runAiSearch() {
+  if (aiBusy) return;
+  const input = document.getElementById('search-requests');
+  const q = String((input && input.value) || searchQuery || '').trim();
+  if (q.length < 2) { showToast('Saisissez au moins 2 caractères pour la recherche IA.', 'info'); return; }
+
+  aiBusy = true;
+  setAiBusyUi(true);
+  const seq = ++aiSeq;
+  try {
+    const idx = await withDeadline(getCommentsIndex(), 4000, commentsIndex.map || new Map());
+    const cat = TrackerAiCore.buildCatalogue(requests, idx, { isCPL, email: currentUser.email, mode: 'search' });
+    if (!cat.entries.length) { showToast('Aucune demande à analyser.', 'info'); return; }
+
+    const key = `search|${TrackerAiCore.catalogueSignature(cat.entries)}|${q.toLowerCase()}`;
+    let resp = aiCacheGet(key);
+    if (!resp) {
+      resp = await callAi('/api/ai-search', { query: q, catalogue: cat.entries });
+      aiCachePut(key, resp);
+    }
+    if (seq !== aiSeq) return;   // l'utilisateur a modifié la recherche entre-temps
+
+    // seules les références réellement présentes dans la liste de l'utilisateur sont retenues
+    const items = (resp.resultats || [])
+      .filter(it => it && cat.byRef.has(it.ref))
+      .map(it => ({ ref: it.ref, score: Math.round(Number(it.score) || 0), pourquoi: String(it.pourquoi || '') }));
+    aiSearch = { query: q, items, keepOrder: true };
+  } catch (e) {
+    console.warn('Recherche IA :', e);
+    if (seq === aiSeq) showToast(aiErrorMessage(e), 'info');
+  } finally {
+    aiBusy = false;
+    if (aiSearch) renderList(); else setAiBusyUi(false);
+  }
+}
+
+// ── Demandes similaires à la création ──
+// Renvoie { proceed, audit } : proceed=false si l'utilisateur annule pour revenir au formulaire.
+// Jamais bloquant : sans demande similaire, en cas d'échec ou de délai dépassé, la soumission continue.
+async function checkSimilarRequests(draft) {
+  const started = Date.now();
+  try {
+    const idx = await withDeadline(getCommentsIndex(), 3000, commentsIndex.map || new Map());
+    const cat = TrackerAiCore.buildCatalogue(requests, idx, { isCPL, email: currentUser.email, mode: 'similar' });
+    if (!cat.entries.length) return { proceed: true };
+
+    const payload = { objet: draft.objet, type: draft.type, description: draft.description, catalogue: cat.entries };
+    const key = `similar|${TrackerAiCore.catalogueSignature(cat.entries)}|${JSON.stringify([draft.objet, draft.type, draft.description]).toLowerCase()}`;
+    let resp = aiCacheGet(key);
+    if (!resp) {
+      resp = await callAi('/api/ai-similar', payload, Math.max(3000, AI_TIMEOUT_MS - (Date.now() - started)));
+      aiCachePut(key, resp);
+    }
+    const items = (resp.similaires || []).filter(s => s && cat.byRef.has(s.ref)).slice(0, 5)
+      .map(s => Object.assign({}, s, { info: cat.byRef.get(s.ref) }));
+    if (!items.length) return { proceed: true };
+
+    const choice = await showSimilarModal(items);
+    return {
+      proceed: choice === 'submit',
+      audit: { v: 1, date: new Date().toISOString(), propose: items.map(s => ({ ref: s.ref, similarite: s.similarite })), choix: 'soumis_quand_meme' }
+    };
+  } catch (e) {
+    console.warn('Demandes similaires :', e);
+    showToast('Analyse des demandes similaires indisponible : la demande est soumise normalement.', 'info');
+    return { proceed: true };
+  }
+}
+
+// Fenêtre « Demandes similaires trouvées » (DOM construit sans innerHTML : les textes viennent des
+// utilisateurs). Résout 'submit' ou 'cancel' ; Échap = annuler et revenir au formulaire.
+function showSimilarModal(items) {
+  return new Promise(resolve => {
+    const el = (tag, css, text) => { const e = document.createElement(tag); if (css) e.style.cssText = css; if (text !== undefined) e.textContent = text; return e; };
+    const overlay = el('div', 'position:fixed;inset:0;background:rgba(15,23,42,0.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px');
+    overlay.id = 'similar-modal';
+    const modal = el('div', 'background:white;border-radius:12px;max-width:760px;width:100%;max-height:90vh;overflow:auto;padding:22px;box-shadow:0 20px 50px rgba(0,0,0,0.25)');
+    modal.appendChild(el('h3', 'font-size:16px;font-weight:700;color:var(--navy);margin-bottom:4px', 'Demandes similaires trouvées'));
+    modal.appendChild(el('p', 'font-size:12.5px;color:var(--text-secondary);margin-bottom:14px',
+      'Des demandes déjà traitées ou en cours portent peut-être sur le même sujet. Lisez-les avant de soumettre : la réponse de la Compliance y répond peut-être déjà.'));
+
+    items.forEach(s => {
+      const req = s.info.req;
+      const shared = s.info.shared;
+      const card = el('div', 'border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px');
+      const head = el('div', 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px');
+      let ref;
+      if (shared) ref = el('span', 'font-family:monospace;font-size:12px;font-weight:600;color:var(--navy)', req.ref);
+      else {
+        ref = el('a', 'font-family:monospace;font-size:12px;font-weight:600;color:var(--navy)', req.ref);
+        ref.href = 'tracker-cpl.html#' + encodeURIComponent(req.ref);
+        ref.target = '_blank';
+        ref.rel = 'noopener';
+      }
+      const statut = el('span', '', req.statut); statut.className = 'bdg ' + (SC[req.statut] || 'bdg-brouillon');
+      const sim = el('span', '', s.similarite === 'forte' ? 'Similarité forte' : 'Similarité moyenne');
+      sim.className = 'bdg ' + (s.similarite === 'forte' ? 'bdg-sim-forte' : 'bdg-sim-moyenne');
+      head.append(ref, statut, sim);
+      card.appendChild(head);
+
+      const objet = el('div', 'font-size:13.5px;font-weight:600;color:#111827', req.objet); objet.className = 'no-i18n';
+      card.appendChild(objet);
+      const meta = el('div', 'font-size:11.5px;color:var(--text-secondary);margin:2px 0 6px');
+      meta.appendChild(el('span', '', 'Soumise le'));
+      meta.appendChild(el('span', '', ' ' + req.date));
+      if (!shared && req.from) { meta.appendChild(el('span', '', ' · Demandeur :')); meta.appendChild(el('span', '', ' ' + req.from + (req.dept ? ' (' + req.dept + ')' : ''))); }
+      card.appendChild(meta);
+      if (shared) card.appendChild(el('div', 'font-size:11px;color:var(--text-secondary);margin-bottom:6px', "Demande d'un autre collaborateur, partagée par la Compliance (identité masquée)."));
+
+      const why = el('div', 'font-size:12px;color:#4B5563;font-style:italic;margin-bottom:8px');
+      why.appendChild(el('span', 'font-style:normal;font-weight:600', 'Pourquoi :'));
+      const whyTxt = el('span', '', ' ' + s.explication); whyTxt.className = 'no-i18n';
+      why.appendChild(whyTxt);
+      card.appendChild(why);
+
+      const box = el('div', 'background:#F4F5F8;border-radius:8px;padding:10px 12px');
+      box.appendChild(el('div', 'font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px', 'Réponse apportée par la Compliance'));
+      const reply = s.info.reply;
+      if (reply) {
+        const txt = el('div', 'font-size:12.5px;color:#374151;line-height:1.55;white-space:pre-wrap', TrackerAiCore.truncate(reply, 1500)); txt.className = 'no-i18n';
+        box.appendChild(txt);
+        if (reply.length > 1500) box.appendChild(el('div', 'font-size:11px;color:var(--text-secondary);margin-top:4px', shared ? 'Réponse tronquée.' : 'Réponse tronquée : ouvrez la demande pour le texte complet.'));
+      } else {
+        box.appendChild(el('div', 'font-size:12.5px;color:var(--text-secondary);font-style:italic', 'Aucune réponse enregistrée pour cette demande.'));
+      }
+      card.appendChild(box);
+      modal.appendChild(card);
+    });
+
+    const actions = el('div', 'display:flex;gap:8px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap');
+    const cancel = el('button', '', 'Annuler et revenir au formulaire'); cancel.className = 'btn-secondary';
+    const submit = el('button', '', 'Soumettre quand même'); submit.className = 'btn-primary';
+    actions.append(cancel, submit);
+    modal.appendChild(actions);
+    overlay.appendChild(modal);
+    document.body.appendChild(overlay);
+
+    const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); done('cancel'); } };
+    const done = choice => { document.removeEventListener('keydown', onKey, true); overlay.remove(); resolve(choice); };
+    document.addEventListener('keydown', onKey, true);
+    cancel.onclick = () => done('cancel');
+    submit.onclick = () => done('submit');
+    cancel.focus();
+  });
+}
+
+// Demandes similaires proposées avant la soumission (vue Compliance, détail d'une demande)
+function similairesHtml(o) {
+  const links = (o.propose || [])
+    .filter(p => p && /^CPL-\d{4}-\d{4,}$/.test(String(p.ref)))
+    .map(p => `<a href="#" onclick="event.preventDefault();openDetail('${p.ref}')" style="color:var(--navy);font-weight:600">${p.ref}</a> (${escHtml(p.similarite)})`)
+    .join(', ');
+  if (!links) return '';
+  return `<div style="margin-top:10px;padding:8px 12px;border-radius:6px;background:#FFFBEB;border:1px solid #FDE68A;font-size:12px;color:#92400E;line-height:1.6">
+    <strong>Demandes similaires proposées par l'IA avant la soumission :</strong> <span>${links}</span> <span>Le demandeur a choisi de soumettre quand même.</span></div>`;
+}
+
+// Partage d'une demande dans les demandes similaires (Compliance)
+async function toggleShareable(checked) {
+  if (!isCPL || !selectedReq) return;
+  const box = document.getElementById('cpl-shareable');
+  try {
+    await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${selectedReq.spId}/fields`, { Partageable: checked });
+    selectedReq.partageable = checked;
+    showToast(checked ? 'Demande marquée comme partageable.' : 'Demande retirée du partage.', 'success');
+  } catch (e) {
+    console.error('Partageable :', e);
+    if (box) box.checked = !checked;
+    showToast('Impossible de modifier le partage : la colonne « Partageable » existe-t-elle dans la liste ?', 'error');
+  }
+}
+
+// Lien direct vers une demande (tracker-cpl.html#CPL-AAAA-NNNN), utilisé par la fenêtre des demandes similaires
+function openRequestFromHash() {
+  const h = decodeURIComponent((location.hash || '').slice(1));
+  if (!/^CPL-\d{4}-\d{4,}$/.test(h) || !requests.some(r => r.ref === h)) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  openDetail(h);
 }
 
 let searchQuery = '';
 function searchTable(q) {
   searchQuery = q;
+  if (aiSearch) { leaveAiSearch(true); return; }   // modifier le texte quitte les résultats IA
   const rows = document.querySelectorAll('#req-tbody tr');
   rows.forEach(r => {
     r.style.display = r.textContent.toLowerCase().includes(q.toLowerCase()) ? '' : 'none';
@@ -1958,6 +2277,17 @@ async function submitRequest() {
     }
   }
 
+  // Analyse des demandes similaires (IA) : jamais bloquante, la fenêtre ne s'ouvre que s'il y en a
+  btn.textContent = 'Analyse des demandes similaires...';
+  const similar = await checkSimilarRequests({ objet, type, description: TrackerAiCore.htmlToText(desc) });
+  if (!similar.proceed) {
+    btn.disabled = false;
+    btn.textContent = 'Soumettre la demande';
+    return;
+  }
+  const similarAudit = similar.audit || null;
+  btn.textContent = 'Envoi en cours...';
+
   try {
     const now  = new Date();
     const year = now.getFullYear();
@@ -1995,6 +2325,13 @@ async function submitRequest() {
           { CCEmails: followersValue }
         );
       } catch(e) {}
+    }
+
+    // 2c. Demandes similaires proposées et choix de l'utilisateur, pour que la Compliance les voie
+    if (similarAudit) {
+      try {
+        await graphPatch(`/sites/${spSiteId}/lists/${spListId}/items/${spItemId}/fields`, { DemandesSimilaires: JSON.stringify(similarAudit) });
+      } catch (e) { console.warn('DemandesSimilaires non enregistré (colonne absente ?) :', e.message); }
     }
 
     // 3. Créer le dossier dans la bibliothèque CPL-Tracker
@@ -2050,6 +2387,7 @@ async function submitRequest() {
             <tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Objet</td><td style="padding:8px 12px">${objet}</td></tr>
             <tr><td style="padding:8px 12px;font-weight:600">Description</td><td style="padding:8px 12px">${desc.replace(/\n/g,'<br>')}</td></tr>
             ${deadline ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Deadline</td><td style="padding:8px 12px">${deadline}</td></tr>` : ''}
+            ${similarAudit ? `<tr style="background:#F4F5F8"><td style="padding:8px 12px;font-weight:600">Demandes similaires</td><td style="padding:8px 12px">Proposées avant la soumission : ${similarAudit.propose.map(p => p.ref).join(', ')}. Le demandeur a soumis quand même.</td></tr>` : ''}
             <tr><td style="padding:8px 12px;font-weight:600">Soumis le</td><td style="padding:8px 12px">${now.toLocaleString('fr-FR')}</td></tr>
           </table>
           <p style="color:#6B7280;font-size:12px">— Tracker CPL · Eiffel Investment Group</p>
@@ -2182,6 +2520,14 @@ function openDetail(ref) {
       </div>
       ${selectedReq.responsable ? `<div style="font-size:11.5px;color:var(--text-secondary);margin-top:6px">Actuellement : <strong style="color:#374151">${selectedReq.responsable}</strong></div>` : ''}
     </div>
+    <div class="cpl-actions-panel" style="margin-top:10px">
+      <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Partage (demandes similaires)</div>
+      <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;font-weight:500;color:#374151">
+        <input type="checkbox" id="cpl-shareable" ${selectedReq.partageable ? 'checked' : ''} onchange="toggleShareable(this.checked)" style="width:15px;height:15px">
+        Partageable avec les autres collaborateurs
+      </label>
+      <div style="font-size:11px;color:var(--text-secondary);margin-top:6px;line-height:1.5">Quand un collaborateur crée une demande similaire, l'objet, le statut, la date et votre réponse lui sont montrés, sans nom ni département du demandeur. À cocher seulement si le contenu n'est pas confidentiel.</div>
+    </div>
     ${canValidateDocument(selectedReq) ? `
     <div class="cpl-actions-panel" style="margin-top:10px">
       <div style="font-size:11px;font-weight:700;color:var(--text-secondary);letter-spacing:.07em;text-transform:uppercase;margin-bottom:10px">Validation documentaire</div>
@@ -2218,6 +2564,7 @@ function openDetail(ref) {
           </div>
           <div style="border-top:1px solid var(--border);padding-top:12px;font-size:13px;color:#374151;line-height:1.65" class="no-i18n">${formatDescription(selectedReq.desc)}</div>
           <div id="docreview-link"></div>
+          ${isCPL && selectedReq.similaires ? similairesHtml(selectedReq.similaires) : ''}
           <div style="display:flex;gap:20px;margin-top:12px;padding-top:10px;border-top:1px solid var(--border);flex-wrap:wrap">
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Demandeur :</strong> ${selectedReq.from} — ${selectedReq.dept}</div>
             <div style="font-size:11.5px;color:var(--text-secondary)"><strong style="font-weight:500;color:#374151">Soumis :</strong> ${selectedReq.date}</div>
@@ -2670,6 +3017,7 @@ async function sendComment() {
     const fn = document.getElementById('comment-file-name');
     if (fn) fn.textContent = '';
     await loadComments(selectedReq.ref);
+    commentsIndex.at = 0;   // la réponse qui vient d'être écrite doit apparaître dans les demandes similaires
     // Recharger les pièces jointes si un fichier a été joint
     if (commentFile) await loadFilesForDetail(selectedReq.ref);
   } catch(e) {
