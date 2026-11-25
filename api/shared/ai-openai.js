@@ -33,7 +33,7 @@ async function respondJson(cfg, step, request, schemaName, schema, deps) {
   };
 
   const controller = new AbortController();
-  const timer = setTimeout(function () { controller.abort(); }, cfg.timeoutMs);
+  const timer = setTimeout(function () { controller.abort(); }, step.timeoutMs || cfg.timeoutMs);
   let res;
   let text;
   try {

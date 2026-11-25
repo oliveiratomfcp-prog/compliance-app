@@ -192,10 +192,12 @@ Settings des Functions, jamais dans le dépôt) :
 | `OPENAI_MODEL_SIMILAIRES` | Modèle des demandes similaires (défaut : celui de la recherche) |
 | `OPENAI_EFFORT_RECHERCHE` | Effort de raisonnement de la recherche (défaut `low`) |
 | `OPENAI_EFFORT_SIMILAIRES` | Effort de raisonnement des demandes similaires (défaut : celui de la recherche) |
-| `OPENAI_TIMEOUT_MS_TRACKER` | Délai maximal d'un appel au modèle en ms (défaut 7000, de 1000 à 40000) |
+| `OPENAI_TIMEOUT_MS_TRACKER` | Délai maximal de la recherche IA en ms (défaut 7000, de 1000 à 40000) |
+| `OPENAI_TIMEOUT_MS_SIMILAIRES` | Délai maximal des demandes similaires en ms (défaut 15000, de 1000 à 40000) |
 
 Les appels sont synchrones (sans mode background) : un modèle rapide ou un effort faible est nécessaire pour
-tenir le délai de 8 s du navigateur.
+tenir les délais du navigateur (8 s pour la recherche, 16 s pour les demandes similaires). Au-delà de 15 s,
+relever aussi `AI_SIMILAR_TIMEOUT_MS` dans `tracker-cpl.html`.
 
 Colonnes à créer dans la liste « Tracker CPL Demandes » :
 

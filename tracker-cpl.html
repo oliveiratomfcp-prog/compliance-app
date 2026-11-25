@@ -1067,7 +1067,8 @@ function renderList() {
 // n'affiche que les références validées par le serveur : le texte des réponses de la Compliance
 // vient toujours des données locales, jamais du modèle. Tout échec ou délai dépassé laisse le
 // comportement habituel (recherche texte, soumission normale).
-const AI_TIMEOUT_MS = 8000;
+const AI_TIMEOUT_MS = 8000;            // recherche IA (le serveur coupe à 7 s)
+const AI_SIMILAR_TIMEOUT_MS = 16000;   // demandes similaires (le serveur coupe à 15 s)
 const AI_CACHE_TTL_MS = 10 * 60 * 1000;
 const COMMENTS_INDEX_TTL_MS = 5 * 60 * 1000;
 const commentsIndex = { map: null, at: 0, loading: null };
@@ -1202,7 +1203,6 @@ const SIMILAR_SKIP_TYPES = [TYPE_VALIDATION_DOC, 'Franchissement de seuil'];
 async function checkSimilarRequests(draft) {
   // Sujets uniques à chaque fois : pas d'analyse IA, la soumission continue directement.
   if (SIMILAR_SKIP_TYPES.indexOf(draft.type) !== -1) return { proceed: true };
-  const started = Date.now();
   try {
     const idx = await withDeadline(getCommentsIndex(), 3000, commentsIndex.map || new Map());
     const cat = TrackerAiCore.buildCatalogue(requests, idx, { isCPL, email: currentUser.email, mode: 'similar' });
@@ -1212,7 +1212,7 @@ async function checkSimilarRequests(draft) {
     const key = `similar|${TrackerAiCore.catalogueSignature(cat.entries)}|${JSON.stringify([draft.objet, draft.type, draft.description]).toLowerCase()}`;
     let resp = aiCacheGet(key);
     if (!resp) {
-      resp = await callAi('/api/ai-similar', payload, Math.max(3000, AI_TIMEOUT_MS - (Date.now() - started)));
+      resp = await callAi('/api/ai-similar', payload, AI_SIMILAR_TIMEOUT_MS);
       aiCachePut(key, resp);
     }
     const items = (resp.similaires || []).filter(s => s && cat.byRef.has(s.ref) && s.categorie !== 'sans_interet').slice(0, 5)

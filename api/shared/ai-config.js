@@ -8,14 +8,24 @@
 //   OPENAI_MODEL_SIMILAIRES     modèle des demandes similaires (défaut : celui de la recherche)
 //   OPENAI_EFFORT_RECHERCHE     effort de raisonnement de la recherche (défaut low)
 //   OPENAI_EFFORT_SIMILAIRES    effort de raisonnement des demandes similaires (défaut : celui de la recherche)
-//   OPENAI_TIMEOUT_MS_TRACKER   délai maximal d'un appel au modèle en ms (défaut 7000, de 1000 à 40000)
+//   OPENAI_TIMEOUT_MS_TRACKER   délai maximal de la recherche IA en ms (défaut 7000, de 1000 à 40000)
+//   OPENAI_TIMEOUT_MS_SIMILAIRES délai maximal des demandes similaires en ms (défaut 15000, de 1000 à 40000)
+//   (le navigateur attend un peu plus : 8 s pour la recherche, 16 s pour les demandes similaires)
 // Le navigateur ne choisit jamais le modèle : seuls les modèles configurés ici sont utilisés.
 'use strict';
 
 const base = require('./docreview-config');
 
 const DEFAULT_EFFORT = 'low';
-const DEFAULT_TIMEOUT_MS = 7000;
+const DEFAULT_TIMEOUT_MS = 7000;              // recherche IA
+const DEFAULT_TIMEOUT_SIMILAIRES_MS = 15000;  // demandes similaires (résumé à rédiger)
+
+function readTimeout(env, name, def) {
+  if (!env[name]) return def;
+  const v = parseInt(env[name], 10);
+  if (!(v >= 1000 && v <= 40000)) throw new Error(name + ' invalide (de 1000 à 40000).');
+  return v;
+}
 
 function readConfig(env) {
   env = env || process.env;
@@ -32,13 +42,11 @@ function readConfig(env) {
     effort: base.effort(env.OPENAI_EFFORT_SIMILAIRES, recherche.effort, 'OPENAI_EFFORT_SIMILAIRES')
   };
 
-  let timeoutMs = DEFAULT_TIMEOUT_MS;
-  if (env.OPENAI_TIMEOUT_MS_TRACKER) {
-    timeoutMs = parseInt(env.OPENAI_TIMEOUT_MS_TRACKER, 10);
-    if (!(timeoutMs >= 1000 && timeoutMs <= 40000)) throw new Error('OPENAI_TIMEOUT_MS_TRACKER invalide (de 1000 à 40000).');
-  }
+  const timeoutMs = readTimeout(env, 'OPENAI_TIMEOUT_MS_TRACKER', DEFAULT_TIMEOUT_MS);
+  recherche.timeoutMs = timeoutMs;
+  similaires.timeoutMs = readTimeout(env, 'OPENAI_TIMEOUT_MS_SIMILAIRES', DEFAULT_TIMEOUT_SIMILAIRES_MS);
 
   return { apiKey: b.apiKey, baseUrl: b.baseUrl, recherche: recherche, similaires: similaires, timeoutMs: timeoutMs };
 }
 
-module.exports = { readConfig: readConfig, DEFAULT_EFFORT: DEFAULT_EFFORT, DEFAULT_TIMEOUT_MS: DEFAULT_TIMEOUT_MS };
+module.exports = { readConfig: readConfig, DEFAULT_EFFORT: DEFAULT_EFFORT, DEFAULT_TIMEOUT_MS: DEFAULT_TIMEOUT_MS, DEFAULT_TIMEOUT_SIMILAIRES_MS: DEFAULT_TIMEOUT_SIMILAIRES_MS };
