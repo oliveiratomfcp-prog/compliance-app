@@ -383,6 +383,13 @@ document.getElementById("btn-export-excel").addEventListener("click", () => {
 // -----------------------------------------------
 // VÉRIFICATION EN MASSE
 // -----------------------------------------------
+// Statut d'un résultat de recherche : "restricted" si au moins une vraie restriction,
+// "portfolio" si uniquement des positions en portefeuille (non bloquant), "clean" sinon.
+function matchStatus(matches) {
+  if (!matches || !matches.length) return "clean";
+  return matches.every(m => PositionsCore.isPositionItem(m)) ? "portfolio" : "restricted";
+}
+
 document.getElementById("btn-bulk-check").addEventListener("click", () => {
   const container = document.getElementById("bulk-check-container");
   container.classList.toggle("hidden");
@@ -403,6 +410,7 @@ document.getElementById("btn-bulk-run").addEventListener("click", () => {
   resultsEl.classList.remove("hidden");
 
   let restricted = 0;
+  let portfolio = 0;
   let clean = 0;
   const resultData = [];
 
@@ -416,19 +424,26 @@ document.getElementById("btn-bulk-run").addEventListener("click", () => {
 
   entries.forEach(entry => {
     const matches = allRestrictedItems.filter(item => PositionsCore.matchesBulkEntry(item, entry));
-    const isRestricted = matches.length > 0;
-    if (isRestricted) restricted++; else clean++;
-    resultData.push({ entry, isRestricted, matches });
+    // Rouge : au moins une vraie restriction (NDA, information privil\u00E9gi\u00E9e) ;
+    // jaune : uniquement des positions en portefeuille (information, non bloquant).
+    const status = matchStatus(matches);
+    const isRestricted = status === "restricted";
+    const isPortfolio = status === "portfolio";
+    if (isRestricted) restricted++; else if (isPortfolio) portfolio++; else clean++;
+    resultData.push({ entry, isRestricted, isPortfolio, matches });
 
     const div = document.createElement("div");
-    div.className = `bulk-result-item ${isRestricted ? "restricted" : "clean"}`;
+    div.className = `bulk-result-item ${isRestricted ? "restricted" : isPortfolio ? "portfolio" : "clean"}`;
+    const detail = PositionsCore.escapeHtml(PositionsCore.describeMatchTypes(matches));
     div.innerHTML = `
-      <span class="bulk-result-icon">${isRestricted ? "\uD83D\uDEAB" : "\u2705"}</span>
+      <span class="bulk-result-icon">${isRestricted ? "\uD83D\uDEAB" : isPortfolio ? "\uD83D\uDCBC" : "\u2705"}</span>
       <div style="flex:1">
-        <strong>${entry}</strong>
+        <strong>${PositionsCore.escapeHtml(entry)}</strong>
         ${isRestricted
-          ? `<span style="margin-left:8px;font-size:12px;color:#c53030">Restreint \u2014 ${PositionsCore.escapeHtml(PositionsCore.describeMatchTypes(matches))}</span>`
-          : `<span style="margin-left:8px;font-size:12px;color:var(--success)">Non restreint</span>`}
+          ? `<span style="margin-left:8px;font-size:12px;color:#c53030">Restreint \u2014 ${detail}</span>`
+          : isPortfolio
+            ? `<span style="margin-left:8px;font-size:12px;color:#92400e">${detail} \u2014 non bloquant</span>`
+            : `<span style="margin-left:8px;font-size:12px;color:var(--success)">Non restreint</span>`}
       </div>`;
     resultsEl.appendChild(div);
   });
@@ -439,6 +454,7 @@ document.getElementById("btn-bulk-run").addEventListener("click", () => {
     <span style="font-size:13px;color:var(--text-secondary)">
       <strong>${entries.length}</strong> titre(s) \u2014
       <span style="color:#c53030"><strong>${restricted}</strong> restreint(s)</span>,
+      ${portfolio ? `<span style="color:#92400e"><strong>${portfolio}</strong> en portefeuille</span>,` : ""}
       <span style="color:var(--success)"><strong>${clean}</strong> autoris\u00e9(s)</span>
     </span>
     <button onclick="generateBulkPDF(${JSON.stringify(resultData).replace(/'/g,'&#39;').replace(/"/g,'&quot;')})" class="btn-primary" style="font-size:12px;padding:8px 14px">
@@ -488,9 +504,10 @@ function generateBulkPDF(resultData) {
   doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
   doc.text("Heure :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50); doc.text(timeStr, 80, y); y += 9;
   const restr = resultData.filter(r => r.isRestricted).length;
+  const portf = resultData.filter(r => r.isPortfolio).length;
   doc.setFont("helvetica", "bold"); doc.setTextColor(0,20,59);
   doc.text("R\u00e9sum\u00e9 :", 20, y); doc.setFont("helvetica", "normal"); doc.setTextColor(50,50,50);
-  doc.text(`${resultData.length} titre(s) \u2014 ${restr} restreint(s), ${resultData.length - restr} autoris\u00e9(s)`, 80, y); y += 14;
+  doc.text(`${resultData.length} titre(s) \u2014 ${restr} restreint(s), ${portf ? `${portf} en portefeuille, ` : ""}${resultData.length - restr - portf} autoris\u00e9(s)`, 80, y); y += 14;
 
   if (lastBulkPositionsUnavailable) {
     y = addPositionsUnavailablePdfNotice(doc, y);
@@ -515,6 +532,17 @@ function generateBulkPDF(resultData) {
       doc.setFont("helvetica", "normal"); doc.setFontSize(9);
       doc.text(detailLines, 25, y+11);
       y += boxH + 4;
+    } else if (r.isPortfolio) {
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      const detailLines = doc.splitTextToSize(`${PositionsCore.describeMatchTypes(r.matches)} — non bloquant`, 160);
+      const boxH = 12 + detailLines.length * 4;
+      doc.setFillColor(254, 243, 199); doc.rect(20, y-4, 170, boxH, "F");
+      doc.setDrawColor(253, 230, 138); doc.rect(20, y-4, 170, boxH);
+      doc.setFont("helvetica", "bold"); doc.setTextColor(146, 64, 14); doc.setFontSize(10);
+      doc.text(`• ${r.entry}`, 25, y+4);
+      doc.setFont("helvetica", "normal"); doc.setFontSize(9);
+      doc.text(detailLines, 25, y+11);
+      y += boxH + 4;
     } else {
       doc.setFillColor(232,244,244); doc.rect(20, y-4, 170, 12, "F");
       doc.setFont("helvetica", "normal"); doc.setTextColor(0,102,96); doc.setFontSize(10);
@@ -529,8 +557,8 @@ function generateBulkPDF(resultData) {
 
   saveConsultationToHistory(
     `V\u00e9rification masse (${resultData.length} titres)`,
-    restr > 0,
-    resultData.filter(r => r.isRestricted).flatMap(r => r.matches)
+    restr + portf > 0,
+    resultData.filter(r => r.isRestricted || r.isPortfolio).flatMap(r => r.matches)
   );
 
   doc.save(`Rapport_Verification_${now.toISOString().slice(0,10)}.pdf`);
@@ -606,7 +634,25 @@ function generateRestrictedPDF(query, opts = {}) {
   y += 4;
 
   // Bloc résultat coloré
-  if (isFound) {
+  if (isFound && matchStatus(found) === "portfolio") {
+    // Uniquement des positions en portefeuille : information, non bloquant (jaune)
+    doc.setFontSize(10);
+    const lines = doc.splitTextToSize(`Le titre "${searchLabel}" est d\u00e9tenu en portefeuille par Eiffel Investment Group. Il n'est pas sous restriction.`, 155);
+    const boxH = 17 + lines.length * 5;
+    doc.setFillColor(254, 243, 199);
+    doc.rect(20, y - 4, 170, boxH, "F");
+    doc.setDrawColor(217, 119, 6);
+    doc.setLineWidth(0.8);
+    doc.rect(20, y - 4, 170, boxH);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(146, 64, 14);
+    doc.text("TITRE EN PORTEFEUILLE (NON BLOQUANT)", 28, y + 5);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text(lines, 28, y + 14);
+    y += boxH + 8;
+  } else if (isFound) {
     doc.setFillColor(253, 232, 232);
     doc.rect(20, y - 4, 170, 22, "F");
     doc.setDrawColor(197, 48, 48);
@@ -620,6 +666,8 @@ function generateRestrictedPDF(query, opts = {}) {
     doc.setFontSize(10);
     doc.text(`Le titre "${searchLabel}" figure sur la Restricted List d'Eiffel Investment Group.`, 28, y + 14);
     y += 30;
+  }
+  if (isFound) {
 
     // Détail des titres trouvés
     doc.setFontSize(10.5);
@@ -929,7 +977,8 @@ async function saveConsultationToHistory(searchLabel, isFound, foundItems) {
           D_x00e9_clarant: currentUser.displayName || currentUser.mail,
           DeclarantEmail: currentUser.mail,
           TypeEntree: "consultation",
-          Commentaire: isFound ? "Restreint - " + foundItems.map(i => i.nom).join(", ") : "Non restreint"
+          Commentaire: !isFound ? "Non restreint"
+            : (matchStatus(foundItems) === "portfolio" ? "En portefeuille (non bloquant) - " : "Restreint - ") + foundItems.map(i => i.nom).join(", ")
         }}
       );
     } catch (err) {
@@ -1005,7 +1054,8 @@ async function renderHistory(query) {
           date: f.DateTransaction,
           compte: f.CompteUtilise,
           commentaire: f.Commentaire,
-          isFound: f.Commentaire && f.Commentaire.startsWith("Restreint"),
+          isFound: !!f.Commentaire && (f.Commentaire.startsWith("Restreint") || f.Commentaire.startsWith("En portefeuille")),
+          isPortfolio: !!f.Commentaire && f.Commentaire.startsWith("En portefeuille"),
           dateDeclaration: item.createdDateTime,
           id: item.id
         };
@@ -1042,7 +1092,10 @@ function _renderHistoryRows(items) {
     const heureDecl = new Date(item.dateDeclaration).toLocaleTimeString("fr-FR");
 
     if (item.type_entree === "consultation") {
-      const statusBadge = item.isFound
+      const portfolioOnly = item.isPortfolio || (item.isFound && item.foundItems && matchStatus(item.foundItems) === "portfolio");
+      const statusBadge = portfolioOnly
+        ? `<span class="badge badge-portefeuille-info">En portefeuille (non bloquant)</span>`
+        : item.isFound
         ? `<span class="badge badge-restricted">Restreint</span>`
         : `<span class="badge badge-active">Non restreint</span>`;
       tbody.innerHTML += `

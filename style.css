@@ -464,6 +464,11 @@ body {
   border: 1px solid #f5c6c6;
 }
 
+.bulk-result-item.portfolio {
+  background: #fef3c7;
+  border: 1px solid #fde68a;
+}
+
 .bulk-result-item.clean {
   background: var(--success-bg);
   border: 1px solid #b2d8d8;
@@ -630,6 +635,7 @@ body {
 .badge-restricted { background: #fdf0ee; color: #c0392b; }
 .badge-active { background: var(--success-bg); color: var(--success); }
 .badge-portefeuille { background: #dcfce7; color: #15803d; }
+.badge-portefeuille-info { background: #fef3c7; color: #92400e; }
 
 /* Badges — palette de référence README (statuts / priorités / restriction Tracker CPL) */
 .bdg-traiter    { background:#EFF6FF; color:#2563EB; border:1px solid #BFDBFE }
