@@ -1198,7 +1198,10 @@ async function runAiSearch() {
 // ── Demandes similaires à la création ──
 // Renvoie { proceed, audit } : proceed=false si l'utilisateur annule pour revenir au formulaire.
 // Jamais bloquant : sans demande similaire, en cas d'échec ou de délai dépassé, la soumission continue.
+const SIMILAR_SKIP_TYPES = [TYPE_VALIDATION_DOC, 'Franchissement de seuil'];
 async function checkSimilarRequests(draft) {
+  // Sujets uniques à chaque fois : pas d'analyse IA, la soumission continue directement.
+  if (SIMILAR_SKIP_TYPES.indexOf(draft.type) !== -1) return { proceed: true };
   const started = Date.now();
   try {
     const idx = await withDeadline(getCommentsIndex(), 3000, commentsIndex.map || new Map());
