@@ -13,7 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js" integrity="sha384-weMABwrltA6jWR8DDe9Jp5blk+tZQh7ugpCsF3JwSA53WZM9/14PjS5LAJNHNjAI" crossorigin="anonymous"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="cpl-validation-core.js"></script>
-<script src="tracker-ai-core.js?v=20261125-1"></script>
+<script src="tracker-ai-core.js?v=20261125-2"></script>
 <style>
 /* ── Tracker CPL — styles spécifiques ───────────────────────────── */
 .bdg{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
@@ -1215,14 +1215,14 @@ async function checkSimilarRequests(draft) {
       resp = await callAi('/api/ai-similar', payload, Math.max(3000, AI_TIMEOUT_MS - (Date.now() - started)));
       aiCachePut(key, resp);
     }
-    const items = (resp.similaires || []).filter(s => s && cat.byRef.has(s.ref)).slice(0, 5)
+    const items = (resp.similaires || []).filter(s => s && cat.byRef.has(s.ref) && s.categorie !== 'sans_interet').slice(0, 5)
       .map(s => Object.assign({}, s, { info: cat.byRef.get(s.ref) }));
     if (!items.length) return { proceed: true };
 
     const choice = await showSimilarModal(items);
     return {
       proceed: choice === 'submit',
-      audit: { v: 1, date: new Date().toISOString(), propose: items.map(s => ({ ref: s.ref, similarite: s.similarite })), choix: 'soumis_quand_meme' }
+      audit: { v: 1, date: new Date().toISOString(), propose: items.map(s => ({ ref: s.ref, similarite: s.similarite, categorie: s.categorie })), choix: 'soumis_quand_meme' }
     };
   } catch (e) {
     console.warn('Demandes similaires :', e);
@@ -1260,6 +1260,11 @@ function showSimilarModal(items) {
       const sim = el('span', '', s.similarite === 'forte' ? 'Similarité forte' : 'Similarité moyenne');
       sim.className = 'bdg ' + (s.similarite === 'forte' ? 'bdg-sim-forte' : 'bdg-sim-moyenne');
       head.append(ref, statut, sim);
+      if (s.categorie === 'en_cours') {
+        const cat = el('span', 'background:#FEF3C7;color:#92400E;border:1px solid #FDE68A;white-space:normal', 'Même demande en cours : suivez-la');
+        cat.className = 'bdg';
+        head.appendChild(cat);
+      }
       card.appendChild(head);
 
       const objet = el('div', 'font-size:13.5px;font-weight:600;color:#111827', req.objet); objet.className = 'no-i18n';
@@ -1271,23 +1276,51 @@ function showSimilarModal(items) {
       card.appendChild(meta);
       if (shared) card.appendChild(el('div', 'font-size:11px;color:var(--text-secondary);margin-bottom:6px', "Demande d'un autre collaborateur, partagée par la Compliance (identité masquée)."));
 
-      const why = el('div', 'font-size:12px;color:#4B5563;font-style:italic;margin-bottom:8px');
-      why.appendChild(el('span', 'font-style:normal;font-weight:600', 'Pourquoi :'));
-      const whyTxt = el('span', '', ' ' + s.explication); whyTxt.className = 'no-i18n';
-      why.appendChild(whyTxt);
-      card.appendChild(why);
+      if (s.explication) {
+        const why = el('div', 'font-size:12px;color:#4B5563;font-style:italic;margin-bottom:8px');
+        why.appendChild(el('span', 'font-style:normal;font-weight:600', 'Lien avec votre demande :'));
+        const whyTxt = el('span', '', ' ' + s.explication); whyTxt.className = 'no-i18n';
+        why.appendChild(whyTxt);
+        card.appendChild(why);
+      }
+
+      // Synthèse rédigée par l'IA, signalée comme telle ; la source reste affichée dessous.
+      if (s.a_retenir) {
+        const sum = el('div', 'background:#EEF4FF;border:1px solid #C7D7FE;border-radius:8px;padding:9px 12px;margin-bottom:8px');
+        sum.appendChild(el('div', 'font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#3B5BDB;margin-bottom:3px', "Ce qu'il faut retenir (résumé IA)"));
+        const sumTxt = el('div', 'font-size:13px;color:#1F2937;line-height:1.5', s.a_retenir); sumTxt.className = 'no-i18n';
+        sum.appendChild(sumTxt);
+        card.appendChild(sum);
+      }
 
       const box = el('div', 'background:#F4F5F8;border-radius:8px;padding:10px 12px');
-      box.appendChild(el('div', 'font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px', 'Réponse apportée par la Compliance'));
+      const messages = s.info.messages || [];
+      const cle = s.message_cle >= 1 && s.message_cle <= messages.length ? s.message_cle : 0;
       const reply = s.info.reply;
-      if (reply) {
-        const txt = el('div', 'font-size:12.5px;color:#374151;line-height:1.55;white-space:pre-wrap', TrackerAiCore.truncate(reply, 1500)); txt.className = 'no-i18n';
-        box.appendChild(txt);
-        if (reply.length > 1500) box.appendChild(el('div', 'font-size:11px;color:var(--text-secondary);margin-top:4px', shared ? 'Réponse tronquée.' : 'Réponse tronquée : ouvrez la demande pour le texte complet.'));
+      const textBlock = t => { const d = el('div', 'font-size:12.5px;color:#374151;line-height:1.55;white-space:pre-wrap', t); d.className = 'no-i18n'; return d; };
+      if (cle) {
+        // Message décisif choisi par l'IA, affiché tel qu'écrit, puis l'échange complet replié.
+        box.appendChild(el('div', 'font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px', 'Réponse de la Compliance (texte original)'));
+        box.appendChild(textBlock(TrackerAiCore.truncate(messages[cle - 1], 1500)));
+        if (messages.length > 1) {
+          const det = el('details', 'margin-top:6px');
+          const sumEl = el('summary', 'font-size:11.5px;color:var(--navy);cursor:pointer', `Voir tout l'échange (${messages.length} messages)`);
+          det.appendChild(sumEl);
+          const all = textBlock(TrackerAiCore.truncate(reply, 3000)); all.style.marginTop = '6px';
+          det.appendChild(all);
+          box.appendChild(det);
+        }
       } else {
-        box.appendChild(el('div', 'font-size:12.5px;color:var(--text-secondary);font-style:italic', 'Aucune réponse enregistrée pour cette demande.'));
+        box.appendChild(el('div', 'font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--text-secondary);margin-bottom:4px', 'Réponse apportée par la Compliance'));
+        if (reply) {
+          box.appendChild(textBlock(TrackerAiCore.truncate(reply, 1500)));
+          if (reply.length > 1500) box.appendChild(el('div', 'font-size:11px;color:var(--text-secondary);margin-top:4px', shared ? 'Réponse tronquée.' : 'Réponse tronquée : ouvrez la demande pour le texte complet.'));
+        } else {
+          box.appendChild(el('div', 'font-size:12.5px;color:var(--text-secondary);font-style:italic', 'Aucune réponse enregistrée pour cette demande.'));
+        }
       }
-      card.appendChild(box);
+      // Demande en cours sans réponse : le résumé suffit, pas de bloc « Aucune réponse ».
+      if (reply || s.categorie !== 'en_cours' || !s.a_retenir) card.appendChild(box);
       modal.appendChild(card);
     });
 

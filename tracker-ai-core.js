@@ -17,7 +17,9 @@ const TrackerAiCore = (() => {
 
   const INTERNE = '[INTERNE]';
   const REPLY_MAX = 3000;       // réponse affichée à l'utilisateur
-  const REPLY_EXCERPT = 450;    // extrait envoyé à l'IA
+  const REPLY_EXCERPT = 450;    // extrait envoyé à l'IA (recherche)
+  const REPLY_EXCERPT_SIMILAR = 750;   // extrait envoyé à l'IA (demandes similaires : synthèse)
+  const MSG_EXCERPT = 300;      // longueur maximale d'un message dans l'extrait
   const DESC_EXCERPT = 350;
 
   function truncate(s, n) {
@@ -81,11 +83,42 @@ const TrackerAiCore = (() => {
     return ts ? new Date(ts).toLocaleDateString('fr-FR') : '';
   }
 
+  // Messages de la Compliance dans l'ordre (commentaires publics puis, pour une demande rejetée,
+  // le motif de rejet), tels qu'écrits. Leur numéro (à partir de 1) sert à l'IA pour désigner le
+  // message décisif, que le navigateur affiche ensuite mot pour mot.
+  function replyMessages(req, comments) {
+    const out = (comments || []).map(c => (c.ts ? `[${fmtDate(c.ts)}] ` : '') + c.text);
+    if (req && req.statut === 'Rejeté' && req.motifRejet) out.push('Motif de rejet : ' + req.motifRejet);
+    return out;
+  }
+
   // Réponse apportée par la Compliance, telle qu'écrite (jamais reformulée)
   function buildReply(req, comments) {
-    const parts = (comments || []).map(c => (c.ts ? `[${fmtDate(c.ts)}] ` : '') + c.text);
-    if (req && req.statut === 'Rejeté' && req.motifRejet) parts.push('Motif de rejet : ' + req.motifRejet);
-    return truncate(parts.join('\n\n'), REPLY_MAX);
+    return truncate(replyMessages(req, comments).join('\n\n'), REPLY_MAX);
+  }
+
+  // Extrait envoyé à l'IA : messages numérotés « #1 », « #2 »..., chacun tronqué. Si le total
+  // dépasse le budget, on garde le premier message (le contexte) et les derniers (souvent la
+  // réponse décisive), et on retire ceux du milieu.
+  function replyExcerpt(messages, budget) {
+    const items = messages.map((m, i) => `#${i + 1} ${truncate(m, MSG_EXCERPT)}`);
+    const size = list => list.join(' ').length;
+    if (size(items) <= budget) return items.join(' ');
+    const kept = items.slice();
+    while (kept.length > 2 && size(kept) > budget) kept.splice(1, 1);
+    return truncate(kept.join(' '), budget);
+  }
+
+  const FINAL = ['Traité', 'Clôturé', 'Rejeté'];
+  const SANS_OBJET = /annul|doublon|erreur|retir|cancel|duplicate|sans objet/i;
+
+  // Demandes sans valeur pour un collaborateur qui prépare une nouvelle demande : annulées ou
+  // rejetées pour doublon, ou terminées sans aucune réponse de la Compliance. Une demande encore
+  // ouverte reste proposée, même sans réponse (risque de doublon).
+  function sansInteret(req, messages) {
+    if (!req) return true;
+    if (req.statut === 'Rejeté' && SANS_OBJET.test(String(req.motifRejet || ''))) return true;
+    return FINAL.indexOf(req.statut) !== -1 && !messages.length;
   }
 
   function followersOf(req) {
@@ -112,15 +145,18 @@ const TrackerAiCore = (() => {
       const own = !!opts.isCPL || visibleTo(r, opts);
       const shared = !own && opts.mode === 'similar' && isShareable(r);
       if (!own && !shared) return;
-      const reply = buildReply(r, commentsIndex && commentsIndex.get(r.ref));
+      const comments = commentsIndex && commentsIndex.get(r.ref);
+      const messages = replyMessages(r, comments);
+      if (opts.mode === 'similar' && sansInteret(r, messages)) return;
+      const reply = buildReply(r, comments);
       const e = {
         ref: r.ref, objet: r.objet, type: r.type, statut: r.statut,
         description: truncate(htmlToText(r.desc), DESC_EXCERPT),
-        reponse: truncate(reply, REPLY_EXCERPT)
+        reponse: opts.mode === 'similar' ? replyExcerpt(messages, REPLY_EXCERPT_SIMILAR) : truncate(reply, REPLY_EXCERPT)
       };
       if (!shared) { e.dept = r.dept; e.demandeur = r.from; }
       entries.push(e);
-      byRef.set(r.ref, { req: r, shared, reply });
+      byRef.set(r.ref, { req: r, shared, reply, messages });
     });
     return { entries, byRef };
   }
@@ -141,7 +177,7 @@ const TrackerAiCore = (() => {
   }
 
   return Object.freeze({
-    htmlToText, cleanComment, isInternal, isCplAuthor, buildCommentsIndex, buildReply, visibleTo, isShareable,
+    htmlToText, cleanComment, isInternal, isCplAuthor, buildCommentsIndex, buildReply, replyMessages, replyExcerpt, sansInteret, visibleTo, isShareable,
     buildCatalogue, catalogueSignature, parseSimilaires, truncate, REPLY_MAX
   });
 })();

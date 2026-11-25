@@ -160,6 +160,12 @@ d'authentification que les autres Functions, 15 appels par minute et par utilisa
   formulaire ». Sans demande similaire, aucune fenêtre ; en cas d'échec, la soumission continue. Les
   références proposées et le choix sont enregistrés dans la colonne `DemandesSimilaires` et visibles
   de la Compliance sur la demande et dans l'email de nouvelle demande.
+  Pour chaque demande proposée, l'IA donne « Ce qu'il faut retenir » (résumé signalé comme tel) et
+  désigne le message décisif de la Compliance, affiché mot pour mot, l'échange complet restant
+  dépliable. Une demande encore ouverte sur le même sujet est signalée « Même demande en cours ».
+  Ne sont jamais proposées : les demandes annulées ou rejetées pour doublon, les demandes terminées
+  sans réponse de la Compliance, et celles que l'IA juge sans intérêt. Les types « Validation
+  documentation commerciale » et « Franchissement de seuil » ne déclenchent pas l'analyse.
 - **Qui voit quoi** : la Compliance voit toutes les demandes. Un collaborateur ne voit que les siennes
   et celles où il est en copie ; à la création, il voit en plus les demandes d'autres personnes que la
   Compliance a cochées « Partageable » (case du panneau « Partage » de la demande), sans nom ni

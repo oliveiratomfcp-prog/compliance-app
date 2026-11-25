@@ -10,6 +10,9 @@ const MIN_SCORE = 30;
 const MAX_SEARCH_RESULTS = 40;
 const MAX_SIMILAR_RESULTS = 5;
 const SIMILARITES = ['forte', 'moyenne'];
+// reponse : la réponse passée sert au demandeur ; en_cours : même sujet encore ouvert (risque de
+// doublon) ; sans_interet : rien d'utile (jamais affiché).
+const CATEGORIES = ['reponse', 'en_cours', 'sans_interet'];
 
 const LIMITS = Object.freeze({
   minQuery: 2, maxQuery: 300,
@@ -181,8 +184,15 @@ const SIMILAR_SCHEMA = {
       items: {
         type: 'object',
         additionalProperties: false,
-        required: ['ref', 'similarite', 'explication'],
-        properties: { ref: { type: 'string' }, similarite: { type: 'string', enum: SIMILARITES }, explication: { type: 'string' } }
+        required: ['ref', 'similarite', 'categorie', 'explication', 'a_retenir', 'message_cle'],
+        properties: {
+          ref: { type: 'string' },
+          similarite: { type: 'string', enum: SIMILARITES },
+          categorie: { type: 'string', enum: CATEGORIES },
+          explication: { type: 'string' },
+          a_retenir: { type: 'string' },
+          message_cle: { type: 'integer' }
+        }
       }
     }
   }
@@ -221,10 +231,21 @@ function validateSimilarResult(json, refs) {
     const ref = r.ref.trim();
     if (!refs.has(ref) || seen.has(ref)) return;
     if (SIMILARITES.indexOf(r.similarite) === -1) return;
+    const categorie = CATEGORIES.indexOf(r.categorie) === -1 ? 'reponse' : r.categorie;
+    if (categorie === 'sans_interet') return;
+    const cle = Number(r.message_cle);
     seen.add(ref);
-    out.push({ ref: ref, similarite: r.similarite, explication: clean(r.explication, 300) });
+    out.push({
+      ref: ref, similarite: r.similarite, categorie: categorie,
+      explication: clean(r.explication, 300),
+      a_retenir: clean(r.a_retenir, 400),
+      message_cle: isFinite(cle) && cle >= 1 && cle <= 200 ? Math.floor(cle) : 0
+    });
   });
-  out.sort(function (a, b) { return SIMILARITES.indexOf(a.similarite) - SIMILARITES.indexOf(b.similarite); });
+  out.sort(function (a, b) {
+    return (SIMILARITES.indexOf(a.similarite) - SIMILARITES.indexOf(b.similarite)) ||
+      (CATEGORIES.indexOf(a.categorie) - CATEGORIES.indexOf(b.categorie));
+  });
   return out.slice(0, MAX_SIMILAR_RESULTS);
 }
 
@@ -243,7 +264,7 @@ function createRateLimiter(max, windowMs) {
 }
 
 module.exports = {
-  REF_RE: REF_RE, MIN_SCORE: MIN_SCORE, LIMITS: LIMITS, clean: clean,
+  REF_RE: REF_RE, MIN_SCORE: MIN_SCORE, CATEGORIES: CATEGORIES, LIMITS: LIMITS, clean: clean,
   cleanCatalogue: cleanCatalogue, validateSearchPayload: validateSearchPayload, validateSimilarPayload: validateSimilarPayload,
   catalogueText: catalogueText, splitPrompts: splitPrompts, buildSearchRequest: buildSearchRequest, buildSimilarRequest: buildSimilarRequest,
   SEARCH_SCHEMA: SEARCH_SCHEMA, SIMILAR_SCHEMA: SIMILAR_SCHEMA, refSet: refSet,
